@@ -95,7 +95,20 @@ export function TodoList({ tasks, projects, selected, select, open, done, write,
   )
 }
 
-type Msg = { role: 'user' | 'assistant' | 'tool' | 'info' | 'error'; text: string }
+// Project picker over the projects in context; the current value stays listed even when it is out of context.
+export function ProjectSelect({ projects, all, value, onChange, none, label = 'Project' }: {
+  projects: Doc[]; all: Doc[]; value: string; onChange: (name: string) => void; none?: string; label?: string
+}) {
+  const current = !projects.some((p) => p.name === value) && all.find((p) => p.name === value)
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+      {none !== undefined && <option value="">{none}</option>}
+      {[...(current ? [current] : []), ...projects].map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}</option>)}
+    </select>
+  )
+}
+
+type Msg ={ role: 'user' | 'assistant' | 'tool' | 'info' | 'error'; text: string }
 
 function summarize(input: Record<string, any> = {}) {
   return String(input.command ?? input.file_path ?? input.pattern ?? input.url ?? input.description ?? input.skill ?? '').slice(0, 120)

@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { marked } from 'marked'
 import Calendar, { guessProject } from './Calendar'
 import Gantt from './Gantt'
-import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
+import ProjectPage, { Chat, ProjectSelect, load as loadLocal, save as saveLocal, type Seed } from './Home'
 import Notes from './Notes'
 import Split from './Split'
 import Terminals from './Terminals'
@@ -16,7 +16,7 @@ import Today, { Agents, type Actions } from './Today'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, LIST_FIELDS, PRIORITIES, PRIO_LABEL, prioLabel, STATUSES, TYPES, api, byOrder, columnOf, isFocus, list,
-  obsidian, startCommand, unlink,
+  contextOf, inContext, obsidian, scopeVault, startCommand, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -74,13 +74,12 @@ export default function App() {
 
   if (!vault) return <div className="empty">Loading vault…</div>
   const projects = Object.fromEntries(vault.projects.map((p) => [p.name, p]))
-  const visible = vault.tasks.filter((t) => {
-    const p = projects[unlink(t.data.project)]
-    return (!context || p?.data.context === context) && (!prios.length || prios.includes(t.data.priority))
-  })
+  // Everything a page lists comes from `scoped`; `vault` stays whole for looking things up by name.
+  const scoped = scopeVault(vault, context)
   const { page, arg } = route
   // A "needs you" that was marked seen shows as idle until the session changes again.
-  const shown = agents.map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
+  const shown = agents.filter((a) => inContext(context, contextOf(a, vault)))
+    .map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
   const markSeen = (a: Agent) => { const next = { ...seen, [a.id]: a.updated }; setSeen(next); saveLocal('sb.seen', next) }
   const project = page === 'project' ? projects[arg] : undefined
   const openTask = (doc?: Doc) => setEditing({ kind: 'task', doc })
@@ -136,7 +135,7 @@ export default function App() {
 
         <div className="side-section">Projects <button className="icon" title="New project" onClick={() => setEditing({ kind: 'project' })}>+</button></div>
         <nav className="side-projects">
-          {vault.projects.filter((p) => p.data.status !== 'done' && (!context || p.data.context === context)).map((p) => (
+          {scoped.projects.filter((p) => p.data.status !== 'done').map((p) => (
             <button key={p.name} className={project === p ? 'nav on' : 'nav'} onClick={() => go('project', p.name)}>
               <span className={`dot ${p.data.context}`} />
               <span className="proj-name">{p.data.name ?? p.name}</span>
@@ -163,30 +162,30 @@ export default function App() {
           <div className="spacer" />
           <button className={asking ? 'primary' : ''} onClick={() => setAsking(!asking)} title="The assistant: questions, findings, planning">✦ Ask</button>
         </div>
-        {page === 'today' && <Today vault={vault} tasks={visible} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote} />}
+        {page === 'today' && <Today vault={scoped} tasks={scoped.tasks} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote} />}
         {page === 'project' && project && <ProjectPage vault={vault} project={project} terminal={() => terminal({ kind: 'claude', project: project.name })} start={act.start} open={openTask} edit={(doc) => setEditing({ kind: 'project', doc })} fail={fail} seed={seed} write={write} />}
         {page === 'project' && !project && <div className="empty">Unknown project "{arg}".</div>}
-        {page === 'notes' && <Notes vault={vault} path={arg || undefined} go={write} fail={fail} flash={flash} />}
-        {page === 'calendar' && <Calendar vault={vault} tasks={visible} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
-        {page === 'board' && <Board tasks={visible.filter((t) => !prios.length || prios.includes(t.data.priority))} setVault={setVault} vault={vault} projects={projects} fail={fail} act={act}
+        {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} fail={fail} flash={flash} />}
+        {page === 'calendar' && <Calendar vault={scoped} tasks={scoped.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
+        {page === 'board' && <Board tasks={scoped.tasks.filter((t) => !prios.length || prios.includes(t.data.priority))} setVault={setVault} vault={vault} projects={projects} fail={fail} act={act}
           header={<div className="prio-filter" role="group" aria-label="Priority filter">
             {PRIORITIES.map((p) => (
               <button key={p} className={`prio-chip ${p} ${prios.includes(p) ? 'on' : ''}`} aria-pressed={prios.includes(p)}
                 onClick={() => setPrios(prios.includes(p) ? prios.filter((x) => x !== p) : [...prios, p])}>{PRIO_LABEL[p]}</button>
             ))}
           </div>} />}
-        {page === 'gantt' && <Gantt tasks={visible} projects={projects} open={openTask} fail={fail} />}
-        {page === 'projects' && <Projects vault={{ ...vault, projects: vault.projects.filter((p) => !context || p.data.context === context) }} go={(p) => go('project', p)} edit={(doc) => setEditing({ kind: 'project', doc })} />}
+        {page === 'gantt' && <Gantt tasks={scoped.tasks} projects={projects} open={openTask} fail={fail} />}
+        {page === 'projects' && <Projects vault={scoped} go={(p) => go('project', p)} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>
-            <Terminals active={arg || undefined} go={(id) => go('agents', id)} fail={fail} />
-            <Agents agents={shown} vault={vault} open={openAgent} seen={markSeen} act={act} start={terminal} />
+            <Terminals active={arg || undefined} go={(id) => go('agents', id)} fail={fail} show={(t) => inContext(context, contextOf(t, vault))} />
+            <Agents agents={shown} vault={scoped} open={openAgent} seen={markSeen} act={act} start={terminal} />
           </Split>
         )}
         {page === 'guide' && <Guide />}
       </div>
 
-      {editing?.kind === 'task' && <TaskPanel key={editing.doc?.name ?? 'new'} doc={editing.doc} vault={vault}
+      {editing?.kind === 'task' && <TaskPanel key={editing.doc?.name ?? 'new'} doc={editing.doc} vault={vault} projects={scoped.projects}
         defaultProject={project?.name ?? ''} close={() => setEditing(undefined)} fail={fail} start={copyStart} startHere={act.start} act={act} agents={agents} openAgent={openAgent} write={(p) => { setEditing(undefined); write(p) }} grill={grill} />}
       {editing?.kind === 'project' && <ProjectPanel key={editing.doc?.name ?? 'new'} doc={editing.doc}
         close={() => setEditing(undefined)} fail={fail} />}
@@ -410,8 +409,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
-function TaskPanel({ doc, vault, defaultProject, close, fail, start, startHere, act, agents, openAgent, write, grill }: {
-  doc?: Doc; vault: Vault; defaultProject: string; close: () => void; fail: (e: Error) => void; start: (d: Doc) => void; startHere: (d: Doc) => void
+function TaskPanel({ doc, vault, projects, defaultProject, close, fail, start, startHere, act, agents, openAgent, write, grill }: {
+  doc?: Doc; vault: Vault; projects: Doc[]; defaultProject: string; close: () => void; fail: (e: Error) => void; start: (d: Doc) => void; startHere: (d: Doc) => void
   act: Actions; agents: Agent[]; openAgent: (a: Agent) => void
   write: (path: string) => void; grill: (d: Doc) => void
 }) {
@@ -470,10 +469,8 @@ function TaskPanel({ doc, vault, defaultProject, close, fail, start, startHere, 
       <Field label="Title"><input autoFocus value={f.title ?? ''} onChange={set('title')} required /></Field>
       <div className="row">
         <Field label="Project">
-          <select value={unlink(f.project)} onChange={(e) => setF({ ...f, project: e.target.value ? `[[${e.target.value}]]` : '' })}>
-            <option value="">None</option>
-            {vault.projects.map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}</option>)}
-          </select>
+          <ProjectSelect projects={projects} all={vault.projects} value={unlink(f.project)} none="None"
+            onChange={(name) => setF({ ...f, project: name ? `[[${name}]]` : '' })} />
         </Field>
         <Field label="Status">{select('status', STATUSES)}</Field>
       </div>

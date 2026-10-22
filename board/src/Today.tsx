@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ProjectSelect } from './Home'
 import { ago, api, isFocus, prioLabel, projectForPath, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
@@ -13,7 +14,7 @@ export type Actions = {
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
-// My day: who needs you, today's meetings, your top 3, and a small Now / Next / Waiting board.
+// My day: who needs you, today's meetings, and a small Next / Now / Waiting board.
 // Every row and card opens what it shows; secondary actions appear on hover.
 export default function Today({ vault, tasks, agents, act, openAgent, seen, fail, prep, meetingNote }: {
   vault: Vault; tasks: Doc[]; agents: Agent[]; act: Actions; openAgent: (a: Agent) => void; seen: (a: Agent) => void
@@ -28,20 +29,17 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
   }, [])
 
   const ranked = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.t.data.status !== 'done').sort((a, b) => b.score - a.score)
-  const starred = ranked.filter((x) => isFocus(x.t))
-  // Until you star three, the most urgent tasks are suggested to fill the gap.
-  const suggested = ranked.filter((x) => !isFocus(x.t) && x.score > 0 && x.t.data.status !== 'blocked').slice(0, Math.max(0, 3 - starred.length))
   const column = (match: (t: Doc) => boolean, max = 6) => ranked.filter((x) => match(x.t)).slice(0, max)
   const columns: [string, typeof ranked, number][] = [
-    ['Now', column((t) => t.data.status === 'wip'), ranked.filter((x) => x.t.data.status === 'wip').length],
     ['Next', column((t) => t.data.status === 'todo'), ranked.filter((x) => x.t.data.status === 'todo').length],
+    ['Now', column((t) => t.data.status === 'wip'), ranked.filter((x) => x.t.data.status === 'wip').length],
     ['Waiting', column((t) => t.data.status === 'review' || t.data.status === 'blocked'), ranked.filter((x) => ['review', 'blocked'].includes(x.t.data.status)).length],
   ]
   const waiting = agents.filter((a) => a.state === 'needs-input')
   const notesToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
   const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
-  const card = (x: (typeof ranked)[number], extra = '') => (
-    <TaskCard key={x.t.name + extra} task={x.t} project={vault.projects.find((p) => p.name === unlink(x.t.data.project))} reasons={x.reasons} act={act} suggested={extra === 'suggested'} />
+  const card = (x: (typeof ranked)[number]) => (
+    <TaskCard key={x.t.name} task={x.t} project={vault.projects.find((p) => p.name === unlink(x.t.data.project))} reasons={x.reasons} act={act} />
   )
 
   return (
@@ -85,15 +83,6 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
         </div>
       </section>
 
-      <section>
-        <h3>Top 3 <span className="muted hint-inline">{starred.length ? 'starred by you' : 'suggested: star ☆ the ones you pick'}</span></h3>
-        <div className="top3">
-          {starred.map((x) => card(x))}
-          {suggested.map((x) => card(x, 'suggested'))}
-          {!starred.length && !suggested.length && <span className="muted">Nothing urgent. Star a task from Next.</span>}
-        </div>
-      </section>
-
       <div className="mini-board">
         {columns.map(([name, items, total]) => (
           <section key={name} className="mini-col">
@@ -108,14 +97,14 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
   )
 }
 
-export function TaskCard({ task, project, reasons = [], act, suggested }: {
-  task: Doc; project?: Doc; reasons?: string[]; act: Actions; suggested?: boolean
+export function TaskCard({ task, project, reasons = [], act }: {
+  task: Doc; project?: Doc; reasons?: string[]; act: Actions
 }) {
   const d = task.data
   const extra = reasons.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r))
   const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn() }
   return (
-    <article className={`mini-card clickable ${isFocus(task) ? 'focus' : ''} ${suggested ? 'suggested' : ''}`} onClick={() => act.open(task)} tabIndex={0}
+    <article className={`mini-card clickable ${isFocus(task) ? 'focus' : ''}`} onClick={() => act.open(task)} tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && act.open(task)}>
       <div className="mini-top">
         <button className="link-plain" title="Open project" onClick={stop(() => act.project(unlink(d.project)))}>
@@ -183,18 +172,19 @@ export function AgentList({ agents, vault, open, seen, act }: {
 // New agent: pick a project, optionally a task and a first instruction; it starts in a terminal tab.
 function NewAgent({ vault, start }: { vault: Vault; start: (body: Record<string, string>) => void }) {
   const active = vault.projects.filter((p) => p.data.status !== 'done')
-  const [project, setProject] = useState(active[0]?.name ?? '')
-  const [task, setTask] = useState('')
+  const [picked, setProject] = useState('')
+  const [pickedTask, setTask] = useState('')
   const [prompt, setPrompt] = useState('')
+  // Falls back to the first project in context when the switch at the top hides the one picked.
+  const project = active.some((p) => p.name === picked) ? picked : active[0]?.name ?? ''
   const tasks = vault.tasks.filter((t) => unlink(t.data.project) === project && t.data.status !== 'done')
+  const task = tasks.some((t) => t.name === pickedTask) ? pickedTask : ''
   const account = vault.projects.find((p) => p.name === project)?.data.account
   return (
     <form className="new-agent" onSubmit={(e) => { e.preventDefault(); start({ kind: 'claude', project, task, prompt }); setPrompt('') }}>
       <h3>New agent</h3>
       <div className="row">
-        <select value={project} onChange={(e) => { setProject(e.target.value); setTask('') }} aria-label="Project">
-          {active.map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}</option>)}
-        </select>
+        <ProjectSelect projects={active} all={active} value={project} onChange={(name) => { setProject(name); setTask('') }} />
         <select value={task} onChange={(e) => setTask(e.target.value)} aria-label="Task (optional)">
           <option value="">No specific task</option>
           {tasks.map((t) => <option key={t.name} value={t.name}>{t.name} {t.data.title}</option>)}

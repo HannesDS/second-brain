@@ -86,6 +86,26 @@ export function urgency(t: Doc): { score: number; reasons: string[] } {
 
 export const CONTEXT_LABEL: Record<string, string> = { dataminded: 'Data Minded', personal: 'Personal' }
 
+// The context switch at the top scopes every page. '' is All; things without a known context only show there.
+export const inContext = (context: string, c: unknown) => !context || c === context
+
+export function scopeVault(vault: Vault, context: string): Vault {
+  if (!context) return vault
+  const projects = vault.projects.filter((p) => inContext(context, p.data.context))
+  const names = new Set(projects.map((p) => p.name))
+  const mine = (d: Doc) => names.has(unlink(d.data.project))
+  return { ...vault, projects, tasks: vault.tasks.filter(mine), meetings: vault.meetings.filter(mine) }
+}
+
+const ACCOUNT_CONTEXT: Record<string, string> = { dm: 'dataminded', personal: 'personal' }
+
+// A session or terminal belongs to its task's project, else the project whose repo it runs in, else its account's context.
+export function contextOf(run: { cwd: string; account: string; task?: string }, vault: Vault) {
+  const task = run.task ? vault.tasks.find((t) => t.name === run.task) : undefined
+  const project = (task && vault.projects.find((p) => p.name === unlink(task.data.project))) || projectForPath(run.cwd, vault.projects)
+  return project?.data.context ?? ACCOUNT_CONTEXT[run.account]
+}
+
 // Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.
 export const FOCUS_MAX = 3
 export const isFocus = (t: Doc) => t.data.focus === true && t.data.status !== 'done'

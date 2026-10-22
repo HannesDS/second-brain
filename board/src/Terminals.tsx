@@ -4,11 +4,15 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { api } from './lib'
 
-type Term = { id: string; title: string; cwd: string; account: string; exited: boolean; started: string }
+export type Term = { id: string; title: string; cwd: string; account: string; exited: boolean; started: string }
 
 // Terminal tabs. Each tab is a real shell (often `claude --resume …`) that keeps running when you leave the page.
-export default function Terminals({ active, go, fail }: { active?: string; go: (id: string) => void; fail: (e: Error) => void }) {
-  const [terms, setTerms] = useState<Term[]>([])
+export default function Terminals({ active, go, fail, show }: {
+  active?: string; go: (id: string) => void; fail: (e: Error) => void; show: (t: Term) => boolean
+}) {
+  const [all, setTerms] = useState<Term[]>([])
+  // Tabs outside the current context are hidden, except the one you just opened.
+  const terms = all.filter((t) => t.id === active || show(t))
   const refresh = () => api('terminals').then(setTerms, fail)
   useEffect(() => { refresh() }, [active])
   const current = terms.find((t) => t.id === active) ?? terms[0]

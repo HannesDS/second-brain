@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Crepe } from '@milkdown/crepe'
 import '@milkdown/crepe/theme/common/style.css'
-import { ago, api, list, unlink, type Vault } from './lib'
+import { ago, api, list, unlink, type Doc, type Vault } from './lib'
+import { ProjectSelect } from './Home'
 
 type Note = { path: string; name: string; data: Record<string, any>; mtime: string }
 type Action = Record<string, any> & { kind: string; reason: string }
 const FILTERS = [['', 'All'], ['inbox/', 'Inbox'], ['notes/', 'Notes'], ['meetings/', 'Meetings']]
 
 // Notes and meeting notes: write freely (saved as you type), then let the agent propose where it goes.
-export default function Notes({ vault, path, go, fail, flash }: {
-  vault: Vault; path?: string; go: (path: string) => void; fail: (e: Error) => void; flash: (m: string) => void
+export default function Notes({ vault, projects, path, go, fail, flash }: {
+  vault: Vault; projects: Doc[]; path?: string; go: (path: string) => void; fail: (e: Error) => void; flash: (m: string) => void
 }) {
   const [notes, setNotes] = useState<Note[]>([])
   const [filter, setFilter] = useState('')
@@ -37,7 +38,7 @@ export default function Notes({ vault, path, go, fail, flash }: {
           </button>
         ))}
       </nav>
-      {path ? <Editor key={path} vault={vault} path={path} fail={fail} flash={flash} onFiled={refresh} /> : (
+      {path ? <Editor key={path} vault={vault} projects={projects} path={path} fail={fail} flash={flash} onFiled={refresh} /> : (
         <section className="pane empty-note">
           <h2>Write first, file later</h2>
           <p>Start a note and just type: findings, thoughts, a first ADR draft. It saves as you go. When you're done, <strong>File it</strong>: the agent proposes a project, tasks, a meeting link, or what to update outside (Notion, an ADR). You tick what you want.</p>
@@ -48,7 +49,7 @@ export default function Notes({ vault, path, go, fail, flash }: {
   )
 }
 
-function Editor({ vault, path, fail, flash, onFiled }: { vault: Vault; path: string; fail: (e: Error) => void; flash: (m: string) => void; onFiled: () => void }) {
+function Editor({ vault, projects, path, fail, flash, onFiled }: { vault: Vault; projects: Doc[]; path: string; fail: (e: Error) => void; flash: (m: string) => void; onFiled: () => void }) {
   const root = useRef<HTMLDivElement>(null)
   const [saved, setSaved] = useState('saved')
   const [meta, setMeta] = useState<Record<string, any>>({})
@@ -119,7 +120,7 @@ function Editor({ vault, path, fail, flash, onFiled }: { vault: Vault; path: str
           title={isMeeting ? 'Summary, action points and tasks from your notes and the transcript' : 'Let the agent propose where this note belongs'}>
           {filing ? 'Thinking…' : isMeeting ? 'Process meeting' : 'File it'}</button>}
       </div>
-      {isMeeting && <MeetingBar vault={vault} name={name} meta={meta} setField={setField} fail={fail} />}
+      {isMeeting && <MeetingBar vault={vault} projects={projects} name={name} meta={meta} setField={setField} fail={fail} />}
       {proposal && (
         <div className="proposal">
           <p><strong>{proposal.summary}</strong></p>
@@ -147,8 +148,8 @@ function Editor({ vault, path, fail, flash, onFiled }: { vault: Vault; path: str
 }
 
 // Meeting properties (like the Notion database columns), linked tasks, recording and the live transcript.
-function MeetingBar({ vault, name, meta, setField, fail }: {
-  vault: Vault; name: string; meta: Record<string, any>; setField: (d: Record<string, unknown>) => void; fail: (e: Error) => void
+function MeetingBar({ vault, projects, name, meta, setField, fail }: {
+  vault: Vault; projects: Doc[]; name: string; meta: Record<string, any>; setField: (d: Record<string, unknown>) => void; fail: (e: Error) => void
 }) {
   const [transcript, setTranscript] = useState('')
   const [open, setOpen] = useState(false)
@@ -162,10 +163,8 @@ function MeetingBar({ vault, name, meta, setField, fail }: {
         <label>Date <input type="date" value={meta.date ?? ''} onChange={(e) => setField({ date: e.target.value })} /></label>
         <label>Time <input type="time" value={meta.time ?? ''} onChange={(e) => setField({ time: e.target.value })} /></label>
         <label>Project
-          <select value={unlink(meta.project)} onChange={(e) => setField({ project: e.target.value ? `[[${e.target.value}]]` : '' })}>
-            <option value="">None</option>
-            {vault.projects.map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}</option>)}
-          </select>
+          <ProjectSelect projects={projects} all={vault.projects} value={unlink(meta.project)} none="None"
+            onChange={(name) => setField({ project: name ? `[[${name}]]` : '' })} />
         </label>
         <label className="grow">People
           <input defaultValue={list(meta.attendees).join(', ')} key={list(meta.attendees).join(',')} placeholder="Jan, Marc"
