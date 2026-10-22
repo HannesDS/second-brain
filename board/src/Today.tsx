@@ -158,9 +158,9 @@ export function Agents({ agents, vault, copy, seen, openHere }: {
   agents: Agent[]; vault: Vault; copy: (text: string, what: string) => void; seen: (a: Agent) => void; openHere: (a: Agent) => void
 }) {
   return (
-    <main className="agents-page">
+    <section className="pane agents-page">
       <h2>Agents</h2>
-      <p className="muted">Every Claude Code session in both accounts (terminal, desktop app, IDE), from the last 3 days. Hooks report state live; sessions started before the hooks were installed are inferred from their transcript.</p>
+      <p className="muted">Claude sessions in both accounts, last 3 days. Drag the divider to collapse this list.</p>
       {ORDER.map((s) => {
         const group = agents.filter((a) => (ORDER.includes(a.state) ? a.state : 'unknown') === s)
         return group.length ? (
@@ -171,6 +171,6 @@ export function Agents({ agents, vault, copy, seen, openHere }: {
         ) : null
       })}
       {!agents.length && <p className="muted">No recent sessions.</p>}
-    </main>
+    </section>
   )
 }

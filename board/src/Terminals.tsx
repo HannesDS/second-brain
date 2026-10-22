@@ -17,7 +17,7 @@ export default function Terminals({ active, go, fail }: { active?: string; go: (
   const shell = () => api('terminals', 'POST', { kind: 'shell' }).then(({ id }) => go(id), fail)
 
   return (
-    <main className="terminals">
+    <section className="pane terminals">
       <div className="term-tabs" role="tablist">
         {terms.map((t) => (
           <div key={t.id} role="tab" aria-selected={t.id === current?.id} className={`term-tab ${t.id === current?.id ? 'on' : ''} ${t.exited ? 'exited' : ''}`}>
@@ -30,7 +30,7 @@ export default function Terminals({ active, go, fail }: { active?: string; go: (
       {current
         ? <XTerm key={current.id} term={current} />
         : <p className="muted empty">No terminals yet. Open one from an agent (<b>open here</b>), a task (<b>▶ Start here</b>), or a project (<b>Terminal</b>).</p>}
-    </main>
+    </section>
   )
 }
 

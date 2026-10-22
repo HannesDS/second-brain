@@ -10,6 +10,7 @@ import Calendar, { guessProject } from './Calendar'
 import Gantt from './Gantt'
 import ProjectPage, { load as loadLocal, save as saveLocal, type Seed } from './Home'
 import Notes from './Notes'
+import Split from './Split'
 import Terminals from './Terminals'
 import Today, { Agents } from './Today'
 
@@ -18,16 +19,16 @@ import {
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
-type Page = 'today' | 'project' | 'notes' | 'calendar' | 'board' | 'gantt' | 'projects' | 'agents' | 'terminals' | 'guide'
+type Page = 'today' | 'project' | 'notes' | 'calendar' | 'board' | 'gantt' | 'projects' | 'agents' | 'guide'
 const NAV: [Page, string, string][] = [
   ['today', 'My day', '☀'], ['notes', 'Notes', '✎'], ['calendar', 'Calendar', '▦'], ['board', 'Board', '▤'],
-  ['gantt', 'Timeline', '≡'], ['projects', 'Projects', '◫'], ['agents', 'Agents', '◉'], ['terminals', 'Terminals', '›_'], ['guide', 'Guide', '?'],
+  ['gantt', 'Timeline', '≡'], ['projects', 'Projects', '◫'], ['agents', 'Agents', '◉'], ['guide', 'Guide', '?'],
 ]
 
 // Routes live in the URL hash (#notes/inbox%2Fx.md, #project/portal) so back/forward and reloads work.
 const parseHash = (): { page: Page; arg: string } => {
   const [page, ...rest] = location.hash.slice(1).split('/')
-  return { page: (NAV.some(([p]) => p === page) || page === 'project' ? page : 'today') as Page, arg: decodeURIComponent(rest.join('/')) }
+  return { page: (page === 'terminals' ? 'agents' : NAV.some(([p]) => p === page) || page === 'project' ? page : 'today') as Page, arg: decodeURIComponent(rest.join('/')) }
 }
 
 export default function App() {
@@ -90,7 +91,7 @@ export default function App() {
   }
   const meetingNote = (title: string, date: string, time = '') =>
     api('meetings', 'POST', { title, date, time, project: guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
-  const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => go('terminals', id), fail)
+  const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => go('agents', id), fail)
   const grill = (t: Doc) => { setEditing(undefined); setSeed({ task: t.name, message: 'Grill', at: Date.now() }); go('project', unlink(t.data.project)) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
   const openCount = (p: Doc) => vault.tasks.filter((t) => unlink(t.data.project) === p.name && t.data.status !== 'done').length
@@ -151,8 +152,12 @@ export default function App() {
         {page === 'board' && <Board tasks={visible} setVault={setVault} vault={vault} projects={projects} fail={fail} open={openTask} start={copyStart} />}
         {page === 'gantt' && <Gantt tasks={visible} projects={projects} open={openTask} fail={fail} />}
         {page === 'projects' && <Projects vault={vault} go={(p) => go('project', p)} edit={(doc) => setEditing({ kind: 'project', doc })} />}
-        {page === 'agents' && <Agents agents={shown} vault={vault} copy={copy} seen={markSeen} openHere={(a) => terminal({ kind: 'resume', agent: a.id })} />}
-        {page === 'terminals' && <Terminals active={arg || undefined} go={(id) => go('terminals', id)} fail={fail} />}
+        {page === 'agents' && (
+          <Split id="agents" sideLeft>
+            <Terminals active={arg || undefined} go={(id) => go('agents', id)} fail={fail} />
+            <Agents agents={shown} vault={vault} copy={copy} seen={markSeen} openHere={(a) => terminal({ kind: 'resume', agent: a.id })} />
+          </Split>
+        )}
         {page === 'guide' && <Guide />}
       </div>
 
