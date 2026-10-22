@@ -9,7 +9,7 @@ export const PRIORITIES = ['p0', 'p1', 'p2', 'p3']
 export const PRIO_LABEL: Record<string, string> = { p0: 'Urgent', p1: 'High', p2: 'Normal', p3: 'Low' }
 export const prioLabel = (p: unknown) => PRIO_LABEL[String(p)] ?? 'Normal'
 export const TYPES = ['code', 'pr-review', 'meeting', 'research', 'admin']
-export const CONTEXTS = ['dataminded', 'client', 'personal']
+export const CONTEXTS = ['dataminded', 'personal']
 export const LIST_FIELDS = ['sessions', 'meetings', 'sources']
 
 // "[[portal|Portal]]" -> "portal"
@@ -83,3 +83,9 @@ export function urgency(t: Doc): { score: number; reasons: string[] } {
   if (t.data.status === 'blocked') score -= 20
   return { score, reasons }
 }
+
+export const CONTEXT_LABEL: Record<string, string> = { dataminded: 'Data Minded', personal: 'Personal' }
+
+// Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.
+export const FOCUS_MAX = 3
+export const isFocus = (t: Doc) => t.data.focus === true && t.data.status !== 'done'

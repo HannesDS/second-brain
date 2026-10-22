@@ -17,8 +17,8 @@ export function save(key: string, value: unknown) {
 export type Seed = { task?: string; message: string; at: number }
 
 // One project: its open tasks next to a chat that runs in the project's repo and account.
-export default function ProjectPage({ vault, project, open, edit, fail, seed, write, terminal }: {
-  vault: Vault; project: Doc; open: (d: Doc) => void; edit: (d: Doc) => void; fail: (e: Error) => void; terminal: () => void
+export default function ProjectPage({ vault, project, open, edit, fail, seed, write, terminal, start }: {
+  vault: Vault; project: Doc; open: (d: Doc) => void; edit: (d: Doc) => void; fail: (e: Error) => void; terminal: () => void; start: (d: Doc) => void
   seed?: Seed; write: (path: string) => void
 }) {
   const [taskId, setTaskId] = useState<string | undefined>(seed?.task)
@@ -40,25 +40,27 @@ export default function ProjectPage({ vault, project, open, edit, fail, seed, wr
   return (
     <Split id="project">
       <section className="pane todos">
-        <h2>
-          {project.data.name ?? project.name}
-          <button className="icon" title="Edit project" onClick={() => edit(project)}>✎</button>
-          <button className="icon" title="Open Claude in this project's repo, in a workbench terminal" onClick={terminal}>›_ Terminal</button>
-          <span className="muted"> · {project.data.context} · {project.data.account} account</span>
-        </h2>
+        <div className="page-head">
+          <h2>{project.data.name ?? project.name}</h2>
+          <span className="muted">{project.data.account} account</span>
+          <div className="spacer" />
+          <button title="Edit project" onClick={() => edit(project)}>Edit</button>
+          <button className="primary" title="Start Claude in this project's repo, in a workbench terminal" onClick={terminal}>▶ New agent</button>
+        </div>
         <form onSubmit={add} className="quick-add">
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Add a task, press Enter" aria-label="New task title" />
         </form>
-        <TodoList tasks={openTasks} selected={taskId} select={setTaskId} open={open} done={done} write={write} />
-        <p className="muted hint">Click a task to chat about it: the chat then runs with TASK_ID set, so the session is linked to the task.</p>
+        <TodoList tasks={openTasks} selected={taskId} select={setTaskId} open={open} done={done} write={write} start={start} />
+        <p className="muted hint">Click a task to chat about it here, or ▶ to start an agent on it.</p>
       </section>
       <Chat key={project.name} project={project} task={task} clearTask={() => setTaskId(undefined)} seed={seed} />
     </Split>
   )
 }
 
-export function TodoList({ tasks, projects, selected, select, open, done, write, reasons }: {
+export function TodoList({ tasks, projects, selected, select, open, done, write, reasons, start }: {
   tasks: Doc[]; projects?: Doc[]; selected?: string; select?: (id?: string) => void; open: (d: Doc) => void; done: (d: Doc) => void
+  start?: (d: Doc) => void
   write: (path: string) => void; reasons?: Record<string, string[]>
 }) {
   return (
@@ -80,9 +82,12 @@ export function TodoList({ tasks, projects, selected, select, open, done, write,
               {reasons?.[t.name]?.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r)).map((r) => <span key={r} className="reason">{r}</span>)}
             </span>
           </span>
-          {t.data.notion && <a className="icon" href={t.data.notion} target="_blank" rel="noreferrer" title="Open in Notion" onClick={(e) => e.stopPropagation()}>N</a>}
-          <button className="icon" title="Write notes for this task" onClick={(e) => { e.stopPropagation(); write(`tasks/${t.name}.md`) }}>¶</button>
-          <button className="icon" title="Edit task" onClick={(e) => { e.stopPropagation(); open(t) }}>✎</button>
+          <span className="hover-actions">
+            {start && <button className="icon" title="Start an agent on this task" onClick={(e) => { e.stopPropagation(); start(t) }}>▶</button>}
+            {t.data.notion && <a className="icon" href={t.data.notion} target="_blank" rel="noreferrer" title="Open in Notion" onClick={(e) => e.stopPropagation()}>N</a>}
+            <button className="icon" title="Write notes for this task" onClick={(e) => { e.stopPropagation(); write(`tasks/${t.name}.md`) }}>¶</button>
+            <button className="icon" title="Open task details" onClick={(e) => { e.stopPropagation(); open(t) }}>✎</button>
+          </span>
         </li>
       ))}
       {!tasks.length && <li className="muted">Nothing open here.</li>}

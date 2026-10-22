@@ -153,7 +153,9 @@ function workdir(p?: { data: Record<string, any> }, t?: { data: Record<string, a
 }
 
 // Opens a terminal tab: resume an agent session, or start Claude / a shell for a project or task.
-function terminalFor(body: { kind: string; agent?: string; project?: string; task?: string }) {
+const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
+
+function terminalFor(body: { kind: string; agent?: string; project?: string; task?: string; prompt?: string }) {
   if (body.kind === 'resume') {
     const a = listAgents().find((x) => x.id === body.agent)
     if (!a || !ID.test(a.id)) throw new Error('unknown agent session')
@@ -164,7 +166,10 @@ function terminalFor(body: { kind: string; agent?: string; project?: string; tas
   const p = listDocs('projects').find((d) => d.name === (body.project || String(t?.data.project ?? '').replace(/\[|\]/g, '')))
   const cwd = workdir(p, t)
   const title = t ? `${t.name} ${t.data.title}` : p ? String(p.data.name ?? p.name) : 'shell'
-  return openTerminal({ title, cwd, account: p?.data.account || WORKBENCH_ACCOUNT, run: body.kind === 'claude' ? 'claude' : undefined, taskId: t?.name })
+  // An optional first prompt starts the agent working right away; without one it waits for you.
+  const prompt = String(body.prompt ?? '').trim()
+  const run = body.kind === 'claude' ? (prompt ? `claude ${shellQuote(prompt)}` : 'claude') : undefined
+  return openTerminal({ title, cwd, account: p?.data.account || WORKBENCH_ACCOUNT, run, taskId: t?.name })
 }
 
 // Runs one chat turn as `claude -p` in the project's repo, with the project's account,

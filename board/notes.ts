@@ -58,7 +58,7 @@ const SCHEMA = {
           reason: { type: 'string' },
           project: { type: 'string', description: 'project id (existing, or the new id for new-project)' },
           projectName: { type: 'string' },
-          context: { enum: ['dataminded', 'client', 'personal'] },
+          context: { enum: ['dataminded', 'personal'] },
           account: { enum: ['dm', 'personal'] },
           task: { type: 'string', description: 'existing task id for append-to-task' },
           title: { type: 'string' },

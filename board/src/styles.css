@@ -159,7 +159,6 @@ tbody tr:hover { background: var(--surface-2); }
 .num { text-align: center; font-variant-numeric: tabular-nums; }
 .ctx { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); }
 .ctx.dataminded { color: var(--accent); }
-.ctx.client { color: var(--p1); }
 .ctx.personal { color: var(--p2); }
 
 .scrim { position: fixed; inset: 0; background: rgb(0 0 0 / 25%); }
@@ -219,7 +218,6 @@ tbody tr:hover { background: var(--surface-2); }
 .proj-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--p3); }
 .dot.dataminded { background: var(--accent); }
-.dot.client { background: var(--p1); }
 .dot.personal { background: var(--ok); }
 .quick-add { margin-bottom: 10px; }
 .todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -525,22 +523,19 @@ h2 { font-weight: 600; }
 .feed-list li { display: flex; align-items: center; gap: 6px; }
 .steps { margin: 0; padding-left: 18px; font-size: 13px; }
 
-/* Context colours: Data Minded purple, client = Data Minded lime, personal = beeld-bit red. */
-:root { --ctx-dm: #543edc; --ctx-client: #4d8c12; --ctx-personal: #e00000; }
-@media (prefers-color-scheme: dark) { :root { --ctx-dm: #8b7cf0; --ctx-client: #8fdb3d; --ctx-personal: #ff4d4d; } }
+/* Context colours: Data Minded purple, personal = beeld-bit red. */
+:root { --ctx-dm: #543edc; --ctx-personal: #e00000; }
+@media (prefers-color-scheme: dark) { :root { --ctx-dm: #8b7cf0; --ctx-personal: #ff4d4d; } }
 .dot.dataminded { background: var(--ctx-dm); }
-.dot.client { background: var(--ctx-client); }
 .dot.personal { background: var(--ctx-personal); }
 .ctx { font-weight: 600; background: none; border: 1px solid currentColor; padding: 0 8px; }
 .ctx.dataminded { color: var(--ctx-dm); }
-.ctx.client { color: var(--ctx-client); }
 .ctx.personal { color: var(--ctx-personal); }
 .project-card { border-top: 3px solid var(--border); }
 .project-card:has(.ctx.dataminded) { border-top-color: var(--ctx-dm); }
-.project-card:has(.ctx.client) { border-top-color: var(--ctx-client); }
 .project-card:has(.ctx.personal) { border-top-color: var(--ctx-personal); }
 .mono { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: -0.02em; }
-.mono.dataminded, .mono.client { background: #080635; color: #8fdb3d; }
+.mono.dataminded { background: #080635; color: #8fdb3d; }
 .mono.personal { background: #0a0a0a; color: #fff; font-family: ui-monospace, Menlo, monospace; box-shadow: inset 0 -2px 0 #ff0000; }
 @media (prefers-color-scheme: dark) { .mono.personal { background: #fafafa; color: #0a0a0a; } }
 
@@ -570,3 +565,50 @@ h2 { font-weight: 600; }
 .split .agents-page { max-width: none; padding: 12px; overflow-y: auto; }
 .split .terminals { height: 100%; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .split .agent-msg { max-height: 4.5em; }
+
+/* Declutter pass: one context switch, assistant in a drawer, whole cards clickable, actions on hover. */
+.topbar { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 2px; background: var(--surface-2); }
+.segmented button { border: none; background: none; border-radius: 999px; padding: 4px 14px; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.segmented button.on { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: var(--shadow); }
+
+.drawer {
+  position: fixed; z-index: 40; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); display: flex;
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgb(0 0 0 / 18%);
+}
+.drawer > .chat { flex: 1; border-radius: 0; }
+.drawer-close { position: absolute; top: 10px; right: 10px; z-index: 1; }
+
+.today { padding: 16px 24px 32px; max-width: 1180px; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.today h1 { font-size: 22px; margin: 4px 0 4px; }
+.today > section > h3, .today .mini-col > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 14px 2px 8px; display: flex; gap: 6px; align-items: center; }
+.page-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; flex-wrap: wrap; }
+.page-head h2 { margin: 0; }
+.board-page { display: flex; flex-direction: column; padding: 14px 20px 0; min-height: 0; }
+.board-page > .board { padding: 0 0 16px; flex: 1; min-height: 0; }
+
+.clickable { cursor: pointer; }
+.clickable:hover { border-color: var(--muted); }
+.clickable:focus-visible { outline: 2px solid var(--focus); }
+/* Secondary actions stay out of the way until you point at (or tab into) the row. */
+.hover-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
+:is(.mini-card, .card, .agent, .meeting-pill, .todo-list li):is(:hover, :focus-within) .hover-actions { opacity: 1; }
+@media (hover: none) { .hover-actions { opacity: 1; } }
+.link-plain { border: none; background: none; padding: 0; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.link-plain:hover { text-decoration: underline; }
+.link-plain.strong { font-weight: 700; }
+.star { border: none; background: none; padding: 0 2px; font-size: 15px; line-height: 1; color: var(--muted); }
+.star.on, .star:hover { color: #e3a008; }
+.mini-card.focus, .card.focus { border-left: 3px solid #e3a008; }
+.mini-card.suggested { border-style: dashed; }
+.note-mark { font-size: 12px; }
+.more { font-size: 12px; color: var(--muted); padding: 2px 4px; }
+.agent .chip { font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.new-agent { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.new-agent h3 { margin: 0; }
+.new-agent .row > select { flex: 1; min-width: 0; width: auto; }
+.new-agent .row-actions { align-items: center; }
+.new-agent .row-actions .muted { margin-right: auto; }
+.top3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .top3 { grid-template-columns: 1fr; } }

@@ -48,7 +48,7 @@ Body: description, `## Acceptance criteria`, notes. Later skills add `## Decisio
 
 ## Projects
 
-- "Make a project for X": create `vault/projects/<id>.md` with `id`, `name`, `context` (dataminded | client | personal), `account` (dm | personal), `repos: []`, `status: active`. Ask for context and account if they're not obvious. Work and client projects → `dm`; my own company and side projects → `personal`.
+- "Make a project for X": create `vault/projects/<id>.md` with `id`, `name`, `context` (dataminded | personal; clients are Data Minded projects), `account` (dm | personal), `repos: []`, `status: active`. Ask for context and account if they're not obvious. Work and client projects → `dm`; my own company and side projects → `personal`.
 
 ## Notion
 

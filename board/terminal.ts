@@ -1,11 +1,10 @@
 // Real terminals inside the workbench: a pty per tab, streamed over a WebSocket on /term.
 // Terminals outlive page switches and reloads (scrollback is replayed on reconnect).
 import type { IncomingMessage, Server } from 'node:http'
-import os from 'node:os'
-import path from 'node:path'
 import type { Duplex } from 'node:stream'
 import pty, { type IPty } from 'node-pty'
 import { WebSocketServer, type WebSocket } from 'ws'
+import { cleanEnv } from './claude'
 
 type Term = { id: string; title: string; cwd: string; account: string; agent?: string; proc: IPty; buffer: string; sockets: Set<WebSocket>; exited: boolean; started: string }
 
@@ -19,11 +18,7 @@ const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 export function openTerminal({ title, cwd, account, run, taskId, agent }: { title: string; cwd: string; account: string; run?: string; taskId?: string; agent?: string }) {
   const existing = agent && [...terms.values()].find((t) => t.agent === agent && !t.exited)
   if (existing) return existing.id
-  const env: Record<string, string> = { ...(process.env as Record<string, string>), TERM: 'xterm-256color', COLORTERM: 'truecolor' }
-  // Inherited from whatever started the board; they'd make this Claude think it's nested or headless.
-  for (const k of ['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CONFIG_DIR', 'TASK_ID', 'SECOND_BRAIN_CHAT']) delete env[k]
-  if (account !== 'dm') env.CLAUDE_CONFIG_DIR = path.join(os.homedir(), `.claude-${account}`)
-  if (taskId) env.TASK_ID = taskId
+  const env = cleanEnv(account, { TERM: 'xterm-256color', COLORTERM: 'truecolor', ...(taskId ? { TASK_ID: taskId } : {}) })
   const shell = process.env.SHELL || '/bin/zsh'
   // After the command ends you land in a normal shell in the same folder.
   const args = run ? ['-lc', `${run}; exec ${quote(shell)} -l`] : ['-l']
