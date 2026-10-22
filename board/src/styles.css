@@ -636,7 +636,7 @@ h2 { font-weight: 600; }
   animation: peek-in 0.14s ease-out;
 }
 .peek.wide { width: calc(100vw - 248px); }
-@keyframes peek-in { from { transform: translateX(24px); opacity: 0; } }
+@keyframes peek-in { from { transform: translateX(24px); } }
 @media (prefers-reduced-motion: reduce) { .peek { animation: none; } }
 .peek-bar { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .peek-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

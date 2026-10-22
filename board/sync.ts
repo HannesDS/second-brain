@@ -2,6 +2,7 @@
 // - Notion: pulls Roadmap stories assigned to me, pushes status changes of linked tasks.
 // - GitHub: marks a task done when its PR is merged (which then pushes to Notion too).
 import { execFile } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
@@ -137,6 +138,8 @@ const lastPushed = new Map<string, string>()
 
 export async function onTaskChanged(file: string) {
   const id = path.basename(file, '.md')
+  // Deleted (or renamed away): nothing to push. Reading it would throw and take the server down.
+  if (!fs.existsSync(file)) return void lastPushed.delete(id)
   const { data, error } = readDoc(file)
   if (error || !data.notion || !data.status || lastPushed.get(id) === data.status) return
   lastPushed.set(id, data.status)
