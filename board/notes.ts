@@ -23,8 +23,11 @@ export function listNotes() {
   return ['inbox', 'notes', 'meetings'].flatMap((dir) => listDocs(dir).map((d) => ({
     path: `${dir}/${d.name}.md`, name: d.name, data: d.data,
     mtime: fs.statSync(path.join(VAULT, dir, `${d.name}.md`)).mtime.toISOString(),
-  }))).sort((a, b) => b.mtime.localeCompare(a.mtime))
+  }))).sort((a, b) => noteDate(b).localeCompare(noteDate(a)) || b.mtime.localeCompare(a.mtime))
 }
+
+// When a note is about: the date it starts with, else when it was last saved.
+const noteDate = (n: { name: string; mtime: string }) => /^\d{4}-\d{2}-\d{2}/.exec(n.name)?.[0] ?? n.mtime.slice(0, 10)
 
 export function createNote(title: string) {
   const stamp = new Date().toLocaleString('sv').slice(0, 16).replace(':', '')

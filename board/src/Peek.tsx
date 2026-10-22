@@ -7,7 +7,7 @@ import { Editor } from './Notes'
 import { XTerm, type Term } from './Terminals'
 import type { Actions } from './Today'
 import { IconButton, IconLink } from './ui'
-import { PRIORITIES, PRIO_LABEL, STATUSES, TYPES, api, isFocus, list, obsidian, unlink, type Agent, type Doc, type Vault } from './lib'
+import { LABELS, PRIORITIES, PRIO_LABEL, STATUSES, TYPES, api, isFocus, list, obsidian, unlink, type Agent, type Doc, type Vault } from './lib'
 
 export type PeekItem = { kind: 'task' | 'project' | 'terminal' | 'doc'; id: string }
 
@@ -92,7 +92,7 @@ export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, 
 
       <div className="props">
         <Prop label="Project"><ProjectSelect projects={projects} all={vault.projects} value={unlink(d.project)} none="None" onChange={(name) => save({ project: name ? `[[${name}]]` : '' })} /></Prop>
-        <Prop label="Status">{select('status', STATUSES)}</Prop>
+        <Prop label="Status">{select('status', STATUSES, LABELS)}</Prop>
         <Prop label="Priority">{select('priority', PRIORITIES, PRIO_LABEL)}</Prop>
         <Prop label="Type">{select('type', TYPES)}</Prop>
         <Prop label="Start"><BlurInput type="date" value={d.start ?? ''} save={(v) => save({ start: v })} /></Prop>
@@ -136,7 +136,6 @@ export function TerminalPeek({ id, fail, closed }: { id: string; fail: (e: Error
   return (
     <div className="terminal-peek">
       <div className="page-actions">
-        <span className="muted">{term.cwd} · {term.account} account</span>
         <div className="spacer" />
         <IconLink icon={TerminalSquare} label="All agents and terminals" href={`#agents/${term.id}`} showLabel />
         <IconButton icon={Square} label="Stop this terminal" showLabel onClick={() => api(`terminals/${id}`, 'DELETE').then(closed, fail)} />

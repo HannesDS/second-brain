@@ -8,7 +8,7 @@ import type { Plugin } from 'vite'
 import { context as ragContext, refresh as ragRefresh, refreshSoon as ragRefreshSoon, search as ragSearch } from '../lib/rag.mjs'
 import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
 import { AGENTS_DIR, listAgents } from './agents'
-import { addFeed, events, listFeeds, removeFeed } from './calendar'
+import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { createMeeting, readTranscript, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
@@ -225,6 +225,7 @@ export function vaultApi(): Plugin {
       }
       server.watcher.on('add', notify).on('change', notify).on('unlink', notify)
       startSync()
+      warmCalendars()
       if (server.httpServer) attachTerminals(server.httpServer as import('node:http').Server)
       ragRefresh().catch((e: Error) => console.error(`rag: ${e.message} (search falls back to plain text)`))
 

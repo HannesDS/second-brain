@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  DndContext, DragOverlay, PointerSensor, closestCorners, useDroppable, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { useCallback, useEffect, useState } from 'react'
 import { marked } from 'marked'
 import {
-  Bot, CalendarDays, FolderKanban, Pencil, GanttChart, HelpCircle, KanbanSquare, NotebookPen, Play, Plus, RefreshCw, Sparkles, Star, Sun, X,
-  type LucideIcon,
+  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, NotebookPen, PanelRightOpen, Pencil, Plus, RefreshCw,
+  Sparkles, Sun, X, type LucideIcon,
 } from 'lucide-react'
+import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
 import { Editor } from './Notes'
 import { IconButton } from './ui'
@@ -22,21 +17,27 @@ import Terminals from './Terminals'
 import Today, { Agents, type Actions } from './Today'
 
 import {
-  CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, prioLabel, STATUSES, api, byOrder, columnOf, isFocus, list,
-  contextOf, inContext, scopeVault, startCommand, unlink,
+  CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
+  contextOf, inContext, projectForPath, scopeVault, startCommand, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
-type Page = 'today' | 'project' | 'notes' | 'calendar' | 'board' | 'gantt' | 'projects' | 'agents' | 'guide'
-const NAV: [Page, string, LucideIcon][] = [
-  ['today', 'My day', Sun], ['notes', 'Notes', NotebookPen], ['calendar', 'Calendar', CalendarDays], ['board', 'Board', KanbanSquare],
-  ['gantt', 'Timeline', GanttChart], ['projects', 'Projects', FolderKanban], ['agents', 'Agents', Bot], ['guide', 'Guide', HelpCircle],
+type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'agents' | 'projects' | 'guide'
+// The views in the side menu. Projects (overview) and Guide live elsewhere in the menu.
+const VIEWS: [Page, string, LucideIcon][] = [
+  ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
+  ['gantt', 'Timeline', GanttChart], ['notes', 'Notes', NotebookPen], ['agents', 'Agents', Bot],
 ]
+const PAGE: Record<Page, [string, LucideIcon]> = {
+  ...Object.fromEntries(VIEWS.map(([p, l, i]) => [p, [l, i]])) as Record<Page, [string, LucideIcon]>,
+  projects: ['Projects', FolderKanban], guide: ['Guide', HelpCircle],
+}
 
-// Routes live in the URL hash (#notes/inbox%2Fx.md, #project/portal) so back/forward and reloads work.
+// Routes live in the URL hash (#notes/inbox%2Fx.md, #agents/<terminal>) so back/forward and reloads work.
 const parseHash = (): { page: Page; arg: string } => {
   const [page, ...rest] = location.hash.slice(1).split('/')
-  return { page: (page === 'terminals' ? 'agents' : NAV.some(([p]) => p === page) || page === 'project' ? page : 'today') as Page, arg: decodeURIComponent(rest.join('/')) }
+  const p = page === 'terminals' ? 'agents' : page
+  return { page: (p in PAGE ? p : 'today') as Page, arg: decodeURIComponent(rest.join('/')) }
 }
 
 export default function App() {
@@ -45,7 +46,8 @@ export default function App() {
   const [sync, setSync] = useState<Record<string, string>>({})
   const [route, setRoute] = useState(parseHash)
   const [context, setContextState] = useState<string>(() => loadLocal('sb.context', ''))
-  const setContext = (c: string) => { setContextState(c); saveLocal('sb.context', c) }
+  // The project you're "in": every view shows only its tasks. Empty = all projects (in the context).
+  const [scope, setScopeState] = useState<string>(() => loadLocal('sb.scope', ''))
   const [asking, setAsking] = useState(false)
   // What's open in the side peek; the last item is shown, Back pops it.
   const [peeks, setPeeks] = useState<PeekItem[]>([])
@@ -65,7 +67,8 @@ export default function App() {
     let timer: number
     const onChange = () => { clearTimeout(timer); timer = window.setTimeout(load, 100) }
     const onAgents = () => { clearTimeout(timer); timer = window.setTimeout(loadAgents, 300) }
-    const onHash = () => setRoute(parseHash())
+    // Switching view closes the peek: it belonged to the page you left.
+    const onHash = () => { setRoute(parseHash()); setPeeks([]) }
     import.meta.hot?.on('vault-change', onChange)
     import.meta.hot?.on('agents-change', onAgents)
     window.addEventListener('hashchange', onHash)
@@ -84,30 +87,43 @@ export default function App() {
 
   if (!vault) return <div className="empty">Loading vault…</div>
   const projects = Object.fromEntries(vault.projects.map((p) => [p.name, p]))
-  // Everything a page lists comes from `scoped`; `vault` stays whole for looking things up by name.
+  const scopeProject = scope ? projects[scope] : undefined
+  const setContext = (c: string) => {
+    setContextState(c); saveLocal('sb.context', c)
+    if (scopeProject && !inContext(c, scopeProject.data.context)) { setScopeState(''); saveLocal('sb.scope', '') }
+  }
+  const setScope = (name: string) => {
+    setScopeState(name); saveLocal('sb.scope', name); setPeeks([])
+    // Picking a project outside the current context widens the context, so the project stays visible.
+    if (name && !inContext(context, projects[name]?.data.context)) { setContextState(''); saveLocal('sb.context', '') }
+  }
+  // `scoped` is the context; `view` narrows it to the project you're in. `vault` stays whole for lookups by name.
   const scoped = scopeVault(vault, context)
+  const inScope = (d: Doc) => !scopeProject || unlink(d.data.project) === scope
+  const view: Vault = scopeProject ? { ...scoped, tasks: scoped.tasks.filter(inScope), meetings: scoped.meetings.filter(inScope) } : scoped
   const { page, arg } = route
+  const agentProject = (a: Agent) => unlink(vault.tasks.find((t) => t.name === a.task)?.data.project) || projectForPath(a.cwd, vault.projects)?.name
   // A "needs you" that was marked seen shows as idle until the session changes again.
-  const shown = agents.filter((a) => inContext(context, contextOf(a, vault)))
+  const shown = agents.filter((a) => inContext(context, contextOf(a, vault)) && (!scope || agentProject(a) === scope))
     .map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
   const markSeen = (a: Agent) => { const next = { ...seen, [a.id]: a.updated }; setSeen(next); saveLocal('sb.seen', next) }
-  const project = page === 'project' ? projects[arg] : undefined
   const peek = (p: PeekItem) => setPeeks((st) => (st.at(-1)?.kind === p.kind && st.at(-1)?.id === p.id ? st : [...st.slice(-9), p]))
   // A new task is created right away as "Untitled" and opened, so you can just start typing.
-  const openTask = (doc?: Doc) => (doc
-    ? peek({ kind: 'task', id: doc.name })
-    : api('tasks', 'POST', { data: { title: 'Untitled', project: peeks.at(-1)?.kind === 'project' ? `[[${peeks.at(-1)!.id}]]` : '' } })
-      .then(({ id }) => peek({ kind: 'task', id }), fail))
+  const openTask = (doc?: Doc) => {
+    if (doc) return peek({ kind: 'task', id: doc.name })
+    const inProject = peeks.at(-1)?.kind === 'project' ? peeks.at(-1)!.id : scope
+    api('tasks', 'POST', { data: { title: 'Untitled', project: inProject ? `[[${inProject}]]` : '' } }).then(({ id }) => peek({ kind: 'task', id }), fail)
+  }
   const write = (path: string) => (path.startsWith('tasks/') ? peek({ kind: 'task', id: path.slice(6, -3) }) : peek({ kind: 'doc', id: path }))
   const copy = (text: string, what: string) => navigator.clipboard.writeText(text).then(() => flash(`${what} copied`), fail)
   const copyStart = (t: Doc) => copy(startCommand(t, projects[unlink(t.data.project)], vault.root), 'Start command')
   const prep = (title: string, date: string, prefix = 'Prep: ') => {
-    const p = guessProject(title, vault.projects)
+    const p = scope || guessProject(title, vault.projects)
     api('tasks', 'POST', { data: { title: `${prefix}${title}`, project: p ? `[[${p}]]` : '', type: 'meeting', priority: 'p1', due: date } })
       .then(({ id }) => flash(`${id} created: Prep: ${title}`), fail)
   }
   const meetingNote = (title: string, date: string, time = '') =>
-    api('meetings', 'POST', { title, date, time, project: guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
+    api('meetings', 'POST', { title, date, time, project: scope || guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
   const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => peek({ kind: 'terminal', id }), fail)
   // Resuming a session that is still working elsewhere would put two windows on one session.
   const openAgent = (a: Agent) => {
@@ -115,7 +131,7 @@ export default function App() {
     terminal({ kind: 'resume', agent: a.id })
   }
   const toggleFocus = (t: Doc) => {
-    if (!isFocus(t) && vault.tasks.filter(isFocus).length >= FOCUS_MAX) return flash(`Top ${FOCUS_MAX} is full: unstar one first`)
+    if (!isFocus(t) && vault.tasks.filter(isFocus).length >= FOCUS_MAX) return flash(`You can star ${FOCUS_MAX}: unstar one first`)
     api(`tasks/${t.name}`, 'PUT', { data: { focus: !isFocus(t) } }).catch(fail)
   }
   const act: Actions = {
@@ -129,6 +145,8 @@ export default function App() {
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
   const openCount = (p: Doc) => vault.tasks.filter((t) => unlink(t.data.project) === p.name && t.data.status !== 'done').length
+  const [pageLabel, PageIcon] = PAGE[page]
+  const filtered = view.tasks.filter((t) => !prios.length || prios.includes(t.data.priority))
 
   return (
     <div className="app">
@@ -139,8 +157,8 @@ export default function App() {
           <IconButton icon={Plus} label="Task" showLabel primary onClick={() => openTask()} />
           <IconButton icon={Plus} label="Note" showLabel onClick={() => api('notes', 'POST', { title: '' }).then(({ path }) => go('notes', path), fail)} />
         </div>
-        <nav className="side-nav">
-          {NAV.map(([id, label, Icon]) => (
+        <nav className="side-nav" aria-label="Views">
+          {VIEWS.map(([id, label, Icon]) => (
             <button key={id} className={page === id ? 'nav on' : 'nav'} aria-current={page === id ? 'page' : undefined} onClick={() => go(id)}>
               <Icon size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />{label}
               {id === 'agents' && waiting > 0 && <span className="badge" title="Agents waiting for you">{waiting}</span>}
@@ -148,10 +166,18 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="side-section">Projects <IconButton icon={Plus} label="New project" onClick={() => setEditing({ kind: 'project' })} /></div>
-        <nav className="side-projects">
+        <div className="side-section">
+          <button className={`side-section-link ${page === 'projects' ? 'on' : ''}`} onClick={() => go('projects')} title="All projects as cards">Projects</button>
+          <IconButton icon={Plus} label="New project" onClick={() => setEditing({ kind: 'project' })} />
+        </div>
+        <nav className="side-projects" aria-label="Projects">
+          <button className={!scope ? 'nav on' : 'nav'} onClick={() => setScope('')}>
+            <span className="dot all" />
+            <span className="proj-name">All projects</span>
+          </button>
           {scoped.projects.filter((p) => p.data.status !== 'done').map((p) => (
-            <button key={p.name} className={peeks.at(-1)?.kind === 'project' && peeks.at(-1)?.id === p.name ? 'nav on' : 'nav'} onClick={() => peek({ kind: 'project', id: p.name })}>
+            <button key={p.name} className={scope === p.name ? 'nav on' : 'nav'} aria-current={scope === p.name ? 'true' : undefined}
+              title={`Show only ${p.data.name ?? p.name} in every view`} onClick={() => setScope(scope === p.name ? '' : p.name)}>
               <span className={`dot ${p.data.context}`} />
               <span className="proj-name">{p.data.name ?? p.name}</span>
               {openCount(p) > 0 && <span className="count">{openCount(p)}</span>}
@@ -160,13 +186,29 @@ export default function App() {
         </nav>
 
         <div className="side-foot">
-          <span title={sync.error || ''}>Notion: {sync.notion || '…'}</span>
-          <IconButton icon={RefreshCw} label="Sync Notion and GitHub now" onClick={() => api('sync', 'POST').then(setSync, fail)} />
+          <button className={`nav ${page === 'guide' ? 'on' : ''}`} onClick={() => go('guide')}><HelpCircle size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />Guide</button>
+          <div className="sync-line">
+            <span title={sync.error || ''}>Notion: {sync.notion || '…'}</span>
+            <IconButton icon={RefreshCw} label="Sync Notion and GitHub now" onClick={() => api('sync', 'POST').then(setSync, fail)} />
+          </div>
         </div>
       </aside>
 
       <div className="main">
-        <div className="topbar">
+        <header className="topbar">
+          <nav className="crumbs" aria-label="You are here">
+            <span className="crumb"><PageIcon size={18} strokeWidth={1.8} aria-hidden /><h1>{pageLabel}</h1></span>
+            {scopeProject && page !== 'projects' && page !== 'guide' && <>
+              <ChevronRight size={16} className="crumb-sep" aria-hidden />
+              <span className="crumb project-crumb">
+                <span className={`dot ${scopeProject.data.context}`} />
+                <button className="link-plain strong" title="Open the project overview" onClick={() => peek({ kind: 'project', id: scope })}>{scopeProject.data.name ?? scope}</button>
+                <IconButton icon={PanelRightOpen} label="Project overview: tasks, chat, new agent" onClick={() => peek({ kind: 'project', id: scope })} />
+                <IconButton icon={X} label="Show all projects" onClick={() => setScope('')} />
+              </span>
+            </>}
+          </nav>
+          <div className="spacer" />
           <div className="segmented" role="group" aria-label="Context">
             {['', ...CONTEXTS].map((c) => (
               <button key={c || 'all'} className={context === c ? 'on' : ''} aria-pressed={context === c} onClick={() => setContext(c)}>
@@ -174,27 +216,33 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="spacer" />
           <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
-        </div>
-        {page === 'today' && <Today vault={scoped} tasks={scoped.tasks} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote} />}
-        {page === 'project' && project && <ProjectPage vault={vault} project={project} terminal={() => terminal({ kind: 'claude', project: project.name })} start={act.start} open={openTask} edit={(doc) => setEditing({ kind: 'project', doc })} fail={fail} seed={seed} write={write} />}
-        {page === 'project' && !project && <div className="empty">Unknown project "{arg}".</div>}
+        </header>
+        {page === 'today' && <Today vault={view} tasks={view.tasks} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote}
+          board={<BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked']} limit={6} more={() => go('board')} />} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} fail={fail} flash={flash} />}
-        {page === 'calendar' && <Calendar vault={scoped} tasks={scoped.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
-        {page === 'board' && <Board tasks={scoped.tasks.filter((t) => !prios.length || prios.includes(t.data.priority))} setVault={setVault} vault={vault} projects={projects} fail={fail} act={act}
-          header={<div className="prio-filter" role="group" aria-label="Priority filter">
-            {PRIORITIES.map((p) => (
-              <button key={p} className={`prio-chip ${p} ${prios.includes(p) ? 'on' : ''}`} aria-pressed={prios.includes(p)}
-                onClick={() => setPrios(prios.includes(p) ? prios.filter((x) => x !== p) : [...prios, p])}>{PRIO_LABEL[p]}</button>
-            ))}
-          </div>} />}
-        {page === 'gantt' && <Gantt tasks={scoped.tasks} projects={projects} open={openTask} fail={fail} />}
+        {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
+        {page === 'board' && (
+          <main className="board-page">
+            <div className="filter-bar">
+              <span className="muted">Priority</span>
+              <div className="prio-filter" role="group" aria-label="Priority filter">
+                {PRIORITIES.map((p) => (
+                  <button key={p} className={`prio-chip ${p} ${prios.includes(p) ? 'on' : ''}`} aria-pressed={prios.includes(p)}
+                    onClick={() => setPrios(prios.includes(p) ? prios.filter((x) => x !== p) : [...prios, p])}>{PRIO_LABEL[p]}</button>
+                ))}
+              </div>
+              <span className="muted">{filtered.filter((t) => t.data.status !== 'done').length} open · starred cards stay on top · drag to change status</span>
+            </div>
+            <BoardColumns tasks={filtered} vault={vault} setVault={setVault} fail={fail} act={act} />
+          </main>
+        )}
+        {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>
             <Terminals active={arg || undefined} go={(id) => go('agents', id)} fail={fail} show={(t) => inContext(context, contextOf(t, vault))} />
-            <Agents agents={shown} vault={scoped} open={openAgent} seen={markSeen} act={act} start={terminal} />
+            <Agents agents={shown} vault={view} open={openAgent} seen={markSeen} act={act} start={terminal} />
           </Split>
         )}
         {page === 'guide' && <Guide />}
@@ -265,116 +313,6 @@ function Search({ vault, openTask, write }: { vault: Vault; openTask: (d: Doc) =
         </ul>
       )}
     </div>
-  )
-}
-
-function Board({ tasks, vault, setVault, projects, fail, act, header }: {
-  tasks: Doc[]; vault: Vault; setVault: (v: Vault) => void; projects: Record<string, Doc>
-  fail: (e: Error) => void; act: Actions; header: React.ReactNode
-}) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const [active, setActive] = useState<Doc>()
-  const columns = useMemo(() => {
-    const cols: Record<string, Doc[]> = Object.fromEntries(STATUSES.map((s) => [s, []]))
-    for (const t of tasks) (cols[columnOf(t)] ??= []).push(t)
-    // Your top 3 sit at the top of their column.
-    for (const c of Object.values(cols)) c.sort((a, b) => Number(isFocus(b)) - Number(isFocus(a)) || byOrder(a, b))
-    return cols
-  }, [tasks])
-
-  function onDragEnd({ active: a, over }: DragEndEvent) {
-    setActive(undefined)
-    if (!over) return
-    const task = tasks.find((t) => t.name === a.id)!
-    const from = columnOf(task)
-    const overId = String(over.id)
-    const to = overId.startsWith('col:') ? overId.slice(4) : columnOf(tasks.find((t) => t.name === overId)!)
-    if (to === '?') return
-    let target: Doc[]
-    if (from === to) {
-      const col = columns[to]
-      const newIndex = overId.startsWith('col:') ? col.length - 1 : col.findIndex((t) => t.name === overId)
-      target = arrayMove(col, col.indexOf(task), newIndex)
-    } else {
-      target = [...columns[to]]
-      const i = target.findIndex((t) => t.name === overId)
-      target.splice(i < 0 ? target.length : i, 0, task)
-    }
-    // ponytail: reorders only the visible (filtered) cards, so hidden cards may share an order value.
-    const moves = target
-      .map((t, order) => ({ id: t.name, status: to, order }))
-      .filter((m, i) => target[i].data.status !== m.status || Number(target[i].data.order) !== m.order)
-    if (!moves.length) return
-    const patch = Object.fromEntries(moves.map((m) => [m.id, m]))
-    setVault({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) })
-    api('move', 'POST', moves).catch(fail)
-  }
-
-  const cols = columns['?']?.length ? [...STATUSES, '?'] : STATUSES
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}
-      onDragStart={(e) => setActive(tasks.find((t) => t.name === e.active.id))} onDragCancel={() => setActive(undefined)}>
-      <main className="board-page">
-        <div className="page-head"><h2>Board</h2><span className="muted">★ = your top 3</span><div className="spacer" />{header}</div>
-        <div className="board">
-          {cols.map((s) => (
-            <Column key={s} status={s} tasks={columns[s]}>
-              {columns[s].map((t) => <SortableCard key={t.name} task={t} project={projects[unlink(t.data.project)]} act={act} />)}
-            </Column>
-          ))}
-        </div>
-      </main>
-      <DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} />}</DragOverlay>
-    </DndContext>
-  )
-}
-
-function Column({ status, tasks, children }: { status: string; tasks: Doc[]; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `col:${status}` })
-  return (
-    <section className={`column ${isOver ? 'over' : ''}`} ref={setNodeRef} data-status={status}>
-      <h2>{LABELS[status]} <span className="count">{tasks.length}</span></h2>
-      <SortableContext items={tasks.map((t) => t.name)} strategy={verticalListSortingStrategy}>
-        <div className="cards">{children}</div>
-      </SortableContext>
-    </section>
-  )
-}
-
-function SortableCard(props: { task: Doc; project?: Doc; act: Actions }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.name })
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
-      {...attributes} {...listeners} onClick={() => props.act.open(props.task)}>
-      <Card {...props} />
-    </div>
-  )
-}
-
-function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions }) {
-  const d = task.data
-  // Buttons inside a draggable card must not start a drag or open the card.
-  const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
-  return (
-    <article className={`card ${isFocus(task) ? 'focus' : ''}`}>
-      <div className="card-top">
-        <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
-        <button className="link-plain project" title="Open project" {...stop(() => act?.project(unlink(d.project)))}>{project?.data.name ?? (unlink(d.project) || 'No project')}</button>
-        <span className="id">{task.name}</span>
-        {act && <span className={`star ${isFocus(task) ? 'on' : ''}`}><IconButton icon={Star} label={isFocus(task) ? 'Remove from top 3' : 'Add to top 3'} active={isFocus(task)} stop onClick={() => act.focus(task)} /></span>}
-      </div>
-      <div className="title">{d.title ?? task.name}</div>
-      {task.error && <div className="blocked">Invalid frontmatter, fix in Obsidian</div>}
-      {d.blocked_by && <div className="blocked">⛔ {unlink(d.blocked_by)}</div>}
-      <div className="card-bottom">
-        <span className="type">{d.type}</span>
-        {d.due && <span className="due">due {d.due}</span>}
-        <div className="spacer" />
-        {d.pr && <a href={d.pr} target="_blank" rel="noreferrer" title="Pull request" onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}>PR ↗</a>}
-        {act && <span className="hover-actions"><IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /></span>}
-      </div>
-    </article>
   )
 }
 

@@ -18,6 +18,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })
   const [events, setEvents] = useState<CalEvent[]>([])
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
   const [picked, setPicked] = useState<Picked>()
   const [feedsOpen, setFeedsOpen] = useState(false)
   const [reload, setReload] = useState(0)
@@ -29,7 +30,10 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
 
   useEffect(() => {
     const to = new Date(days[41]); to.setDate(to.getDate() + 1)
-    api(`calendar?from=${days[0].toISOString()}&to=${to.toISOString()}`).then((r) => { setEvents(r.events); setError(r.error) }, fail)
+    setLoading(true)
+    api(`calendar?from=${days[0].toISOString()}&to=${to.toISOString()}`)
+      .then((r) => { setEvents(r.events); setError(r.error) }, fail)
+      .finally(() => setLoading(false))
   }, [month, reload])
 
   const shift = (n: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1))
@@ -45,6 +49,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
         <button onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) }}>Today</button>
         <IconButton icon={ChevronRight} label="Next month" onClick={() => shift(1)} />
       </div>
+      {loading && <p className="muted">Loading your calendars…</p>}
       {error && <p className="muted">{error}</p>}
       <div className="cal-grid">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div key={d} className="cal-dow">{d}</div>)}

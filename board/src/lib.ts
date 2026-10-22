@@ -3,7 +3,7 @@ export type Doc = { name: string; data: Fields; body: string; error?: string }
 export type Vault = { root: string; vault: string; projects: Doc[]; tasks: Doc[]; meetings: Doc[] }
 
 export const STATUSES = ['todo', 'wip', 'review', 'blocked', 'done']
-export const LABELS: Record<string, string> = { todo: 'Todo', wip: 'WIP', review: 'Review', blocked: 'Blocked', done: 'Done', '?': '?' }
+export const LABELS: Record<string, string> = { todo: 'To do', wip: 'In progress', review: 'Review', blocked: 'Blocked', done: 'Done', '?': 'Unknown status' }
 export const PRIORITIES = ['p0', 'p1', 'p2', 'p3']
 // Files keep p0-p3 (short, sortable); people see words.
 export const PRIO_LABEL: Record<string, string> = { p0: 'Urgent', p1: 'High', p2: 'Normal', p3: 'Low' }

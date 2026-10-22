@@ -670,3 +670,38 @@ h2 { font-weight: 600; }
 /* Agent terminal in the peek */
 .terminal-peek { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 14px; }
 .terminal-peek .term-wrap { flex: 1; }
+
+/* Navigation pass: breadcrumb says where you are; the menu separates views from projects. */
+.topbar { gap: 12px; min-height: 52px; }
+.crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.crumb { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.crumb h1 { font-size: 17px; margin: 0; font-weight: 700; }
+.crumb-sep { color: var(--muted); flex: none; }
+.project-crumb { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 12px; }
+.project-crumb .link-plain { font-size: 15px; }
+.project-crumb .ib { height: 24px; min-width: 24px; }
+.side-section-link { border: none; background: none; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
+.side-section-link:hover, .side-section-link.on { color: var(--text); text-decoration: underline; }
+.dot.all { background: conic-gradient(var(--ctx-dm) 0 50%, var(--ctx-personal) 0); }
+.side-foot { flex-direction: column; align-items: stretch; gap: 4px; }
+.side-foot .nav { width: 100%; }
+.sync-line { display: flex; align-items: center; gap: 6px; padding: 0 10px; }
+.sync-line span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.board-page { padding: 12px 20px 0; }
+.filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+.filter-bar .prio-filter { padding: 0; }
+.filter-bar .prio-chip { flex: none; padding: 2px 10px; }
+
+.today-date { margin: 0 0 4px; color: var(--muted); font-size: 14px; }
+.today .board { overflow: visible; padding: 0; }
+.today .board .column { max-height: none; }
+.more { border: none; background: none; text-align: left; font-size: 12px; color: var(--muted); padding: 4px 6px; cursor: pointer; }
+.more:hover { color: var(--text); text-decoration: underline; }
+.due-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.due-pill { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; background: var(--surface); max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.due-pill:hover { border-color: var(--muted); }
+.due-pill .due-when { font-size: 12px; font-weight: 700; color: var(--p1); }
+.due-pill.overdue .due-when { color: var(--p0); }
+.card .project { font-size: 12px; color: var(--muted); }
+.card .card-bottom .id { font-size: 11px; color: var(--muted); margin: 0; }

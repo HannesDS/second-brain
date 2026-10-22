@@ -2,12 +2,25 @@
 // stored in state/calendars.json (gitignored: the URLs are secrets) and cached for 5 minutes.
 import fs from 'node:fs'
 import path from 'node:path'
-import ical, { type VEvent } from 'node-ical'
+import ical, { type CalendarResponse, type VEvent } from 'node-ical'
 import { ROOT } from '../lib/vault.mjs'
 
 const FILE = path.join(ROOT, 'state', 'calendars.json')
 const TTL_MS = 5 * 60 * 1000
-let cache: { at: number; key: string; events: CalEvent[]; error: string } | undefined
+// Parsed feeds, per URL: downloading and parsing is the slow part (seconds); expanding a date range is fast.
+// Keyed by URL, not by range, so My day (one day) and the Calendar (six weeks) share the same download.
+const parsed = new Map<string, { at: number; data: Promise<CalendarResponse> }>()
+function feedData(url: string) {
+  const hit = parsed.get(url)
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.data
+  const data = ical.async.fromURL(url)
+  parsed.set(url, { at: Date.now(), data })
+  data.catch(() => parsed.delete(url)) // don't cache failures
+  return data
+}
+
+// Fetches all feeds in the background, so the first page that needs them doesn't wait.
+export const warmCalendars = () => feeds().forEach((f) => feedData(f.url).catch(() => {}))
 
 export type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string; calendar: number; label: string }
 type Feed = { label: string; url: string }
@@ -19,7 +32,7 @@ function feeds(): Feed[] {
 function saveFeeds(list: Feed[]) {
   fs.mkdirSync(path.dirname(FILE), { recursive: true })
   fs.writeFileSync(FILE, JSON.stringify(list, null, 2), { mode: 0o600 })
-  cache = undefined
+  parsed.clear()
 }
 
 // The browser only ever sees labels and hosts, never the secret part of a URL.
@@ -39,14 +52,12 @@ export function removeFeed(index: number) {
 export async function events(from: Date, to: Date) {
   const list = feeds()
   if (!list.length) return { events: [], error: 'No calendar connected yet: click "Calendars" to add your Google calendars.' }
-  const key = `${from.toISOString()}|${to.toISOString()}|${list.length}`
-  if (cache && cache.key === key && Date.now() - cache.at < TTL_MS) return cache
 
   const out: CalEvent[] = []
   const errors: string[] = []
   await Promise.all(list.map(async ({ url, label }, calendar) => {
     try {
-      const data = await ical.async.fromURL(url)
+      const data = await feedData(url)
       for (const ev of Object.values(data)) {
         if (ev?.type !== 'VEVENT') continue
         for (const i of ical.expandRecurringEvent(ev as VEvent, { from, to })) {
@@ -66,6 +77,5 @@ export async function events(from: Date, to: Date) {
       errors.push(`${label}: ${e.message}`)
     }
   }))
-  cache = { at: Date.now(), key, events: out.sort((a, b) => a.start.localeCompare(b.start)), error: errors.join('; ') }
-  return cache
+  return { events: out.sort((a, b) => a.start.localeCompare(b.start)), error: errors.join('; ') }
 }

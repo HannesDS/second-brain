@@ -1,8 +1,8 @@
-import { Check, EyeOff, ListPlus, NotebookText, Play, Star } from 'lucide-react'
+import { EyeOff, ListPlus, NotebookText } from 'lucide-react'
 import { IconButton } from './ui'
 import { useEffect, useState } from 'react'
 import { ProjectSelect } from './Home'
-import { ago, api, isFocus, prioLabel, projectForPath, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
+import { ago, api, projectForPath, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
 export type Actions = {
@@ -16,11 +16,12 @@ export type Actions = {
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
-// My day: who needs you, today's meetings, and a small Next / Now / Waiting board.
+// My day: who needs you, today's meetings, what's due, and your board (the real one, so you can drag).
 // Every row and card opens what it shows; secondary actions appear on hover.
-export default function Today({ vault, tasks, agents, act, openAgent, seen, fail, prep, meetingNote }: {
+export default function Today({ vault, tasks, agents, act, openAgent, seen, fail, prep, meetingNote, board }: {
   vault: Vault; tasks: Doc[]; agents: Agent[]; act: Actions; openAgent: (a: Agent) => void; seen: (a: Agent) => void
   fail: (e: Error) => void; prep: (title: string, date: string) => void; meetingNote: (title: string, date: string, time?: string) => void
+  board: React.ReactNode
 }) {
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calError, setCalError] = useState('')
@@ -30,23 +31,14 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
     api(`calendar?from=${from.toISOString()}&to=${to.toISOString()}`).then((r) => { setEvents(r.events); setCalError(r.error) }, fail)
   }, [])
 
-  const ranked = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.t.data.status !== 'done').sort((a, b) => b.score - a.score)
-  const column = (match: (t: Doc) => boolean, max = 6) => ranked.filter((x) => match(x.t)).slice(0, max)
-  const columns: [string, typeof ranked, number][] = [
-    ['Next', column((t) => t.data.status === 'todo'), ranked.filter((x) => x.t.data.status === 'todo').length],
-    ['Now', column((t) => t.data.status === 'wip'), ranked.filter((x) => x.t.data.status === 'wip').length],
-    ['Waiting', column((t) => t.data.status === 'review' || t.data.status === 'blocked'), ranked.filter((x) => ['review', 'blocked'].includes(x.t.data.status)).length],
-  ]
+  // Overdue and due in the next two days, most urgent first.
+  const due = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.reasons.some((r) => /overdue|due/.test(r))).sort((x, y) => y.score - x.score)
   const waiting = agents.filter((a) => a.state === 'needs-input')
   const notesToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
   const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
-  const card = (x: (typeof ranked)[number]) => (
-    <TaskCard key={x.t.name} task={x.t} project={vault.projects.find((p) => p.name === unlink(x.t.data.project))} reasons={x.reasons} act={act} />
-  )
-
   return (
     <main className="today">
-      <h1>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
+      <p className="today-date">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
 
       {waiting.length > 0 && (
         <section>
@@ -85,50 +77,24 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
         </div>
       </section>
 
-      <div className="mini-board">
-        {columns.map(([name, items, total]) => (
-          <section key={name} className="mini-col">
-            <h3>{name} <span className="count">{total}</span></h3>
-            {items.map((x) => card(x))}
-            {total > items.length && <a className="more" href="#board">+{total - items.length} more on the Board</a>}
-            {!items.length && <span className="muted">Empty</span>}
-          </section>
-        ))}
-      </div>
-    </main>
-  )
-}
+      {due.length > 0 && (
+        <section>
+          <h3>Due soon <span className="count">{due.length}</span></h3>
+          <div className="due-strip">
+            {due.map(({ t, reasons }) => (
+              <button key={t.name} className={`due-pill ${reasons.includes('overdue') ? 'overdue' : ''}`} onClick={() => act.open(t)}>
+                <span className="due-when">{reasons.find((r) => /overdue|due/.test(r))}</span> {t.data.title}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
-export function TaskCard({ task, project, reasons = [], act }: {
-  task: Doc; project?: Doc; reasons?: string[]; act: Actions
-}) {
-  const d = task.data
-  const extra = reasons.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r))
-  const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn() }
-  return (
-    <article className={`mini-card clickable ${isFocus(task) ? 'focus' : ''}`} onClick={() => act.open(task)} tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && act.open(task)}>
-      <div className="mini-top">
-        <button className="link-plain" title="Open project" onClick={stop(() => act.project(unlink(d.project)))}>
-          <span className={`dot ${project?.data.context ?? ''}`} />{project?.data.name ?? (unlink(d.project) || 'No project')}
-        </button>
-        <span className="spacer" />
-        <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
-        <span className={`star ${isFocus(task) ? 'on' : ''}`}><IconButton icon={Star} label={isFocus(task) ? 'Remove from top 3' : 'Add to top 3'} active={isFocus(task)} stop onClick={() => act.focus(task)} /></span>
-      </div>
-      <div className="mini-title">{d.title ?? task.name}</div>
-      <div className="mini-bottom">
-        {d.blocked_by && <span className="reason">⛔ {String(d.blocked_by).replace(/\[|\]/g, '')}</span>}
-        {extra.map((r) => <span key={r} className="reason">{r}</span>)}
-        {d.notion && <a href={d.notion} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Notion ↗</a>}
-        {d.pr && <a href={d.pr} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>PR ↗</a>}
-        <span className="spacer" />
-        <span className="hover-actions">
-          <IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} />
-          <IconButton icon={Check} label="Mark done" stop onClick={() => act.done(task)} />
-        </span>
-      </div>
-    </article>
+      <section>
+        <h3>Your board <span className="muted hint-inline">drag cards to change status</span></h3>
+        {board}
+      </section>
+    </main>
   )
 }
 
