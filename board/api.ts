@@ -139,7 +139,7 @@ function terminalFor(body: { kind: string; agent?: string; project?: string; tas
     const a = listAgents().find((x) => x.id === body.agent)
     if (!a || !ID.test(a.id)) throw new Error('unknown agent session')
     const cwd = fs.existsSync(a.cwd) ? a.cwd : ROOT
-    return openTerminal({ title: `↻ ${path.basename(cwd)}`, cwd, account: a.account || 'dm', run: `claude --resume ${a.id}`, taskId: a.task || undefined })
+    return openTerminal({ title: `↻ ${path.basename(cwd)}`, cwd, account: a.account || 'dm', run: `claude --resume ${a.id}`, taskId: a.task || undefined, agent: a.id })
   }
   const t = body.task ? listDocs('tasks').find((d) => d.name === body.task) : undefined
   const p = listDocs('projects').find((d) => d.name === (body.project || String(t?.data.project ?? '').replace(/\[|\]/g, '')))

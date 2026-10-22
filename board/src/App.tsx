@@ -395,6 +395,28 @@ function TaskPanel({ doc, vault, defaultProject, close, fail, start, startHere, 
   return (
     <Panel title={doc ? doc.name : 'New task'} close={close} onSave={save}>
       {doc?.error && <p className="blocked">Invalid frontmatter: {doc.error}. Fix it in Obsidian; saving is disabled until then.</p>}
+      {doc && (
+        <div className="links">
+          <div className="link-actions">
+            <button type="button" className="primary" onClick={() => startHere(doc)} title="Claude in a workbench terminal, in the task's repo, linked to this task">▶ Start here</button>
+            <button type="button" onClick={() => grill(doc)} title="Interview me in the project chat">Grill</button>
+            <button type="button" onClick={() => write(`tasks/${doc.name}.md`)}>¶ Write</button>
+            {doc.data.notion && <a className="btn" href={doc.data.notion} target="_blank" rel="noreferrer">Notion ↗</a>}
+            {doc.data.pr && <a className="btn" href={doc.data.pr} target="_blank" rel="noreferrer">PR #{String(doc.data.pr).split('/').pop()} ↗</a>}
+            <a className="btn" href={obsidian(`${vault.vault}/tasks/${doc.name}.md`)}>Obsidian</a>
+            <button type="button" className="icon" onClick={() => start(doc)} title="Copy a start command for your own terminal">copy cmd</button>
+          </div>
+          {(meetings.length > 0 || list(doc.data.sources).length > 0 || list(doc.data.sessions).length > 0) && (
+            <div className="link-chips">
+              {meetings.map((m) => <button type="button" key={m} className="chip" onClick={() => write(`meetings/${m}.md`)}>🗒 {m}</button>)}
+              {list(doc.data.sources).filter((x) => x !== doc.data.pr && x !== doc.data.notion).map((x) => /^https?:/.test(x)
+                ? <a key={x} className="chip" href={x} target="_blank" rel="noreferrer">{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48)} ↗</a>
+                : <span key={x} className="chip">{x}</span>)}
+              {list(doc.data.sessions).map((x) => <span key={x} className="chip" title={x}>session {x.slice(0, 8)}</span>)}
+            </div>
+          )}
+        </div>
+      )}
       <Field label="Title"><input autoFocus value={f.title ?? ''} onChange={set('title')} required /></Field>
       <div className="row">
         <Field label="Project">
@@ -425,23 +447,6 @@ function TaskPanel({ doc, vault, defaultProject, close, fail, start, startHere, 
       <Field label="Sessions (one per line)"><textarea rows={2} value={f.sessions} onChange={set('sessions')} /></Field>
       <Field label="Notes (markdown)"><textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} /></Field>
 
-      {doc && (
-        <div className="links">
-          <h3>Links</h3>
-          <ul>
-            {doc.data.notion && <li><a href={doc.data.notion} target="_blank" rel="noreferrer">Open in Notion</a></li>}
-            <li><button type="button" className="link" onClick={() => write(`tasks/${doc.name}.md`)}>¶ Write in the editor</button></li>
-            <li><button type="button" className="link" onClick={() => grill(doc)}>Grill me on this task (in the project chat)</button></li>
-            <li><a href={obsidian(`${vault.vault}/tasks/${doc.name}.md`)}>Open in Obsidian</a></li>
-            <li><button type="button" className="link" onClick={() => startHere(doc)}>▶ Start here (Claude in a workbench terminal, linked to this task)</button></li>
-            <li><button type="button" className="link" onClick={() => start(doc)}>Copy start command for your own terminal</button></li>
-            {doc.data.pr && <li>PR: <a href={doc.data.pr} target="_blank" rel="noreferrer">{doc.data.pr}</a></li>}
-            {meetings.map((m) => <li key={m}>Meeting: <a href={obsidian(`${vault.vault}/meetings/${m}.md`)}>{m}</a></li>)}
-            {list(doc.data.sessions).map((s) => <li key={s}>Session: <a href={obsidian(`${vault.vault}/sessions/${s}.md`)}>{s}</a></li>)}
-            {list(doc.data.sources).map((s) => <li key={s}>Source: {/^https?:/.test(s) ? <a href={s} target="_blank" rel="noreferrer">{s}</a> : s}</li>)}
-          </ul>
-        </div>
-      )}
     </Panel>
   )
 }
