@@ -8,14 +8,14 @@ import type { Plugin } from 'vite'
 import { context as ragContext, refresh as ragRefresh, refreshSoon as ragRefreshSoon, search as ragSearch } from '../lib/rag.mjs'
 import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
 import { AGENTS_DIR, listAgents } from './agents'
-import { events } from './calendar'
+import { addFeed, events, listFeeds, removeFeed } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { createMeeting, readTranscript, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import { onTaskChanged, startSync, status as syncStatus, syncNow } from './sync'
 import { attachTerminals, closeTerminal, listTerminals, openTerminal } from './terminal'
 
-// Secrets (NOTION_TOKEN, CALENDAR_ICS) live in .env.local, which git ignores.
+// Secrets (NOTION_TOKEN, ...) live in .env.local, which git ignores.
 try { process.loadEnvFile(path.join(ROOT, '.env.local')) } catch { /* optional */ }
 
 const TASK_DEFAULTS = {
@@ -78,6 +78,7 @@ async function handle(req: IncomingMessage) {
     if (kind === 'search') return await search(url.searchParams.get('q') ?? '')
     if (kind === 'sync') return syncStatus
     if (kind === 'terminals') return listTerminals()
+    if (kind === 'calendars') return listFeeds()
     if (kind === 'transcript') return { text: readTranscript(meetingName(url.searchParams.get('name'))) }
     if (kind === 'calendar') {
       return events(new Date(url.searchParams.get('from') ?? Date.now()), new Date(url.searchParams.get('to') ?? Date.now() + 30 * 864e5))
@@ -92,6 +93,8 @@ async function handle(req: IncomingMessage) {
     return { ok: true }
   }
   if (method === 'POST' && kind === 'sync') { await syncNow(); return syncStatus }
+  if (kind === 'calendars' && method === 'POST') { await addFeed(body.label, body.url); return listFeeds() }
+  if (kind === 'calendars' && method === 'DELETE') { removeFeed(Number(id)); return listFeeds() }
   if (kind === 'terminals' && method === 'DELETE') { closeTerminal(id); return { ok: true } }
   if (kind === 'terminals' && method === 'POST') return { id: terminalFor(body) }
   if (kind === 'tasks') {

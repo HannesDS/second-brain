@@ -512,3 +512,34 @@ h2 { font-weight: 600; }
 .todo-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
 .todo-meta .reason { color: var(--p0); font-weight: 600; }
 @media (max-width: 900px) { .split { padding: 8px; } }
+
+/* Calendar accounts */
+.cal-item.event.cal-0, .swatch.cal-0 { border-left: 3px solid var(--accent); }
+.cal-item.event.cal-1, .swatch.cal-1 { border-left: 3px solid var(--ok); }
+.cal-item.event.cal-2, .swatch.cal-2 { border-left: 3px solid var(--p1); }
+.cal-item.event.cal-3, .swatch.cal-3 { border-left: 3px solid var(--p3); }
+.swatch { display: inline-block; width: 0; height: 12px; vertical-align: middle; }
+.feeds { top: 15%; width: min(520px, 92vw); display: flex; flex-direction: column; gap: 8px; }
+.feeds input { font-size: 14px; font-weight: 400; }
+.feed-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.feed-list li { display: flex; align-items: center; gap: 6px; }
+.steps { margin: 0; padding-left: 18px; font-size: 13px; }
+
+/* Context colours: Data Minded purple, client = Data Minded lime, personal = beeld-bit red. */
+:root { --ctx-dm: #543edc; --ctx-client: #4d8c12; --ctx-personal: #e00000; }
+@media (prefers-color-scheme: dark) { :root { --ctx-dm: #8b7cf0; --ctx-client: #8fdb3d; --ctx-personal: #ff4d4d; } }
+.dot.dataminded { background: var(--ctx-dm); }
+.dot.client { background: var(--ctx-client); }
+.dot.personal { background: var(--ctx-personal); }
+.ctx { font-weight: 600; background: none; border: 1px solid currentColor; padding: 0 8px; }
+.ctx.dataminded { color: var(--ctx-dm); }
+.ctx.client { color: var(--ctx-client); }
+.ctx.personal { color: var(--ctx-personal); }
+.project-card { border-top: 3px solid var(--border); }
+.project-card:has(.ctx.dataminded) { border-top-color: var(--ctx-dm); }
+.project-card:has(.ctx.client) { border-top-color: var(--ctx-client); }
+.project-card:has(.ctx.personal) { border-top-color: var(--ctx-personal); }
+.mono { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: -0.02em; }
+.mono.dataminded, .mono.client { background: #080635; color: #8fdb3d; }
+.mono.personal { background: #0a0a0a; color: #fff; font-family: ui-monospace, Menlo, monospace; box-shadow: inset 0 -2px 0 #ff0000; }
+@media (prefers-color-scheme: dark) { .mono.personal { background: #fafafa; color: #0a0a0a; } }

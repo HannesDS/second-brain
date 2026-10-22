@@ -311,8 +311,8 @@ function Projects({ vault, go, edit }: { vault: Vault; go: (id: string) => void;
         return (
           <article key={p.name} className={`project-card ${p.data.status}`} tabIndex={0} onClick={() => go(p.name)} onKeyDown={(e) => e.key === 'Enter' && go(p.name)}>
             <div className="card-top">
+              <span className={`mono ${p.data.context}`} title={p.data.account === 'personal' ? 'beeld-bit (personal account)' : 'Data Minded (dm account)'}>{p.data.account === 'personal' ? 'bb' : 'DM'}</span>
               <span className={`ctx ${p.data.context}`}>{p.data.context}</span>
-              <span className="muted">{p.data.account}</span>
               <div className="spacer" />
               <button className="icon" title="Edit project" onClick={(e) => { e.stopPropagation(); edit(p) }}>✎</button>
             </div>
