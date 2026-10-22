@@ -543,3 +543,25 @@ h2 { font-weight: 600; }
 .mono.dataminded, .mono.client { background: #080635; color: #8fdb3d; }
 .mono.personal { background: #0a0a0a; color: #fff; font-family: ui-monospace, Menlo, monospace; box-shadow: inset 0 -2px 0 #ff0000; }
 @media (prefers-color-scheme: dark) { .mono.personal { background: #fafafa; color: #0a0a0a; } }
+
+/* My day */
+.today-main { display: flex; flex-direction: column; }
+.meeting-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.meeting-pill { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; background: var(--surface-2); max-width: 100%; }
+.meeting-pill.cal-0 { border-left: 3px solid var(--accent); }
+.meeting-pill.cal-1 { border-left: 3px solid var(--ok); }
+.meeting-title { font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.mini-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.mini-col { display: flex; flex-direction: column; gap: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 8px 8px; min-width: 0; }
+.mini-col h3 { margin: 10px 2px 2px; }
+.hint-inline { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.mini-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 9px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mini-card:hover { border-color: var(--muted); }
+.mini-card.big { border-left: 3px solid var(--p0); padding: 10px 12px; }
+.mini-card.big .mini-title { font-size: 15px; }
+.mini-top, .mini-bottom { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.mini-project { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-title { font-weight: 600; line-height: 1.35; }
+.mini-bottom .reason, .reason { color: var(--p0); font-weight: 600; }
+@media (max-width: 1100px) { .mini-board { grid-template-columns: 1fr; } }

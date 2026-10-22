@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Chat, TodoList } from './Home'
+import { Chat } from './Home'
 import Split from './Split'
-import { ago, api, projectForPath, resumeCommand, todayISO, urgency, type Agent, type Doc, type Vault } from './lib'
+import { ago, api, prioLabel, projectForPath, resumeCommand, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean }
 
 // My day: agents waiting for you, today's meetings, a ranked plan, and the general assistant.
+const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+
+// My day: who needs you, today's meetings, your top 3, and a small Now / Next / Waiting board.
 export default function Today({ vault, tasks, agents, seen, openHere, open, write, fail, copy, prep, meetingNote }: {
   vault: Vault; tasks: Doc[]; agents: Agent[]; seen: (a: Agent) => void; openHere: (a: Agent) => void; open: (d: Doc) => void; write: (p: string) => void
   fail: (e: Error) => void; copy: (text: string, what: string) => void
-  prep: (title: string, date: string) => void; meetingNote: (title: string, date: string) => void
+  prep: (title: string, date: string) => void; meetingNote: (title: string, date: string, time?: string) => void
 }) {
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calError, setCalError] = useState('')
@@ -19,15 +22,27 @@ export default function Today({ vault, tasks, agents, seen, openHere, open, writ
     api(`calendar?from=${from.toISOString()}&to=${to.toISOString()}`).then((r) => { setEvents(r.events); setCalError(r.error) }, fail)
   }, [])
 
-  const ranked = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 15)
-  const reasons = Object.fromEntries(ranked.map((x) => [x.t.name, x.reasons]))
+  const ranked = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.t.data.status !== 'done').sort((a, b) => b.score - a.score)
+  const top3 = ranked.filter((x) => x.score > 0 && x.t.data.status !== 'blocked').slice(0, 3)
+  const shown = new Set(top3.map((x) => x.t.name))
+  const column = (match: (t: Doc) => boolean, max = 8) => ranked.filter((x) => match(x.t) && !shown.has(x.t.name)).slice(0, max)
+  const columns: [string, string, typeof ranked][] = [
+    ['Now', 'in progress', column((t) => t.data.status === 'wip')],
+    ['Next', 'highest todo first', column((t) => t.data.status === 'todo')],
+    ['Waiting', 'review or blocked', column((t) => t.data.status === 'review' || t.data.status === 'blocked')],
+  ]
   const waiting = agents.filter((a) => a.state === 'needs-input')
   const done = (t: Doc) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail)
-  const meetingsToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
+  const notesToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
+  const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
+  const card = (x: (typeof ranked)[number], big = false) => (
+    <MiniCard key={x.t.name} task={x.t} project={vault.projects.find((p) => p.name === unlink(x.t.data.project))} reasons={x.reasons}
+      big={big} open={open} done={done} write={write} />
+  )
 
   return (
     <Split id="today">
-      <section className="pane todos">
+      <section className="pane today-main">
         <h2>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
 
         {waiting.length > 0 && <>
@@ -37,28 +52,74 @@ export default function Today({ vault, tasks, agents, seen, openHere, open, writ
 
         <h3>Meetings today</h3>
         {calError && <p className="muted">{calError}</p>}
-        <ul className="event-list">
-          {events.map((e) => (
-            <li key={e.id}>
-              <span className="time">{e.allDay ? 'all day' : new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-              <span className="todo-title">{e.title}</span>
-              <button className="icon" onClick={() => prep(e.title, todayISO())}>+ prep</button>
-              <button className="icon" onClick={() => meetingNote(e.title, todayISO())}>notes</button>
-            </li>
+        <div className="meeting-strip">
+          {events.map((e) => {
+            const note = noteFor(e.title)
+            return (
+              <div key={e.id} className={`meeting-pill cal-${(e as any).calendar % 4}`}>
+                <span className="time">{e.allDay ? 'all day' : time(e.start)}</span>
+                <span className="meeting-title" title={e.title}>{e.title}</span>
+                {note
+                  ? <button className="icon" onClick={() => write(`meetings/${note.name}.md`)}>🗒 notes</button>
+                  : <button className="icon" onClick={() => meetingNote(e.title, todayISO(), e.allDay ? '' : time(e.start))}>+ notes</button>}
+                <button className="icon" onClick={() => prep(e.title, todayISO())}>+ prep</button>
+              </div>
+            )
+          })}
+          {notesToday.filter((m) => !events.some((e) => noteFor(e.title) === m)).map((m) => (
+            <div key={m.name} className="meeting-pill">
+              <span className="time">{m.data.time || 'note'}</span>
+              <span className="meeting-title">{m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}</span>
+              <button className="icon" onClick={() => write(`meetings/${m.name}.md`)}>🗒 notes</button>
+            </div>
           ))}
-          {meetingsToday.map((m) => (
-            <li key={m.name}><span className="time">note</span><span className="todo-title">{m.name}</span>
-              <button className="icon" onClick={() => write(`meetings/${m.name}.md`)}>open</button></li>
-          ))}
-          {!events.length && !meetingsToday.length && !calError && <li className="muted">No meetings today.</li>}
-        </ul>
+          {!events.length && !notesToday.length && !calError && <span className="muted">No meetings today.</span>}
+        </div>
 
-        <h3>Plan</h3>
-        <TodoList tasks={ranked.map((x) => x.t)} projects={vault.projects} reasons={reasons} open={open} done={done} write={write} />
-        <p className="muted hint">Ranked by overdue, due soon, in progress and priority. Ask the assistant to replan ("I have 2 hours, what first?").</p>
+        <h3>Top 3 today</h3>
+        <div className="top3">
+          {top3.map((x) => card(x, true))}
+          {!top3.length && <span className="muted">Nothing urgent. Pick something from Next.</span>}
+        </div>
+
+        <div className="mini-board">
+          {columns.map(([name, hint, items]) => (
+            <section key={name} className="mini-col">
+              <h3>{name} <span className="count">{items.length}</span> <span className="muted hint-inline">{hint}</span></h3>
+              {items.map((x) => card(x))}
+              {!items.length && <span className="muted">Empty</span>}
+            </section>
+          ))}
+        </div>
       </section>
       <Chat clearTask={() => {}} />
     </Split>
+  )
+}
+
+function MiniCard({ task, project, reasons, big, open, done, write }: {
+  task: Doc; project?: Doc; reasons: string[]; big?: boolean; open: (d: Doc) => void; done: (d: Doc) => void; write: (p: string) => void
+}) {
+  const d = task.data
+  const extra = reasons.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r))
+  return (
+    <article className={`mini-card ${big ? 'big' : ''}`} onClick={() => open(task)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && open(task)}>
+      <div className="mini-top">
+        <span className={`dot ${project?.data.context ?? ''}`} />
+        <span className="mini-project">{project?.data.name ?? (unlink(d.project) || 'No project')}</span>
+        <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
+      </div>
+      <div className="mini-title">{d.title ?? task.name}</div>
+      <div className="mini-bottom">
+        {d.blocked_by && <span className="reason">⛔ {String(d.blocked_by).replace(/\[|\]/g, '')}</span>}
+        {extra.map((r) => <span key={r} className="reason">{r}</span>)}
+        {d.notion && <a href={d.notion} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Notion ↗</a>}
+        {d.pr && <a href={d.pr} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>PR ↗</a>}
+        <span className="spacer" />
+        <button className="icon" title="Write notes for this task" onClick={(e) => { e.stopPropagation(); write(`tasks/${task.name}.md`) }}>¶</button>
+        <button className="icon" title="Mark done" onClick={(e) => { e.stopPropagation(); done(task) }}>✓</button>
+      </div>
+    </article>
   )
 }
 
