@@ -14,7 +14,7 @@ import Terminals from './Terminals'
 import Today, { Agents } from './Today'
 
 import {
-  CONTEXTS, LABELS, LIST_FIELDS, PRIORITIES, STATUSES, TYPES, api, byOrder, columnOf, list, obsidian, startCommand, unlink,
+  CONTEXTS, LABELS, LIST_FIELDS, PRIORITIES, PRIO_LABEL, prioLabel, STATUSES, TYPES, api, byOrder, columnOf, list, obsidian, startCommand, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -117,7 +117,7 @@ export default function App() {
         <div className="prio-filter" role="group" aria-label="Priority filter">
           {PRIORITIES.map((p) => (
             <button key={p} className={`prio-chip ${p} ${prios.includes(p) ? 'on' : ''}`} aria-pressed={prios.includes(p)}
-              onClick={() => setPrios(prios.includes(p) ? prios.filter((x) => x !== p) : [...prios, p])}>{p}</button>
+              onClick={() => setPrios(prios.includes(p) ? prios.filter((x) => x !== p) : [...prios, p])}>{PRIO_LABEL[p]}</button>
           ))}
         </div>
         <select value={context} onChange={(e) => setContext(e.target.value)} aria-label="Context filter">
@@ -281,7 +281,7 @@ function Card({ task, project, start }: { task: Doc; project?: Doc; start?: (d: 
   return (
     <article className="card">
       <div className="card-top">
-        <span className={`prio ${d.priority}`}>{d.priority ?? 'p?'}</span>
+        <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
         <span className="project">{project?.data.name ?? (unlink(d.project) || 'No project')}</span>
         <span className="id">{task.name}</span>
       </div>
@@ -428,7 +428,7 @@ function TaskPanel({ doc, vault, defaultProject, close, fail, start, startHere, 
         <Field label="Status">{select('status', STATUSES)}</Field>
       </div>
       <div className="row">
-        <Field label="Priority">{select('priority', PRIORITIES)}</Field>
+        <Field label="Priority"><select value={f.priority ?? 'p2'} onChange={set('priority')}>{PRIORITIES.map((p) => <option key={p} value={p}>{PRIO_LABEL[p]}</option>)}</select></Field>
         <Field label="Type">{select('type', TYPES)}</Field>
       </div>
       <div className="row">
