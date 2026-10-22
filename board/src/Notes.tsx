@@ -49,7 +49,9 @@ export default function Notes({ vault, projects, path, go, fail, flash }: {
   )
 }
 
-function Editor({ vault, projects, path, fail, flash, onFiled }: { vault: Vault; projects: Doc[]; path: string; fail: (e: Error) => void; flash: (m: string) => void; onFiled: () => void }) {
+export function Editor({ vault, projects, path, fail, flash, onFiled, bare }: {
+  vault: Vault; projects: Doc[]; path: string; fail: (e: Error) => void; flash: (m: string) => void; onFiled: () => void; bare?: boolean
+}) {
   const root = useRef<HTMLDivElement>(null)
   const [saved, setSaved] = useState('saved')
   const [meta, setMeta] = useState<Record<string, any>>({})
@@ -111,15 +113,16 @@ function Editor({ vault, projects, path, fail, flash, onFiled }: { vault: Vault;
 
   const canFile = isMeeting || path.startsWith('inbox/') || path.startsWith('notes/')
   return (
-    <section className="pane editor-pane">
-      <div className="editor-head">
+    <section className={bare ? 'editor-bare' : 'pane editor-pane'}>
+      {!bare && <div className="editor-head">
         <h2>{name}</h2>
         <span className="muted">{path.split('/')[0]} · {saved}{!isMeeting && meta.project ? ` · ${meta.project}` : ''}</span>
         <div className="spacer" />
         {canFile && <button className="primary" disabled={filing} onClick={propose}
           title={isMeeting ? 'Summary, action points and tasks from your notes and the transcript' : 'Let the agent propose where this note belongs'}>
           {filing ? 'Thinking…' : isMeeting ? 'Process meeting' : 'File it'}</button>}
-      </div>
+      </div>}
+      {bare && <div className="muted save-state">{saved}</div>}
       {isMeeting && <MeetingBar vault={vault} projects={projects} name={name} meta={meta} setField={setField} fail={fail} />}
       {proposal && (
         <div className="proposal">

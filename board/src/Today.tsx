@@ -1,3 +1,5 @@
+import { Check, EyeOff, ListPlus, NotebookText, Play, Star } from 'lucide-react'
+import { IconButton } from './ui'
 import { useEffect, useState } from 'react'
 import { ProjectSelect } from './Home'
 import { ago, api, isFocus, prioLabel, projectForPath, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
@@ -65,9 +67,9 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
                 onClick={openNote} onKeyDown={(k) => k.key === 'Enter' && openNote()}>
                 <span className="time">{e.allDay ? 'all day' : time(e.start)}</span>
                 <span className="meeting-title">{e.title}</span>
-                {note && <span className="note-mark" title="Has notes">🗒</span>}
+                {note && <NotebookText size={14} className="note-mark" aria-label="Has notes" />}
                 <span className="hover-actions">
-                  <button className="icon" title="Add a prep todo for this meeting" onClick={(k) => { k.stopPropagation(); prep(e.title, todayISO()) }}>+ prep</button>
+                  <IconButton icon={ListPlus} label="Add a prep todo" stop onClick={() => prep(e.title, todayISO())} />
                 </span>
               </div>
             )
@@ -76,7 +78,7 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
             <div key={m.name} className="meeting-pill clickable" role="button" tabIndex={0} onClick={() => act.write(`meetings/${m.name}.md`)}>
               <span className="time">{m.data.time || 'note'}</span>
               <span className="meeting-title">{m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}</span>
-              <span className="note-mark">🗒</span>
+              <NotebookText size={14} className="note-mark" aria-hidden />
             </div>
           ))}
           {!events.length && !notesToday.length && !calError && <span className="muted">No meetings today.</span>}
@@ -112,8 +114,7 @@ export function TaskCard({ task, project, reasons = [], act }: {
         </button>
         <span className="spacer" />
         <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
-        <button className={`star ${isFocus(task) ? 'on' : ''}`} title={isFocus(task) ? 'Remove from top 3' : 'Add to top 3'} aria-pressed={isFocus(task)}
-          onClick={stop(() => act.focus(task))}>{isFocus(task) ? '★' : '☆'}</button>
+        <span className={`star ${isFocus(task) ? 'on' : ''}`}><IconButton icon={Star} label={isFocus(task) ? 'Remove from top 3' : 'Add to top 3'} active={isFocus(task)} stop onClick={() => act.focus(task)} /></span>
       </div>
       <div className="mini-title">{d.title ?? task.name}</div>
       <div className="mini-bottom">
@@ -123,9 +124,8 @@ export function TaskCard({ task, project, reasons = [], act }: {
         {d.pr && <a href={d.pr} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>PR ↗</a>}
         <span className="spacer" />
         <span className="hover-actions">
-          <button className="icon" title="Start an agent on this task" onClick={stop(() => act.start(task))}>▶</button>
-          <button className="icon" title="Write in this task" onClick={stop(() => act.write(`tasks/${task.name}.md`))}>¶</button>
-          <button className="icon" title="Mark done" onClick={stop(() => act.done(task))}>✓</button>
+          <IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} />
+          <IconButton icon={Check} label="Mark done" stop onClick={() => act.done(task)} />
         </span>
       </div>
     </article>
@@ -157,7 +157,7 @@ export function AgentList({ agents, vault, open, seen, act }: {
               <span className="muted">{a.account} · {ago(a.updated)}</span>
               <span className="spacer" />
               {seen && a.state === 'needs-input' && (
-                <span className="hover-actions"><button className="icon" title="Hide until this session changes" onClick={stop(() => seen(a))}>✓ seen</button></span>
+                <span className="hover-actions"><IconButton icon={EyeOff} label="Seen: hide until this session changes" stop onClick={() => seen(a)} /></span>
               )}
             </div>
             {a.title && <div className="agent-title">{a.title}</div>}

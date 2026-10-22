@@ -16,6 +16,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "frappe-gantt": "^1.2.2",
+    "lucide-react": "^1.61.0",
     "marked": "^18.1.1",
     "node-ical": "^0.27.3",
     "node-pty": "^1.1.0",

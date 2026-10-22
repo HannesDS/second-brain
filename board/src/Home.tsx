@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { PRIORITIES, api, list, prioLabel, unlink, type Doc, type Vault } from './lib'
+import { MessagesSquare, Play, RotateCcw, X } from 'lucide-react'
 import Split from './Split'
+import { IconButton } from './ui'
 
 const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, todo: 3 }
 const rank = (t: Doc) => RANK[t.data.status] ?? 4
@@ -17,13 +19,16 @@ export function save(key: string, value: unknown) {
 export type Seed = { task?: string; message: string; at: number }
 
 // One project: its open tasks next to a chat that runs in the project's repo and account.
-export default function ProjectPage({ vault, project, open, edit, fail, seed, write, terminal, start }: {
+// In the side peek (`compact`) tasks and chat are tabs instead of two panes.
+export default function ProjectPage({ vault, project, open, edit, fail, seed, write, terminal, start, compact }: {
   vault: Vault; project: Doc; open: (d: Doc) => void; edit: (d: Doc) => void; fail: (e: Error) => void; terminal: () => void; start: (d: Doc) => void
-  seed?: Seed; write: (path: string) => void
+  seed?: Seed; write: (path: string) => void; compact?: boolean
 }) {
   const [taskId, setTaskId] = useState<string | undefined>(seed?.task)
   const [newTitle, setNewTitle] = useState('')
-  useEffect(() => { if (seed?.task) setTaskId(seed.task) }, [seed])
+  const [tab, setTab] = useState<'tasks' | 'chat'>(seed ? 'chat' : 'tasks')
+  useEffect(() => { if (seed?.task) { setTaskId(seed.task); setTab('chat') } }, [seed])
+  const chatAbout = (id?: string) => { setTaskId(id); if (id) setTab('chat') }
 
   const mine = vault.tasks.filter((t) => unlink(t.data.project) === project.name)
   const openTasks = mine.filter((t) => t.data.status !== 'done')
@@ -37,24 +42,35 @@ export default function ProjectPage({ vault, project, open, edit, fail, seed, wr
   }
   const done = (t: Doc) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail)
 
+  const head = (
+    <div className="page-head">
+      <h2>{project.data.name ?? project.name}</h2>
+      <span className="muted">{project.data.account} account</span>
+      <div className="spacer" />
+      <button onClick={() => edit(project)}>Edit</button>
+      <IconButton icon={Play} label="New agent" showLabel primary onClick={terminal} />
+    </div>
+  )
+  const tasksPane = (
+    <section className="pane todos">
+      {!compact && head}
+      <form onSubmit={add} className="quick-add">
+        <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Add a task, press Enter" aria-label="New task title" />
+      </form>
+      <TodoList tasks={openTasks} selected={taskId} select={chatAbout} open={open} done={done} write={write} start={start} />
+    </section>
+  )
+  const chat = <Chat key={project.name} project={project} task={task} clearTask={() => setTaskId(undefined)} seed={seed} />
+  if (!compact) return <Split id="project">{tasksPane}{chat}</Split>
   return (
-    <Split id="project">
-      <section className="pane todos">
-        <div className="page-head">
-          <h2>{project.data.name ?? project.name}</h2>
-          <span className="muted">{project.data.account} account</span>
-          <div className="spacer" />
-          <button title="Edit project" onClick={() => edit(project)}>Edit</button>
-          <button className="primary" title="Start Claude in this project's repo, in a workbench terminal" onClick={terminal}>▶ New agent</button>
-        </div>
-        <form onSubmit={add} className="quick-add">
-          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Add a task, press Enter" aria-label="New task title" />
-        </form>
-        <TodoList tasks={openTasks} selected={taskId} select={setTaskId} open={open} done={done} write={write} start={start} />
-        <p className="muted hint">Click a task to chat about it here, or ▶ to start an agent on it.</p>
-      </section>
-      <Chat key={project.name} project={project} task={task} clearTask={() => setTaskId(undefined)} seed={seed} />
-    </Split>
+    <div className="project-peek">
+      {head}
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'tasks'} className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>Tasks <span className="count">{openTasks.length}</span></button>
+        <button role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>Chat{task ? ` · ${task.name}` : ''}</button>
+      </div>
+      {tab === 'tasks' ? tasksPane : chat}
+    </div>
   )
 }
 
@@ -66,7 +82,7 @@ export function TodoList({ tasks, projects, selected, select, open, done, write,
   return (
     <ul className="todo-list">
       {tasks.map((t) => (
-        <li key={t.name} className={t.name === selected ? 'on' : ''} onClick={() => (select ? select(t.name === selected ? undefined : t.name) : open(t))}>
+        <li key={t.name} className={`clickable ${t.name === selected ? 'on' : ''}`} onClick={() => open(t)}>
           <input type="checkbox" aria-label={`Mark ${t.name} done`} onClick={(e) => e.stopPropagation()} onChange={() => done(t)} />
           <span className="todo-body">
             {projects && (() => {
@@ -83,10 +99,8 @@ export function TodoList({ tasks, projects, selected, select, open, done, write,
             </span>
           </span>
           <span className="hover-actions">
-            {start && <button className="icon" title="Start an agent on this task" onClick={(e) => { e.stopPropagation(); start(t) }}>▶</button>}
-            {t.data.notion && <a className="icon" href={t.data.notion} target="_blank" rel="noreferrer" title="Open in Notion" onClick={(e) => e.stopPropagation()}>N</a>}
-            <button className="icon" title="Write notes for this task" onClick={(e) => { e.stopPropagation(); write(`tasks/${t.name}.md`) }}>¶</button>
-            <button className="icon" title="Open task details" onClick={(e) => { e.stopPropagation(); open(t) }}>✎</button>
+            {start && <IconButton icon={Play} label="Start an agent on this task" stop onClick={() => start(t)} />}
+            {select && <IconButton icon={MessagesSquare} label="Chat about this task" stop onClick={() => select(t.name)} />}
           </span>
         </li>
       ))}
@@ -190,13 +204,13 @@ export function Chat({ project, task, clearTask, seed }: { project?: Doc; task?:
     <section className="pane chat">
       <div className="chat-head">
         <h2>{project ? 'Chat' : 'Assistant'}</h2>
-        {task && <span className="chip">about {task.name} <button className="icon" onClick={clearTask} aria-label="Stop chatting about this task">✕</button></span>}
+        {task && <span className="chip">about {task.name} <IconButton icon={X} label="Stop chatting about this task" onClick={clearTask} /></span>}
         <div className="spacer" />
         {task && <>
           <button className="icon" disabled={!!busy} onClick={() => send(GRILL)} title="Interview me about this task">Grill</button>
           <button className="icon" disabled={!!busy} onClick={() => send(SPAR)} title="Challenge my thinking (ADRs, designs)">Spar</button>
         </>}
-        <button className="icon" title="Start a new conversation" disabled={!!busy} onClick={() => { setMsgs([]); setSessionId(undefined) }}>New chat</button>
+        <IconButton icon={RotateCcw} label="New chat" disabled={!!busy} onClick={() => { setMsgs([]); setSessionId(undefined) }} />
       </div>
       <div className="messages" aria-live="polite">
         {!msgs.length && <p className="muted">{project

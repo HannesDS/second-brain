@@ -6,24 +6,31 @@ import {
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { marked } from 'marked'
+import {
+  Bot, CalendarDays, FolderKanban, Pencil, GanttChart, HelpCircle, KanbanSquare, NotebookPen, Play, Plus, RefreshCw, Sparkles, Star, Sun, X,
+  type LucideIcon,
+} from 'lucide-react'
+import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
+import { Editor } from './Notes'
+import { IconButton } from './ui'
 import Calendar, { guessProject } from './Calendar'
 import Gantt from './Gantt'
-import ProjectPage, { Chat, ProjectSelect, load as loadLocal, save as saveLocal, type Seed } from './Home'
+import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
 import Notes from './Notes'
 import Split from './Split'
 import Terminals from './Terminals'
 import Today, { Agents, type Actions } from './Today'
 
 import {
-  CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, LIST_FIELDS, PRIORITIES, PRIO_LABEL, prioLabel, STATUSES, TYPES, api, byOrder, columnOf, isFocus, list,
-  contextOf, inContext, obsidian, scopeVault, startCommand, unlink,
+  CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, prioLabel, STATUSES, api, byOrder, columnOf, isFocus, list,
+  contextOf, inContext, scopeVault, startCommand, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
 type Page = 'today' | 'project' | 'notes' | 'calendar' | 'board' | 'gantt' | 'projects' | 'agents' | 'guide'
-const NAV: [Page, string, string][] = [
-  ['today', 'My day', '☀'], ['notes', 'Notes', '✎'], ['calendar', 'Calendar', '▦'], ['board', 'Board', '▤'],
-  ['gantt', 'Timeline', '≡'], ['projects', 'Projects', '◫'], ['agents', 'Agents', '◉'], ['guide', 'Guide', '?'],
+const NAV: [Page, string, LucideIcon][] = [
+  ['today', 'My day', Sun], ['notes', 'Notes', NotebookPen], ['calendar', 'Calendar', CalendarDays], ['board', 'Board', KanbanSquare],
+  ['gantt', 'Timeline', GanttChart], ['projects', 'Projects', FolderKanban], ['agents', 'Agents', Bot], ['guide', 'Guide', HelpCircle],
 ]
 
 // Routes live in the URL hash (#notes/inbox%2Fx.md, #project/portal) so back/forward and reloads work.
@@ -40,6 +47,9 @@ export default function App() {
   const [context, setContextState] = useState<string>(() => loadLocal('sb.context', ''))
   const setContext = (c: string) => { setContextState(c); saveLocal('sb.context', c) }
   const [asking, setAsking] = useState(false)
+  // What's open in the side peek; the last item is shown, Back pops it.
+  const [peeks, setPeeks] = useState<PeekItem[]>([])
+  const [wide, setWide] = useState<boolean>(() => loadLocal('sb.peekWide', false))
   const [prios, setPrios] = useState<string[]>([])
   const [editing, setEditing] = useState<{ kind: 'task' | 'project'; doc?: Doc }>()
   const [seed, setSeed] = useState<Seed>()
@@ -82,8 +92,13 @@ export default function App() {
     .map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
   const markSeen = (a: Agent) => { const next = { ...seen, [a.id]: a.updated }; setSeen(next); saveLocal('sb.seen', next) }
   const project = page === 'project' ? projects[arg] : undefined
-  const openTask = (doc?: Doc) => setEditing({ kind: 'task', doc })
-  const write = (path: string) => go('notes', path)
+  const peek = (p: PeekItem) => setPeeks((st) => (st.at(-1)?.kind === p.kind && st.at(-1)?.id === p.id ? st : [...st.slice(-9), p]))
+  // A new task is created right away as "Untitled" and opened, so you can just start typing.
+  const openTask = (doc?: Doc) => (doc
+    ? peek({ kind: 'task', id: doc.name })
+    : api('tasks', 'POST', { data: { title: 'Untitled', project: peeks.at(-1)?.kind === 'project' ? `[[${peeks.at(-1)!.id}]]` : '' } })
+      .then(({ id }) => peek({ kind: 'task', id }), fail))
+  const write = (path: string) => (path.startsWith('tasks/') ? peek({ kind: 'task', id: path.slice(6, -3) }) : peek({ kind: 'doc', id: path }))
   const copy = (text: string, what: string) => navigator.clipboard.writeText(text).then(() => flash(`${what} copied`), fail)
   const copyStart = (t: Doc) => copy(startCommand(t, projects[unlink(t.data.project)], vault.root), 'Start command')
   const prep = (title: string, date: string, prefix = 'Prep: ') => {
@@ -93,7 +108,7 @@ export default function App() {
   }
   const meetingNote = (title: string, date: string, time = '') =>
     api('meetings', 'POST', { title, date, time, project: guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
-  const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => go('agents', id), fail)
+  const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => peek({ kind: 'terminal', id }), fail)
   // Resuming a session that is still working elsewhere would put two windows on one session.
   const openAgent = (a: Agent) => {
     if (a.state === 'working' && !confirm('This session is still working in another window. Open it here anyway?')) return
@@ -105,13 +120,13 @@ export default function App() {
   }
   const act: Actions = {
     open: openTask,
-    project: (id) => id && go('project', id),
-    start: (t) => { setEditing(undefined); terminal({ kind: 'claude', task: t.name }) },
+    project: (id) => id && peek({ kind: 'project', id }),
+    start: (t) => terminal({ kind: 'claude', task: t.name }),
     focus: toggleFocus,
     done: (t) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail),
     write,
   }
-  const grill = (t: Doc) => { setEditing(undefined); setSeed({ task: t.name, message: 'Grill', at: Date.now() }); go('project', unlink(t.data.project)) }
+  const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
   const openCount = (p: Doc) => vault.tasks.filter((t) => unlink(t.data.project) === p.name && t.data.status !== 'done').length
 
@@ -121,22 +136,22 @@ export default function App() {
         <div className="brand">Second Brain</div>
         <Search vault={vault} openTask={openTask} write={write} />
         <div className="side-actions">
-          <button className="primary" onClick={() => openTask()}>+ Task</button>
-          <button onClick={() => api('notes', 'POST', { title: '' }).then(({ path }) => write(path), fail)}>+ Note</button>
+          <IconButton icon={Plus} label="Task" showLabel primary onClick={() => openTask()} />
+          <IconButton icon={Plus} label="Note" showLabel onClick={() => api('notes', 'POST', { title: '' }).then(({ path }) => go('notes', path), fail)} />
         </div>
         <nav className="side-nav">
-          {NAV.map(([id, label, icon]) => (
+          {NAV.map(([id, label, Icon]) => (
             <button key={id} className={page === id ? 'nav on' : 'nav'} aria-current={page === id ? 'page' : undefined} onClick={() => go(id)}>
-              <span className="nav-icon" aria-hidden>{icon}</span>{label}
+              <Icon size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />{label}
               {id === 'agents' && waiting > 0 && <span className="badge" title="Agents waiting for you">{waiting}</span>}
             </button>
           ))}
         </nav>
 
-        <div className="side-section">Projects <button className="icon" title="New project" onClick={() => setEditing({ kind: 'project' })}>+</button></div>
+        <div className="side-section">Projects <IconButton icon={Plus} label="New project" onClick={() => setEditing({ kind: 'project' })} /></div>
         <nav className="side-projects">
           {scoped.projects.filter((p) => p.data.status !== 'done').map((p) => (
-            <button key={p.name} className={project === p ? 'nav on' : 'nav'} onClick={() => go('project', p.name)}>
+            <button key={p.name} className={peeks.at(-1)?.kind === 'project' && peeks.at(-1)?.id === p.name ? 'nav on' : 'nav'} onClick={() => peek({ kind: 'project', id: p.name })}>
               <span className={`dot ${p.data.context}`} />
               <span className="proj-name">{p.data.name ?? p.name}</span>
               {openCount(p) > 0 && <span className="count">{openCount(p)}</span>}
@@ -146,7 +161,7 @@ export default function App() {
 
         <div className="side-foot">
           <span title={sync.error || ''}>Notion: {sync.notion || '…'}</span>
-          <button className="icon" onClick={() => api('sync', 'POST').then(setSync, fail)}>sync</button>
+          <IconButton icon={RefreshCw} label="Sync Notion and GitHub now" onClick={() => api('sync', 'POST').then(setSync, fail)} />
         </div>
       </aside>
 
@@ -160,7 +175,7 @@ export default function App() {
             ))}
           </div>
           <div className="spacer" />
-          <button className={asking ? 'primary' : ''} onClick={() => setAsking(!asking)} title="The assistant: questions, findings, planning">✦ Ask</button>
+          <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </div>
         {page === 'today' && <Today vault={scoped} tasks={scoped.tasks} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote} />}
         {page === 'project' && project && <ProjectPage vault={vault} project={project} terminal={() => terminal({ kind: 'claude', project: project.name })} start={act.start} open={openTask} edit={(doc) => setEditing({ kind: 'project', doc })} fail={fail} seed={seed} write={write} />}
@@ -175,7 +190,7 @@ export default function App() {
             ))}
           </div>} />}
         {page === 'gantt' && <Gantt tasks={scoped.tasks} projects={projects} open={openTask} fail={fail} />}
-        {page === 'projects' && <Projects vault={scoped} go={(p) => go('project', p)} edit={(doc) => setEditing({ kind: 'project', doc })} />}
+        {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>
             <Terminals active={arg || undefined} go={(id) => go('agents', id)} fail={fail} show={(t) => inContext(context, contextOf(t, vault))} />
@@ -185,13 +200,34 @@ export default function App() {
         {page === 'guide' && <Guide />}
       </div>
 
-      {editing?.kind === 'task' && <TaskPanel key={editing.doc?.name ?? 'new'} doc={editing.doc} vault={vault} projects={scoped.projects}
-        defaultProject={project?.name ?? ''} close={() => setEditing(undefined)} fail={fail} start={copyStart} startHere={act.start} act={act} agents={agents} openAgent={openAgent} write={(p) => { setEditing(undefined); write(p) }} grill={grill} />}
       {editing?.kind === 'project' && <ProjectPanel key={editing.doc?.name ?? 'new'} doc={editing.doc}
         close={() => setEditing(undefined)} fail={fail} />}
+      {peeks.length > 0 && (() => {
+        const top = peeks.at(-1)!
+        const close = () => setPeeks([])
+        const back = peeks.length > 1 ? () => setPeeks(peeks.slice(0, -1)) : undefined
+        const setW = (w: boolean) => { setWide(w); saveLocal('sb.peekWide', w) }
+        const task = top.kind === 'task' ? vault.tasks.find((t) => t.name === top.id) : undefined
+        const proj = top.kind === 'project' ? projects[top.id] : undefined
+        const title = task ? <><span className="muted">{unlink(task.data.project) && (projects[unlink(task.data.project)]?.data.name ?? unlink(task.data.project))}</span> {task.name}</>
+          : proj ? 'Project' : top.kind === 'terminal' ? 'Agent' : top.id.split('/')[0]
+        return (
+          <Peek key={`${top.kind}:${top.id}`} title={title} back={back} close={close} wide={wide} setWide={setW}>
+            {top.kind === 'task' && (task
+              ? <TaskPage task={task} vault={vault} projects={scoped.projects} act={act} agents={agents} openAgent={openAgent} peek={peek} grill={grill} copyStart={copyStart} fail={fail} flash={flash} />
+              : <p className="muted">Loading {top.id}…</p>)}
+            {top.kind === 'project' && (proj
+              ? <ProjectPage compact vault={vault} project={proj} terminal={() => terminal({ kind: 'claude', project: proj.name })} start={act.start} open={openTask}
+                  edit={(doc) => setEditing({ kind: 'project', doc })} fail={fail} seed={seed} write={write} />
+              : <p className="muted">Unknown project {top.id}.</p>)}
+            {top.kind === 'terminal' && <TerminalPeek id={top.id} fail={fail} closed={back ?? close} />}
+            {top.kind === 'doc' && <Editor vault={vault} projects={scoped.projects} path={top.id} fail={fail} flash={flash} onFiled={() => {}} />}
+          </Peek>
+        )
+      })()}
       {asking && (
         <aside className="drawer" aria-label="Assistant">
-          <button className="icon drawer-close" onClick={() => setAsking(false)} aria-label="Close the assistant">✕</button>
+          <span className="drawer-close"><IconButton icon={X} label="Close the assistant" onClick={() => setAsking(false)} /></span>
           <Chat clearTask={() => {}} />
         </aside>
       )}
@@ -325,7 +361,7 @@ function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions 
         <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
         <button className="link-plain project" title="Open project" {...stop(() => act?.project(unlink(d.project)))}>{project?.data.name ?? (unlink(d.project) || 'No project')}</button>
         <span className="id">{task.name}</span>
-        <button className={`star ${isFocus(task) ? 'on' : ''}`} title={isFocus(task) ? 'Remove from top 3' : 'Add to top 3'} aria-pressed={isFocus(task)} {...stop(() => act?.focus(task))}>{isFocus(task) ? '★' : '☆'}</button>
+        {act && <span className={`star ${isFocus(task) ? 'on' : ''}`}><IconButton icon={Star} label={isFocus(task) ? 'Remove from top 3' : 'Add to top 3'} active={isFocus(task)} stop onClick={() => act.focus(task)} /></span>}
       </div>
       <div className="title">{d.title ?? task.name}</div>
       {task.error && <div className="blocked">Invalid frontmatter, fix in Obsidian</div>}
@@ -336,7 +372,7 @@ function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions 
         <div className="spacer" />
         {d.pr && <a href={d.pr} target="_blank" rel="noreferrer" title="Pull request" onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}>PR ↗</a>}
-        {act && <span className="hover-actions"><button className="icon" title="Start an agent on this task" {...stop(() => act.start(task))}>▶</button></span>}
+        {act && <span className="hover-actions"><IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /></span>}
       </div>
     </article>
   )
@@ -355,7 +391,7 @@ function Projects({ vault, go, edit }: { vault: Vault; go: (id: string) => void;
               <span className={`mono ${p.data.context}`} title={p.data.account === 'personal' ? 'beeld-bit (personal account)' : 'Data Minded (dm account)'}>{p.data.account === 'personal' ? 'bb' : 'DM'}</span>
               <span className={`ctx ${p.data.context}`}>{p.data.context}</span>
               <div className="spacer" />
-              <button className="icon" title="Edit project" onClick={(e) => { e.stopPropagation(); edit(p) }}>✎</button>
+              <IconButton icon={Pencil} label="Edit project" stop onClick={() => edit(p)} />
             </div>
             <h3>{p.data.name ?? p.name}</h3>
             <div className="status-bar" aria-label="Tasks per status">
@@ -392,7 +428,7 @@ function Panel({ title, close, children, onSave }: { title: string; close: () =>
         <form onSubmit={(e) => { e.preventDefault(); onSave() }}>
           <div className="panel-head">
             <h2>{title}</h2>
-            <button type="button" className="icon" onClick={close} aria-label="Close">✕</button>
+            <IconButton icon={X} label="Close" onClick={close} />
           </div>
           {children}
           <div className="panel-foot">
@@ -407,95 +443,6 @@ function Panel({ title, close, children, onSave }: { title: string; close: () =>
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="field"><span>{label}</span>{children}</label>
-}
-
-function TaskPanel({ doc, vault, projects, defaultProject, close, fail, start, startHere, act, agents, openAgent, write, grill }: {
-  doc?: Doc; vault: Vault; projects: Doc[]; defaultProject: string; close: () => void; fail: (e: Error) => void; start: (d: Doc) => void; startHere: (d: Doc) => void
-  act: Actions; agents: Agent[]; openAgent: (a: Agent) => void
-  write: (path: string) => void; grill: (d: Doc) => void
-}) {
-  const init = doc?.data ?? { status: 'todo', priority: 'p2', type: 'code', project: defaultProject ? `[[${defaultProject}]]` : '' }
-  const [f, setF] = useState<Fields>(() => ({ ...init, ...Object.fromEntries(LIST_FIELDS.map((k) => [k, toText(init[k])])) }))
-  const [body, setBody] = useState(doc?.body ?? '')
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value })
-  const input = (k: string, type = 'text') => <input type={type} value={f[k] ?? ''} onChange={set(k)} />
-  const select = (k: string, opts: string[]) => <select value={f[k] ?? ''} onChange={set(k)}>{opts.map((o) => <option key={o}>{o}</option>)}</select>
-
-  function save() {
-    if (!f.title?.trim()) return fail(new Error('Title is required'))
-    const data = { ...f, ...Object.fromEntries(LIST_FIELDS.map((k) => [k, fromText(f[k])])) }
-    const req = doc ? api(`tasks/${doc.name}`, 'PUT', { data, body }) : api('tasks', 'POST', { data, body })
-    req.then(close, fail)
-  }
-
-  // Meetings linked from the task, plus meetings that link to it.
-  const meetings = doc ? [...new Set([
-    ...list(doc.data.meetings).map(unlink),
-    ...vault.meetings.filter((m) => list(m.data.tasks).map(unlink).includes(doc.name)).map((m) => m.name),
-  ])] : []
-
-  return (
-    <Panel title={doc ? doc.name : 'New task'} close={close} onSave={save}>
-      {doc?.error && <p className="blocked">Invalid frontmatter: {doc.error}. Fix it in Obsidian; saving is disabled until then.</p>}
-      {doc && (
-        <div className="links">
-          <div className="link-actions">
-            <button type="button" className="primary" onClick={() => startHere(doc)} title="Claude in a workbench terminal, in the task's repo, linked to this task">▶ Start agent</button>
-            <button type="button" onClick={() => act.focus(doc)} aria-pressed={isFocus(doc)}>{isFocus(doc) ? '★ In top 3' : '☆ Top 3'}</button>
-            {unlink(doc.data.project) && <button type="button" onClick={() => { close(); act.project(unlink(doc.data.project)) }}>Project →</button>}
-            <button type="button" onClick={() => grill(doc)} title="Interview me in the project chat">Grill</button>
-            <button type="button" onClick={() => write(`tasks/${doc.name}.md`)}>¶ Write</button>
-            {doc.data.notion && <a className="btn" href={doc.data.notion} target="_blank" rel="noreferrer">Notion ↗</a>}
-            {doc.data.pr && <a className="btn" href={doc.data.pr} target="_blank" rel="noreferrer">PR #{String(doc.data.pr).split('/').pop()} ↗</a>}
-            <a className="btn" href={obsidian(`${vault.vault}/tasks/${doc.name}.md`)}>Obsidian</a>
-            <button type="button" className="icon" onClick={() => start(doc)} title="Copy a start command for your own terminal">copy cmd</button>
-          </div>
-          {(meetings.length > 0 || list(doc.data.sources).length > 0 || list(doc.data.sessions).length > 0) && (
-            <div className="link-chips">
-              {meetings.map((m) => <button type="button" key={m} className="chip" onClick={() => write(`meetings/${m}.md`)}>🗒 {m}</button>)}
-              {list(doc.data.sources).filter((x) => x !== doc.data.pr && x !== doc.data.notion).map((x) => /^https?:/.test(x)
-                ? <a key={x} className="chip" href={x} target="_blank" rel="noreferrer">{x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 48)} ↗</a>
-                : <span key={x} className="chip">{x}</span>)}
-              {list(doc.data.sessions).map((x) => {
-                const a = agents.find((g) => g.id === x)
-                return a
-                  ? <button type="button" key={x} className="chip" title="Open this session" onClick={() => { close(); openAgent(a) }}>›_ session {x.slice(0, 8)} · {a.state}</button>
-                  : <span key={x} className="chip" title={`${x} (older than 3 days)`}>session {x.slice(0, 8)}</span>
-              })}
-            </div>
-          )}
-        </div>
-      )}
-      <Field label="Title"><input autoFocus value={f.title ?? ''} onChange={set('title')} required /></Field>
-      <div className="row">
-        <Field label="Project">
-          <ProjectSelect projects={projects} all={vault.projects} value={unlink(f.project)} none="None"
-            onChange={(name) => setF({ ...f, project: name ? `[[${name}]]` : '' })} />
-        </Field>
-        <Field label="Status">{select('status', STATUSES)}</Field>
-      </div>
-      <div className="row">
-        <Field label="Priority"><select value={f.priority ?? 'p2'} onChange={set('priority')}>{PRIORITIES.map((p) => <option key={p} value={p}>{PRIO_LABEL[p]}</option>)}</select></Field>
-        <Field label="Type">{select('type', TYPES)}</Field>
-      </div>
-      <div className="row">
-        <Field label="Start">{input('start', 'date')}</Field>
-        <Field label="Due">{input('due', 'date')}</Field>
-      </div>
-      <Field label="Notion page (the team's ticket; status syncs)">{input('notion', 'url')}</Field>
-      <Field label="Blocked by">{input('blocked_by')}</Field>
-      <div className="row">
-        <Field label="Repo">{input('repo')}</Field>
-        <Field label="Branch">{input('branch')}</Field>
-      </div>
-      <Field label="PR url">{input('pr', 'url')}</Field>
-      <Field label="Meetings (one per line, [[name]])"><textarea rows={2} value={f.meetings} onChange={set('meetings')} /></Field>
-      <Field label="Sources (one per line)"><textarea rows={2} value={f.sources} onChange={set('sources')} /></Field>
-      <Field label="Sessions (one per line)"><textarea rows={2} value={f.sessions} onChange={set('sessions')} /></Field>
-      <Field label="Notes (markdown)"><textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} /></Field>
-
-    </Panel>
-  )
 }
 
 function ProjectPanel({ doc, close, fail }: { doc?: Doc; close: () => void; fail: (e: Error) => void }) {

@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { IconButton } from './ui'
 import { useEffect, useState } from 'react'
 import { api, unlink, type Doc, type Vault } from './lib'
 
@@ -39,9 +41,9 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
         <h2>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>
         <div className="spacer" />
         <button onClick={() => setFeedsOpen(true)}>Calendars</button>
-        <button onClick={() => shift(-1)} aria-label="Previous month">‹</button>
+        <IconButton icon={ChevronLeft} label="Previous month" onClick={() => shift(-1)} />
         <button onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) }}>Today</button>
-        <button onClick={() => shift(1)} aria-label="Next month">›</button>
+        <IconButton icon={ChevronRight} label="Next month" onClick={() => shift(1)} />
       </div>
       {error && <p className="muted">{error}</p>}
       <div className="cal-grid">
@@ -119,7 +121,7 @@ function Feeds({ close, fail }: { close: () => void; fail: (e: Error) => void })
         <ul className="feed-list">
           {feeds.map((f) => (
             <li key={f.index}><span className={`swatch cal-${f.index % 4}`} /> {f.label} <span className="muted">{f.host}</span>
-              <button className="icon" aria-label={`Remove ${f.label}`} onClick={() => api(`calendars/${f.index}`, 'DELETE').then(setFeeds, fail)}>✕</button></li>
+              <IconButton icon={X} label={`Remove ${f.label}`} onClick={() => api(`calendars/${f.index}`, 'DELETE').then(setFeeds, fail)} /></li>
           ))}
           {!feeds.length && <li className="muted">None yet.</li>}
         </ul>

@@ -1,3 +1,5 @@
+import { Plus, X } from 'lucide-react'
+import { IconButton } from './ui'
 import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
@@ -26,10 +28,10 @@ export default function Terminals({ active, go, fail, show }: {
         {terms.map((t) => (
           <div key={t.id} role="tab" aria-selected={t.id === current?.id} className={`term-tab ${t.id === current?.id ? 'on' : ''} ${t.exited ? 'exited' : ''}`}>
             <button className="term-tab-title" onClick={() => go(t.id)} title={`${t.cwd} · ${t.account}`}>{t.title}</button>
-            <button className="icon" aria-label={`Close ${t.title}`} onClick={() => close(t)}>✕</button>
+            <IconButton icon={X} label={`Close ${t.title}`} onClick={() => close(t)} />
           </div>
         ))}
-        <button className="icon" onClick={shell} title="New shell">+ shell</button>
+        <IconButton icon={Plus} label="Shell" showLabel onClick={shell} />
       </div>
       {current
         ? <XTerm key={current.id} term={current} />
@@ -38,7 +40,7 @@ export default function Terminals({ active, go, fail, show }: {
   )
 }
 
-function XTerm({ term }: { term: Term }) {
+export function XTerm({ term }: { term: Term }) {
   const host = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const css = getComputedStyle(document.documentElement)
