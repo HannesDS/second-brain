@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react'
 import { api, unlink, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string }
-type Picked = { title: string; date: string; time: string }
+// From a calendar event (title known) or an empty day (you type the title).
+type Picked = { title: string; date: string; time: string; free?: boolean }
 
 const iso = (d: Date) => d.toLocaleDateString('sv')
 
 // Month view like Notion's meeting-notes calendar: events, meeting notes and due tasks per day.
 export default function Calendar({ vault, tasks, open, write, prep, meetingNote, fail }: {
   vault: Vault; tasks: Doc[]; open: (d: Doc) => void; write: (p: string) => void
-  prep: (title: string, date: string) => void; meetingNote: (title: string, date: string) => void; fail: (e: Error) => void
+  prep: (title: string, date: string, prefix?: string) => void; meetingNote: (title: string, date: string, time?: string) => void; fail: (e: Error) => void
 }) {
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })
   const [events, setEvents] = useState<CalEvent[]>([])
@@ -47,7 +48,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
           const notes = vault.meetings.filter((m) => String(m.data.date) === key)
           const due = tasks.filter((t) => t.data.due === key && t.data.status !== 'done')
           return (
-            <div key={key} className={`cal-day ${d.getMonth() !== month.getMonth() ? 'other' : ''} ${key === today ? 'today' : ''}`}>
+            <div key={key} title="Click an empty spot to add a meeting note or task" onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) setPicked({ title: '', date: key, time: '', free: true }) }} className={`cal-day ${d.getMonth() !== month.getMonth() ? 'other' : ''} ${key === today ? 'today' : ''}`}>
               <div className="cal-num">{d.getDate()}</div>
               {evs.map((e) => (
                 <button key={e.id} className="cal-item event" title={e.title}
@@ -73,11 +74,15 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
         <>
           <div className="scrim" onClick={() => setPicked(undefined)} />
           <div className="popover" role="dialog" aria-label={picked.title}>
-            <h3>{picked.title}</h3>
-            <p className="muted">{picked.date} · {picked.time}</p>
+            {picked.free
+              ? <input autoFocus placeholder="Meeting or task title" value={picked.title} onChange={(e) => setPicked({ ...picked, title: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && picked.title.trim()) { meetingNote(picked.title, picked.date, picked.time); setPicked(undefined) } }} />
+              : <h3>{picked.title}</h3>}
+            <p className="muted">{new Date(picked.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{picked.time ? ` · ${picked.time}` : ''}</p>
+            {picked.free && <label className="muted">Time <input type="time" value={picked.time} onChange={(e) => setPicked({ ...picked, time: e.target.value })} /></label>}
             <div className="row-actions">
-              <button onClick={() => { prep(picked.title, picked.date); setPicked(undefined) }}>+ Prep todo</button>
-              <button className="primary" onClick={() => { meetingNote(picked.title, picked.date); setPicked(undefined) }}>Meeting notes</button>
+              <button disabled={!picked.title.trim()} onClick={() => { prep(picked.title, picked.date, picked.free ? '' : undefined); setPicked(undefined) }}>{picked.free ? '+ Task due this day' : '+ Prep todo'}</button>
+              <button className="primary" disabled={!picked.title.trim()} onClick={() => { meetingNote(picked.title, picked.date, picked.free ? picked.time : picked.time === 'all day' ? '' : picked.time); setPicked(undefined) }}>Meeting notes</button>
             </div>
           </div>
         </>

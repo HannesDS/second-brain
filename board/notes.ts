@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { context as ragContext } from '../lib/rag.mjs'
 import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
+import { meetingContext, setSection } from './meetings'
 
 const run = promisify(execFile)
 const EDITABLE = ['inbox', 'notes', 'meetings', 'tasks', 'projects']
@@ -19,7 +20,7 @@ export function vaultPath(rel: string) {
 }
 
 export function listNotes() {
-  return ['inbox', 'notes'].flatMap((dir) => listDocs(dir).map((d) => ({
+  return ['inbox', 'notes', 'meetings'].flatMap((dir) => listDocs(dir).map((d) => ({
     path: `${dir}/${d.name}.md`, name: d.name, data: d.data,
     mtime: fs.statSync(path.join(VAULT, dir, `${d.name}.md`)).mtime.toISOString(),
   }))).sort((a, b) => b.mtime.localeCompare(a.mtime))
@@ -33,13 +34,13 @@ export function createNote(title: string) {
   return rel
 }
 
-// Saves only the body; frontmatter (and fields added in Obsidian) stays as it is.
-export function saveBody(rel: string, body: string) {
+// Saves the body and/or merges frontmatter fields; fields added in Obsidian stay as they are.
+export function saveDoc(rel: string, body?: string, data: Record<string, unknown> = {}) {
   const file = vaultPath(rel)
   if (!fs.existsSync(file)) throw new Error(`${rel} does not exist`)
   const text = fs.readFileSync(file, 'utf8')
-  if (!text.startsWith('---')) return fs.writeFileSync(file, body)
-  updateDoc(file, {}, body)
+  if (!text.startsWith('---') && body !== undefined && !Object.keys(data).length) return fs.writeFileSync(file, body)
+  updateDoc(file, data, body)
 }
 
 const SCHEMA = {
@@ -53,7 +54,7 @@ const SCHEMA = {
         type: 'object',
         required: ['kind', 'reason'],
         properties: {
-          kind: { enum: ['set-project', 'new-project', 'create-task', 'append-to-task', 'link-meeting', 'external'] },
+          kind: { enum: ['set-project', 'new-project', 'create-task', 'append-to-task', 'link-meeting', 'external', 'summary', 'action-points', 'attendees'] },
           reason: { type: 'string' },
           project: { type: 'string', description: 'project id (existing, or the new id for new-project)' },
           projectName: { type: 'string' },
@@ -66,6 +67,7 @@ const SCHEMA = {
           text: { type: 'string', description: 'task description, or the text to append' },
           meeting: { type: 'string', description: 'meeting note name without .md' },
           url: { type: 'string', description: 'for external: what to update outside the vault (Notion page, ADR, PR)' },
+          people: { type: 'array', items: { type: 'string' }, description: 'for attendees: first names heard in the meeting' },
         },
       },
     },
@@ -79,7 +81,11 @@ export async function proposeFiling(rel: string) {
     .map((t) => `${t.name} [${String(t.data.project ?? '').replace(/\W/g, '')}] ${t.data.title}${t.data.notion ? ` (notion: ${t.data.notion})` : ''}`).join('\n')
   const meetings = listDocs('meetings').map((m) => m.name).sort().slice(-30).join('\n')
   const related = await ragContext(note.body.slice(0, 2000), 8)
-  const prompt = `You file a note in the user's second-brain vault. Propose actions; the user approves each one.
+  const meeting = rel.startsWith('meetings/') ? meetingContext(rel) : undefined
+  const prompt = `You file a note in the user's second-brain vault. Propose actions; the user approves each one.${meeting ? `
+This is a MEETING note (date ${meeting.data.date}). Always propose: one "summary" action (text: 3-6 bullet markdown summary),
+one "action-points" action (text: markdown checklist "- [ ] what (who)", one line per action, owner in brackets), and "attendees" if names are clear.
+Then create-task only for action points owned by the user (Hannes), and append-to-task where an action belongs to an existing task.` : ''}
 Rules: prefer existing projects and tasks; propose new-project only when nothing fits. Propose create-task only for concrete, open work in the note.
 Use append-to-task to add findings to an existing task. Use external for things that must be updated outside the vault (the team's Notion ticket, an ADR, a PR) and say what to change.
 Keep it short: usually 1-4 actions. Do not use tools.
@@ -97,7 +103,10 @@ RELATED NOTES (by similarity):
 ${related || '(none)'}
 
 NOTE (${rel}):
-${note.body}`
+${note.body}${meeting?.transcript ? `
+
+TRANSCRIPT (automatic, may contain errors; Dutch and English mixed):
+${meeting.transcript.slice(-60_000)}` : ''}`
   const { stdout } = await run('claude', ['-p', '--output-format', 'json', '--json-schema', JSON.stringify(SCHEMA), '--model', 'sonnet', prompt], {
     cwd: ROOT, env: claudeEnv(WORKBENCH_ACCOUNT), timeout: 180_000, maxBuffer: 10 * 1024 * 1024,
   })
@@ -105,14 +114,16 @@ ${note.body}`
   return out.structured_output ?? JSON.parse(out.result)
 }
 
-type Action = Record<string, string>
+type Action = Record<string, any>
 
 export function applyFiling(rel: string, actions: Action[]) {
   const file = vaultPath(rel)
   const noteName = path.basename(rel, '.md')
   const note = readDoc(file)
   const list = (v: unknown) => (Array.isArray(v) ? v : [])
-  const patch: Record<string, unknown> = { status: 'filed', tasks: list(note.data.tasks), meetings: list(note.data.meetings) }
+  const isMeeting = rel.startsWith('meetings/')
+  const patch: Record<string, unknown> = { ...(isMeeting ? {} : { status: 'filed', meetings: list(note.data.meetings) }), tasks: list(note.data.tasks) }
+  let body = note.body
   const done: string[] = []
 
   for (const a of actions) {
@@ -140,13 +151,22 @@ export function applyFiling(rel: string, actions: Action[]) {
       updateDoc(f, {}, `${readDoc(f).body.trimEnd()}\n\n## Note ${today()}\n\n${a.text ?? ''}\n\nSee [[${noteName}]].\n`)
       ;(patch.tasks as string[]).push(`[[${a.task}]]`)
       done.push(`added to ${a.task}`)
+    } else if (a.kind === 'summary' && a.text) {
+      body = setSection(body, 'Summary', a.text)
+      done.push('summary written')
+    } else if (a.kind === 'action-points' && a.text) {
+      body = setSection(body, 'Action Points', a.text)
+      done.push('action points written')
+    } else if (a.kind === 'attendees' && Array.isArray(a.people)) {
+      patch.attendees = [...new Set([...list(note.data.attendees), ...a.people])]
+      done.push('attendees set')
     } else if (a.kind === 'link-meeting' && a.meeting) {
       ;(patch.meetings as string[]).push(`[[${a.meeting}]]`)
       done.push(`linked to ${a.meeting}`)
     }
   }
   patch.tasks = [...new Set(patch.tasks as string[])]
-  patch.meetings = [...new Set(patch.meetings as string[])]
-  updateDoc(file, patch)
+  if (patch.meetings) patch.meetings = [...new Set(patch.meetings as string[])]
+  updateDoc(file, patch, body)
   return done
 }

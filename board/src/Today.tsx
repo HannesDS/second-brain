@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Chat, TodoList } from './Home'
+import Split from './Split'
 import { ago, api, projectForPath, resumeCommand, todayISO, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean }
@@ -25,7 +26,7 @@ export default function Today({ vault, tasks, agents, seen, openHere, open, writ
   const meetingsToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
 
   return (
-    <main className="home today">
+    <Split id="today">
       <section className="pane todos">
         <h2>{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
 
@@ -53,11 +54,11 @@ export default function Today({ vault, tasks, agents, seen, openHere, open, writ
         </ul>
 
         <h3>Plan</h3>
-        <TodoList tasks={ranked.map((x) => x.t)} reasons={reasons} open={open} done={done} write={write} />
+        <TodoList tasks={ranked.map((x) => x.t)} projects={vault.projects} reasons={reasons} open={open} done={done} write={write} />
         <p className="muted hint">Ranked by overdue, due soon, in progress and priority. Ask the assistant to replan ("I have 2 hours, what first?").</p>
       </section>
       <Chat clearTask={() => {}} />
-    </main>
+    </Split>
   )
 }
 

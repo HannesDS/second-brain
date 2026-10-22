@@ -10,7 +10,8 @@ import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, write
 import { AGENTS_DIR, listAgents } from './agents'
 import { events } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
-import { applyFiling, createNote, listNotes, proposeFiling, saveBody, vaultPath } from './notes'
+import { createMeeting, readTranscript, transcribeChunk } from './meetings'
+import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import { onTaskChanged, startSync, status as syncStatus, syncNow } from './sync'
 import { attachTerminals, closeTerminal, listTerminals, openTerminal } from './terminal'
 
@@ -77,6 +78,7 @@ async function handle(req: IncomingMessage) {
     if (kind === 'search') return await search(url.searchParams.get('q') ?? '')
     if (kind === 'sync') return syncStatus
     if (kind === 'terminals') return listTerminals()
+    if (kind === 'transcript') return { text: readTranscript(meetingName(url.searchParams.get('name'))) }
     if (kind === 'calendar') {
       return events(new Date(url.searchParams.get('from') ?? Date.now()), new Date(url.searchParams.get('to') ?? Date.now() + 30 * 864e5))
     }
@@ -112,17 +114,31 @@ async function handle(req: IncomingMessage) {
     if (method === 'PUT') { updateDoc(file('projects', id), body.data, body.body); return { id } }
   }
   if (kind === 'notes' && method === 'POST') return { path: createNote(String(body.title ?? '')) }
-  if (kind === 'doc' && method === 'PUT') { saveBody(String(body.path), String(body.body ?? '')); return { ok: true } }
-  if (kind === 'meetings' && method === 'POST') {
-    // Creates (or returns) the meeting note for a calendar event.
-    const name = `${body.date} ${String(body.title).replace(/[\\/:*?"<>|#^[\]]/g, '').trim()}`
-    const rel = `meetings/${name}.md`
-    const f = vaultPath(rel)
-    if (!fs.existsSync(f)) writeDoc(f, { date: body.date, project: body.project ? `[[${body.project}]]` : '', attendees: [], tasks: [] }, '## Notes\n\n')
-    return { path: rel, name }
-  }
+  if (kind === 'doc' && method === 'PUT') { saveDoc(String(body.path), body.body === undefined ? undefined : String(body.body), body.data ?? {}); return { ok: true } }
+  if (kind === 'meetings' && method === 'POST') return createMeeting(body)
   if (kind === 'file' && method === 'POST') return id === 'apply' ? { done: applyFiling(body.path, body.actions) } : proposeFiling(body.path)
   throw new Error(`no route: ${method} ${req.url}`)
+}
+
+// A meeting note's name, checked against the file system (it ends up in a path).
+function meetingName(name: unknown) {
+  const n = String(name ?? '')
+  if (!fs.existsSync(vaultPath(`meetings/${n}.md`))) throw new Error(`no meeting note "${n}"`)
+  return n
+}
+
+// Raw audio upload: POST /api/transcribe?name=<meeting>&at=<iso>, body = one self-contained webm chunk.
+async function transcribe(req: IncomingMessage) {
+  const url = new URL(req.url ?? '/', 'http://local')
+  const name = meetingName(url.searchParams.get('name'))
+  const chunks: Buffer[] = []
+  let size = 0
+  for await (const c of req) {
+    size += c.length
+    if (size > 50 * 1024 * 1024) throw new Error('audio chunk too large')
+    chunks.push(c)
+  }
+  return { text: await transcribeChunk(name, Buffer.concat(chunks), url.searchParams.get('at') ?? '') }
 }
 
 const expand = (p: string) => p.replace(/^~(?=\/|$)/, os.homedir())
@@ -214,6 +230,11 @@ export function vaultApi(): Plugin {
         if (req.url === '/guide') {
           res.setHeader('content-type', 'text/markdown; charset=utf-8')
           return void res.end(readDoc(path.join(VAULT, 'notes/Guide.md')).body)
+        }
+        if (req.url?.startsWith('/transcribe') && req.method === 'POST') {
+          return void transcribe(req)
+            .then((out) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(out)) })
+            .catch((e) => { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) })
         }
         if (req.url === '/chat' && req.method === 'POST') {
           return void chat(req, res).catch((e) => { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) })

@@ -83,13 +83,13 @@ export default function App() {
   const write = (path: string) => go('notes', path)
   const copy = (text: string, what: string) => navigator.clipboard.writeText(text).then(() => flash(`${what} copied`), fail)
   const copyStart = (t: Doc) => copy(startCommand(t, projects[unlink(t.data.project)], vault.root), 'Start command')
-  const prep = (title: string, date: string) => {
+  const prep = (title: string, date: string, prefix = 'Prep: ') => {
     const p = guessProject(title, vault.projects)
-    api('tasks', 'POST', { data: { title: `Prep: ${title}`, project: p ? `[[${p}]]` : '', type: 'meeting', priority: 'p1', due: date } })
+    api('tasks', 'POST', { data: { title: `${prefix}${title}`, project: p ? `[[${p}]]` : '', type: 'meeting', priority: 'p1', due: date } })
       .then(({ id }) => flash(`${id} created: Prep: ${title}`), fail)
   }
-  const meetingNote = (title: string, date: string) =>
-    api('meetings', 'POST', { title, date, project: guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
+  const meetingNote = (title: string, date: string, time = '') =>
+    api('meetings', 'POST', { title, date, time, project: guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
   const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => go('terminals', id), fail)
   const grill = (t: Doc) => { setEditing(undefined); setSeed({ task: t.name, message: 'Grill', at: Date.now() }); go('project', unlink(t.data.project)) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
@@ -146,7 +146,7 @@ export default function App() {
         {page === 'today' && <Today vault={vault} tasks={visible} agents={shown} seen={markSeen} openHere={(a) => terminal({ kind: 'resume', agent: a.id })} open={openTask} write={write} fail={fail} copy={copy} prep={prep} meetingNote={meetingNote} />}
         {page === 'project' && project && <ProjectPage vault={vault} project={project} terminal={() => terminal({ kind: 'claude', project: project.name })} open={openTask} edit={(doc) => setEditing({ kind: 'project', doc })} fail={fail} seed={seed} write={write} />}
         {page === 'project' && !project && <div className="empty">Unknown project "{arg}".</div>}
-        {page === 'notes' && <Notes path={arg || undefined} go={write} fail={fail} flash={flash} />}
+        {page === 'notes' && <Notes vault={vault} path={arg || undefined} go={write} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={vault} tasks={visible} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && <Board tasks={visible} setVault={setVault} vault={vault} projects={projects} fail={fail} open={openTask} start={copyStart} />}
         {page === 'gantt' && <Gantt tasks={visible} projects={projects} open={openTask} fail={fail} />}

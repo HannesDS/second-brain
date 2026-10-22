@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { PRIORITIES, api, list, unlink, type Doc, type Vault } from './lib'
+import Split from './Split'
 
 const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, todo: 3 }
 const rank = (t: Doc) => RANK[t.data.status] ?? 4
@@ -37,7 +38,7 @@ export default function ProjectPage({ vault, project, open, edit, fail, seed, wr
   const done = (t: Doc) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail)
 
   return (
-    <main className="home">
+    <Split id="project">
       <section className="pane todos">
         <h2>
           {project.data.name ?? project.name}
@@ -52,12 +53,12 @@ export default function ProjectPage({ vault, project, open, edit, fail, seed, wr
         <p className="muted hint">Click a task to chat about it: the chat then runs with TASK_ID set, so the session is linked to the task.</p>
       </section>
       <Chat key={project.name} project={project} task={task} clearTask={() => setTaskId(undefined)} seed={seed} />
-    </main>
+    </Split>
   )
 }
 
-export function TodoList({ tasks, selected, select, open, done, write, reasons }: {
-  tasks: Doc[]; selected?: string; select?: (id?: string) => void; open: (d: Doc) => void; done: (d: Doc) => void
+export function TodoList({ tasks, projects, selected, select, open, done, write, reasons }: {
+  tasks: Doc[]; projects?: Doc[]; selected?: string; select?: (id?: string) => void; open: (d: Doc) => void; done: (d: Doc) => void
   write: (path: string) => void; reasons?: Record<string, string[]>
 }) {
   return (
@@ -65,13 +66,21 @@ export function TodoList({ tasks, selected, select, open, done, write, reasons }
       {tasks.map((t) => (
         <li key={t.name} className={t.name === selected ? 'on' : ''} onClick={() => (select ? select(t.name === selected ? undefined : t.name) : open(t))}>
           <input type="checkbox" aria-label={`Mark ${t.name} done`} onClick={(e) => e.stopPropagation()} onChange={() => done(t)} />
-          <span className={`prio ${t.data.priority}`}>{t.data.priority ?? 'p?'}</span>
-          <span className="todo-title">
-            {t.data.title ?? t.name}
-            {reasons?.[t.name]?.length ? <span className="reasons">{reasons[t.name].join(' · ')}</span> : null}
+          <span className="todo-body">
+            {projects && (() => {
+              const p = projects.find((x) => x.name === unlink(t.data.project))
+              return <span className="todo-project"><span className={`dot ${p?.data.context ?? ''}`} />{p?.data.name ?? (unlink(t.data.project) || 'No project')}<span className="todo-id">{t.name}</span></span>
+            })()}
+            <span className="todo-title">{t.data.title ?? t.name}</span>
+            <span className="todo-meta">
+              <span className={`prio ${t.data.priority}`}>{t.data.priority ?? 'p?'}</span>
+              <span className={`status ${t.data.status}`}>{t.data.status}</span>
+              {t.data.type && <span>{t.data.type}</span>}
+              {t.data.due && <span>due {t.data.due}</span>}
+              {reasons?.[t.name]?.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r)).map((r) => <span key={r} className="reason">{r}</span>)}
+            </span>
           </span>
           {t.data.notion && <a className="icon" href={t.data.notion} target="_blank" rel="noreferrer" title="Open in Notion" onClick={(e) => e.stopPropagation()}>N</a>}
-          <span className={`status ${t.data.status}`}>{t.data.status}</span>
           <button className="icon" title="Write notes for this task" onClick={(e) => { e.stopPropagation(); write(`tasks/${t.name}.md`) }}>¶</button>
           <button className="icon" title="Edit task" onClick={(e) => { e.stopPropagation(); open(t) }}>✎</button>
         </li>
