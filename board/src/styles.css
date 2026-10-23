@@ -540,6 +540,8 @@ p.bt-hits { margin: 0; padding: 12px 16px; }
 .bt-trail-mark { flex: none; width: 14px; border-top: 2px dashed var(--muted); }
 .bt-trail-mark.similar { border-top-style: dotted; }
 .bt-legend { display: flex; flex-direction: column; gap: 2px; padding: 8px; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); font-size: 12px; }
+.bt-legend-head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 6px 4px; }
+.bt-legend-head .bt-card-label { margin: 0; }
 .bt-legend-row { display: flex; align-items: center; gap: 10px; padding: 3px 6px; border: none; background: none; text-align: left; color: var(--muted); border-radius: 8px; }
 button.bt-legend-row { text-decoration: line-through; }
 button.bt-legend-row svg { opacity: .35; }
