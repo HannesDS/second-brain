@@ -42,6 +42,9 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   const live = useRef<Layout>(undefined)
   const setPreview = (l?: Layout) => { live.current = l; setPreviewState(l) }
   const shownLayout = preview ?? layout
+  // The vault reloaded mid-drag (an agent, Obsidian): start the preview over from it, so the drop works
+  // from columns as they are. The card shows back in its own column until it's over another again.
+  useEffect(() => { if (live.current) setPreview(layout) }, [layout])
 
   const sticky = useRef<Sticky>({ justMoved: false, active: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])

@@ -23,20 +23,8 @@ export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Se
   const mine = starred(sticky.active)
   const col = hit.startsWith(COL) ? hit.slice(COL.length) : starred(hit) === mine ? undefined : columnFor(layout, hit)
   if (col === undefined) return hit
-  const cards = layout[col] ? group(layout[col], mine, starred) : undefined
-  return (cards?.size ? nearest(cards) : undefined) ?? `${COL}${col}`
-}
-
-// Collision detection runs on every pointer move; a column's groups are built once per layout and per
-// `starred`, which the board makes anew when stars change.
-const groups = new WeakMap<(id: string) => boolean, WeakMap<string[], Map<boolean, Set<string>>>>()
-function group(cards: string[], mine: boolean, starred: (id: string) => boolean) {
-  if (!groups.has(starred)) groups.set(starred, new WeakMap())
-  const byCards = groups.get(starred)!
-  if (!byCards.has(cards)) byCards.set(cards, new Map())
-  const byStar = byCards.get(cards)!
-  if (!byStar.has(mine)) byStar.set(mine, new Set(cards.filter((x) => starred(x) === mine)))
-  return byStar.get(mine)!
+  const cards = new Set((layout[col] ?? []).filter((x) => starred(x) === mine))
+  return (cards.size ? nearest(cards) : undefined) ?? `${COL}${col}`
 }
 
 // Dragging over another column moves the card into it, before the card it's over, or last of the cards
@@ -73,7 +61,8 @@ export function dropMoves(before: Layout, now: Layout, id: string, over: string,
   const moved = i >= 0 ? arrayMove(col, col.indexOf(id), i) : col
   if (moved.join() === before[to]?.join()) return []
   // Starred cards sit on top whatever their order, so the card is placed among the cards starred like it.
-  const ids = moved.filter((x) => starred(x) === starred(id))
+  // Only cards still in that column: one can have moved, or gone, during the drag.
+  const ids = moved.filter((x) => starred(x) === starred(id) && (x === id || current(x).status === to))
   const order = (x?: string) => (x === undefined ? undefined : Number(current(x).order) || 0)
   const at = ids.indexOf(id)
   const [prev, next] = [order(ids[at - 1]), order(ids[at + 1])]

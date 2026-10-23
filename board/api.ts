@@ -72,8 +72,7 @@ async function handle(req: IncomingMessage) {
     for (const m of body as Move[]) {
       const f = file('tasks', m.id)
       // Only a new status can start or end an autopilot run; a reorder doesn't need the whole queue read.
-      if (updateDoc(f, { status: m.status, order: m.order }).status !== m.status) runFrontierSoon()
-      if (tab) moved.mark(f, tab)
+      if (moved.write(f, tab, () => updateDoc(f, { status: m.status, order: m.order })).status !== m.status) runFrontierSoon()
     }
     return { ok: true }
   }

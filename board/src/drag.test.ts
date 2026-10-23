@@ -144,3 +144,10 @@ test('the drag sees a star changed mid-drag', () => {
   expect(aim('col:wip', layout, nearest, sticky, (id) => id === 'D')).toBe('E')
 })
 
+test('a renumber leaves alone a card that left the column during the drag', () => {
+  // X moved to wip (an agent) while C was dragged; the preview from before still has it in todo.
+  const stale = { ...layout, todo: ['A', 'X', 'B', 'C'] }
+  const get = (id: string) => (id === 'X' ? { status: 'wip', order: 0 } : { status: 'todo', order: 0 })
+  expect(dropMoves(stale, stale, 'C', 'B', get).map((m) => m.id)).not.toContain('X')
+})
+
