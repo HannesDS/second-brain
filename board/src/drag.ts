@@ -65,41 +65,17 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
   return same(next) ? now : next
 }
 
-// When the board may scroll an area while a card is dragged. dnd-kit scrolls any area whose edge the
-// pointer nears, also from beside it, and keeps a direction once the pointer twitched that way, so a card
-// picked up low in a long column, carried up, or carried on to the next column set cards moving under it.
-// Here an area scrolls only while the pointer pushes toward its edge: it moved PUSH_PX that way since it
-// last turned (turns under TURN_PX, a hand's tremor, don't count), and it's level with the area across
-// that direction (anywhere across a column for its vertical scroll; past the edge itself is fine).
-export const PUSH_PX = 12
-const TURN_PX = 4
+// Whether the board may scroll yet while a card is dragged: only once the card moved PICKUP_PX from where
+// it was picked up. dnd-kit scrolls an area as soon as the pointer is near its edge and twitches that way,
+// so picking up a card low in a long column set the cards moving under the pointer. After that it's
+// dnd-kit's own auto-scroll; a short push still works next to the screen edge.
+export const PICKUP_PX = 12
 type Point = { x: number; y: number }
-type Rect = { left: number; right: number; top: number; bottom: number }
-type Run = { dir: number; run: number; back: number }
-
-function step(r: Run, d: number) {
-  if (!d) return
-  const s = Math.sign(d)
-  if (!r.dir || s === r.dir) Object.assign(r, { dir: s, run: r.run + Math.abs(d), back: 0 })
-  else if ((r.back += Math.abs(d)) > TURN_PX) Object.assign(r, { dir: s, run: r.back, back: 0 })
-}
-
 export function dragScroll(start: Point) {
-  let now = start
-  const runs = { x: { dir: 0, run: 0, back: 0 }, y: { dir: 0, run: 0, back: 0 } }
+  let moved = false
   return {
-    move(p: Point) {
-      step(runs.x, p.x - now.x)
-      step(runs.y, p.y - now.y)
-      now = p
-    },
-    may(area: Rect, scrolls: { x: boolean; y: boolean }) {
-      // Pushing toward the nearer edge of the area on that axis.
-      const pushing = (axis: 'x' | 'y', lo: number, hi: number) => runs[axis].run >= PUSH_PX && runs[axis].dir === (now[axis] > (lo + hi) / 2 ? 1 : -1)
-      const down = scrolls.y && now.x >= area.left && now.x <= area.right && pushing('y', area.top, area.bottom)
-      const along = scrolls.x && now.y >= area.top && now.y <= area.bottom && pushing('x', area.left, area.right)
-      return down || along
-    },
+    move(p: Point) { moved ||= Math.hypot(p.x - start.x, p.y - start.y) > PICKUP_PX },
+    may: () => moved,
   }
 }
 

@@ -51,25 +51,14 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     if (next !== live.current) setPreview(next)
   }, [layout])
 
-  // When the board may scroll (see dragScroll). It follows the real pointer: dnd-kit's drag delta also
-  // counts what has scrolled, so it drifts once the board scrolls.
+  // When the board may scroll (see dragScroll), from the pointer carrying the card.
   const scroll = useRef<ReturnType<typeof dragScroll>>(undefined)
   // Only the pointer carrying the card: on touch, another finger (or the mouse) can move too.
   const carrying = useRef<number>(undefined)
   const follow = useCallback((e: PointerEvent) => { if (e.pointerId === carrying.current) scroll.current?.move({ x: e.clientX, y: e.clientY }) }, [])
   const stopFollowing = () => { removeEventListener('pointermove', follow); scroll.current = undefined }
   useEffect(() => () => removeEventListener('pointermove', follow), [follow])
-  const autoScroll = useMemo(() => ({
-    canScroll: (el: Element) => {
-      if (!scroll.current) return false
-      const scrolls = { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight }
-      if (el === document.scrollingElement) return scroll.current.may({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, scrolls)
-      // Level with a column means anywhere across the column, not only across its list of cards.
-      const r = el.getBoundingClientRect()
-      const across = el.closest('.column')?.getBoundingClientRect() ?? r
-      return scroll.current.may({ left: across.left, right: across.right, top: r.top, bottom: r.bottom }, scrolls)
-    },
-  }), [])
+  const autoScroll = useMemo(() => ({ canScroll: () => scroll.current?.may() ?? false }), [])
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])

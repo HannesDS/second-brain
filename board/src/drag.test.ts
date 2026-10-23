@@ -186,50 +186,15 @@ test('a card dragged into Done previews where Done sorts it', () => {
   expect(dragOver({ ...layout, done: ['F', 'G', 'H'] }, 'A', 'col:done', 2, undefined, () => 3).done).toEqual(['F', 'A', 'G', 'H'])
 })
 
-const column = { left: 0, right: 300, top: 0, bottom: 700 }
-const down = { x: false, y: true }
-
-test('a card picked up near an edge scrolls nothing until it is pushed there', () => {
+test('the board may scroll only once the card moved off the spot it was picked up', () => {
   const scroll = dragScroll({ x: 150, y: 680 })
-  // A twitch toward the edge at pickup.
-  scroll.move({ x: 151, y: 684 })
-  expect(scroll.may(column, down)).toBe(false)
-  // Pushed on to the edge, also when the screen ends there: it scrolls.
-  scroll.move({ x: 151, y: 699 })
-  expect(scroll.may(column, down)).toBe(true)
-  // Held still at the edge: it keeps scrolling.
-  expect(scroll.may(column, down)).toBe(true)
-})
-
-test('carried away from an edge, the area stops scrolling; a tremor doesn\'t stop it', () => {
-  const scroll = dragScroll({ x: 150, y: 600 })
-  scroll.move({ x: 150, y: 690 })
-  scroll.move({ x: 150, y: 688 })
-  expect(scroll.may(column, down)).toBe(true)
-  scroll.move({ x: 150, y: 640 })
-  expect(scroll.may(column, down)).toBe(false)
-})
-
-test('a column scrolls with the pointer level with it, also past its edge, not from beside it', () => {
-  const scroll = dragScroll({ x: 150, y: 300 })
-  scroll.move({ x: 150, y: 720 })
-  expect(scroll.may(column, down)).toBe(true)
-  // Picked up low and carried sideways on to the next column, at the same height: neither column scrolls.
-  const across = dragScroll({ x: 150, y: 680 })
-  across.move({ x: 280, y: 681 })
-  across.move({ x: 400, y: 682 })
-  expect(across.may(column, down)).toBe(false)
-  expect(across.may({ left: 310, right: 610, top: 0, bottom: 700 }, down)).toBe(false)
-})
-
-test('the board scrolls sideways only when the card is pushed sideways', () => {
-  const board = { left: 0, right: 1000, top: 0, bottom: 800 }
-  const sideways = { x: true, y: false }
-  // Reordering in the rightmost column, with a little sideways jitter: the board stays put.
-  const reorder = dragScroll({ x: 900, y: 200 })
-  reorder.move({ x: 902, y: 300 })
-  expect(reorder.may(board, sideways)).toBe(false)
-  // Pushed to the right edge: it scrolls.
-  reorder.move({ x: 990, y: 300 })
-  expect(reorder.may(board, sideways)).toBe(true)
+  // A twitch at pickup, near the edge of a long column: nothing scrolls.
+  scroll.move({ x: 151, y: 690 })
+  expect(scroll.may()).toBe(false)
+  // A short push on to the edge, also when the screen ends there: it may.
+  scroll.move({ x: 151, y: 694 })
+  expect(scroll.may()).toBe(true)
+  // And keeps on, also back near the start.
+  scroll.move({ x: 150, y: 681 })
+  expect(scroll.may()).toBe(true)
 })
