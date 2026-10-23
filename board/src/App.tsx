@@ -19,7 +19,7 @@ import Today, { Agents, type Actions } from './Today'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
-  contextOf, inContext, projectForPath, scopeVault, startCommand, unlink,
+  contextOf, inContext, projectForPath, scopeVault, startCommand, teachPrompt, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -160,6 +160,7 @@ export default function App() {
     write,
   }
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
+  const teach = (t: Doc) => { setSeed({ task: t.name, message: teachPrompt(t, vault.vault), at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
   const openCount = (p: Doc) => vault.tasks.filter((t) => unlink(t.data.project) === p.name && t.data.status !== 'done').length
   const [pageLabel, PageIcon] = PAGE[page]
@@ -272,7 +273,7 @@ export default function App() {
         return (
           <Peek key={`${top.kind}:${top.id}`} title={title} back={back} close={close} wide={wide} setWide={setW}>
             {top.kind === 'task' && (task
-              ? <TaskPage task={task} vault={vault} projects={scoped.projects} act={act} agents={agents} openAgent={openAgent} peek={peek} grill={grill} copyStart={copyStart} fail={fail} flash={flash} />
+              ? <TaskPage task={task} vault={vault} projects={scoped.projects} act={act} agents={agents} openAgent={openAgent} peek={peek} grill={grill} teach={teach} copyStart={copyStart} fail={fail} flash={flash} />
               : <p className="muted">Loading {top.id}…</p>)}
             {top.kind === 'project' && (proj
               ? <ProjectPage compact vault={vault} project={proj} terminal={() => terminal({ kind: 'claude', project: proj.name })} start={act.start} open={openTask}
