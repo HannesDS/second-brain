@@ -212,6 +212,7 @@
 [data-theme="terrain"] .agent.working::before { background: var(--st-wip-ink); }
 [data-theme="terrain"] .agent.needs-input { border-color: var(--st-review); }
 [data-theme="terrain"] .agent.needs-input::before { background: var(--st-review); animation: tr-breathe 2s var(--ease) infinite; }
+[data-theme="terrain"] .agent.on { outline: none; border-color: var(--text); }
 [data-theme="terrain"] .state { border-radius: var(--radius-pill); font-weight: 500; text-transform: none; letter-spacing: 0; padding: 1px 8px; }
 [data-theme="terrain"] .state.needs-input { background: var(--st-review); color: var(--moss); }
 [data-theme="terrain"] .state.working { background: var(--st-wip); color: var(--moss); }

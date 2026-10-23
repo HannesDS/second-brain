@@ -18,13 +18,13 @@ import Integrations from './Integrations'
 import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
 import Notes from './Notes'
 import Split from './Split'
-import Terminals from './Terminals'
+import Terminals, { type Term } from './Terminals'
 import Today, { Agents, type Actions } from './Today'
 import { place, step, type Place } from './combobox'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
-  TAB, contextOf, inContext, loader, projectForPath, scopeVault, startCommand, teachPrompt, unlink,
+  TAB, contextOf, inContext, loader, projectOf, scopeVault, startCommand, tabsOf, teachPrompt, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -53,6 +53,7 @@ const parseHash = (): { page: Page; arg: string } => {
 export default function App() {
   const [vault, setVault] = useState<Vault>()
   const [agents, setAgents] = useState<Agent[]>([])
+  const [terms, setTerms] = useState<Term[]>([])
   const [sync, setSync] = useState<Record<string, string>>({})
   const [route, setRoute] = useState(parseHash)
   const [context, setContextState] = useState<string>(() => loadLocal('sb.context', ''))
@@ -77,6 +78,7 @@ export default function App() {
   const [vaultLoader] = useState(() => loader<Vault>(() => api('data'), setVault))
   const load = useCallback(() => vaultLoader.load(), [vaultLoader])
   const loadAgents = useCallback(() => api('agents').then(setAgents), [])
+  const loadTerms = useCallback(() => api('terminals').then(setTerms), [])
   useEffect(() => {
     load()
     loadAgents()
@@ -85,7 +87,7 @@ export default function App() {
     let agentsTimer: number
     // A drop in this tab already shows, and a reload can't undo it (see loader): its own echo needs none.
     const onChange = (e?: { tab?: string }) => { if (e?.tab === TAB) return; clearTimeout(vaultTimer); vaultTimer = window.setTimeout(load, 100) }
-    const onAgents = () => { clearTimeout(agentsTimer); agentsTimer = window.setTimeout(loadAgents, 300) }
+    const onAgents = () => { clearTimeout(agentsTimer); agentsTimer = window.setTimeout(() => { loadAgents(); loadTerms().catch(() => {}) }, 300) }
     // Switching view closes the peek: it belonged to the page you left.
     const onHash = () => { setRoute(parseHash()); setPeeks([]) }
     import.meta.hot?.on('vault-change', onChange)
@@ -96,7 +98,7 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyK') { e.preventDefault(); setCapturing(true) }
     }
     window.addEventListener('keydown', onKey)
-    const poll = window.setInterval(() => { loadAgents(); api('sync').then(setSync) }, 60_000)
+    const poll = window.setInterval(() => { loadAgents(); loadTerms().catch(() => {}); api('sync').then(setSync) }, 60_000)
     return () => {
       import.meta.hot?.off('vault-change', onChange)
       import.meta.hot?.off('agents-change', onAgents)
@@ -104,7 +106,9 @@ export default function App() {
       window.removeEventListener('keydown', onKey)
       clearInterval(poll)
     }
-  }, [load, loadAgents])
+  }, [load, loadAgents, loadTerms])
+  // Tabs open and close by navigating (opening one routes to it), so the route is when to look again.
+  useEffect(() => { loadTerms().catch(() => {}) }, [route, peeks.length, loadTerms])
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
   const fail = (e: Error) => flash(e.message)
@@ -127,9 +131,8 @@ export default function App() {
   const inScope = (d: Doc) => !scopeProject || unlink(d.data.project) === scope
   const view: Vault = scopeProject ? { ...scoped, tasks: scoped.tasks.filter(inScope), meetings: scoped.meetings.filter(inScope) } : scoped
   const { page, arg } = route
-  const agentProject = (a: Agent) => unlink(vault.tasks.find((t) => t.name === a.task)?.data.project) || projectForPath(a.cwd, vault.projects)?.name
   // A "needs you" that was marked seen shows as idle until the session changes again.
-  const shown = agents.filter((a) => inContext(context, contextOf(a, vault)) && (!scope || agentProject(a) === scope))
+  const shown = agents.filter((a) => inContext(context, contextOf(a, vault)) && (!scope || projectOf(a, vault)?.name === scope))
     .map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
   const markSeen = (a: Agent) => { const next = { ...seen, [a.id]: a.updated }; setSeen(next); saveLocal('sb.seen', next) }
   const peek = (p: PeekItem) => (inPane(p, page) ? go(page, p.id)
@@ -151,8 +154,11 @@ export default function App() {
   const meetingNote = (title: string, date: string, time = '') =>
     api('meetings', 'POST', { title, date, time, project: scope || guessProject(title, vault.projects) }).then(({ path }) => write(path), fail)
   const terminal = (body: Record<string, string>) => api('terminals', 'POST', body).then(({ id }) => peek({ kind: 'terminal', id }), fail)
-  // Resuming a session that is still working elsewhere would put two windows on one session.
+  // A session with an open tab goes to that tab. Resuming one that is still working elsewhere would put two windows on one session.
+  const tabs = tabsOf(agents, terms)
   const openAgent = (a: Agent) => {
+    const tab = tabs.get(a.id)
+    if (tab) return peek({ kind: 'terminal', id: tab })
     if (a.state === 'working' && !confirm('This session is still working in another window. Open it here anyway?')) return
     terminal({ kind: 'resume', agent: a.id })
   }
@@ -273,8 +279,8 @@ export default function App() {
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>
-            <Terminals active={arg || undefined} go={(id) => go('agents', id)} fail={fail} show={(t) => inContext(context, contextOf(t, vault))} />
-            <Agents agents={shown} vault={view} open={openAgent} seen={markSeen} act={act} start={terminal} />
+            <Terminals all={terms} refresh={loadTerms} active={arg || undefined} go={(id) => go('agents', id)} fail={fail} show={(t) => inContext(context, contextOf(t, vault))} />
+            <Agents agents={shown} vault={view} tabs={tabs} active={arg} open={openAgent} seen={markSeen} act={act} start={terminal} />
           </Split>
         )}
         {page === 'integrations' && <Integrations synced={setSync} fail={fail} />}

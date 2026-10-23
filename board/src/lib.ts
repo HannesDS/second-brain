@@ -68,7 +68,7 @@ export function startCommand(task: Doc, project: Doc | undefined, root: string) 
 
 export type Agent = {
   id: string; cwd: string; account: string; state: string; updated: string; title?: string
-  message?: string; lastPrompt?: string; task?: string; inferred?: boolean
+  message?: string; lastPrompt?: string; task?: string; inferred?: boolean; started?: string
 }
 
 // Project whose repo path is a prefix of the agent's working directory (worktrees included).
@@ -150,11 +150,47 @@ export function scopeVault(vault: Vault, context: string): Vault {
 
 const ACCOUNT_CONTEXT: Record<string, string> = { dm: 'dataminded', personal: 'personal' }
 
-// A session or terminal belongs to its task's project, else the project whose repo it runs in, else its account's context.
-export function contextOf(run: { cwd: string; account: string; task?: string }, vault: Vault) {
+// A session or terminal belongs to its task's project, else the project whose repo it runs in.
+export function projectOf(run: { cwd: string; task?: string }, vault: Vault) {
   const task = run.task ? vault.tasks.find((t) => t.name === run.task) : undefined
-  const project = (task && vault.projects.find((p) => p.name === unlink(task.data.project))) || projectForPath(run.cwd, vault.projects)
-  return project?.data.context ?? ACCOUNT_CONTEXT[run.account]
+  return (task && vault.projects.find((p) => p.name === unlink(task.data.project))) || projectForPath(run.cwd, vault.projects)
+}
+
+// Without a project, it falls back to its account's context.
+export function contextOf(run: { cwd: string; account: string; task?: string }, vault: Vault) {
+  return projectOf(run, vault)?.data.context ?? ACCOUNT_CONTEXT[run.account]
+}
+
+// What a session works on, in one line: its task when it has one, else its first prompt.
+export function agentLabel(a: Agent, tasks: Doc[]) {
+  const task = a.task ? tasks.find((t) => t.name === a.task) : undefined
+  return task ? `${task.name} ${task.data.title}` : a.title || a.cwd.split('/').pop() || a.id.slice(0, 8)
+}
+
+// Sessions per project, both in order of history: the most recently active first.
+export function byProject(agents: Agent[], vault: Vault) {
+  const groups = new Map<string, { project?: Doc; agents: Agent[] }>()
+  for (const a of [...agents].sort((x, y) => y.updated.localeCompare(x.updated))) {
+    const project = projectOf(a, vault)
+    const key = project?.name ?? ''
+    if (!groups.has(key)) groups.set(key, { project, agents: [] })
+    groups.get(key)!.agents.push(a)
+  }
+  return [...groups.values()]
+}
+
+// The open terminal tab of each session: the tab that resumed it, else the tab started for its task.
+// A task tab goes to that task's most recent session that started after it, so two sessions never share a tab.
+export function tabsOf(agents: Agent[], terms: { id: string; agent?: string; task?: string; exited: boolean; started?: string }[]) {
+  const tabs = new Map<string, string>()
+  const open = terms.filter((t) => !t.exited)
+  for (const a of [...agents].sort((x, y) => y.updated.localeCompare(x.updated))) {
+    const tab = open.find((t) => t.agent === a.id)
+      ?? open.find((t) => !t.agent && a.task && t.task === a.task && !(a.started && t.started && a.started < t.started)
+        && ![...tabs.values()].includes(t.id))
+    if (tab) tabs.set(a.id, tab.id)
+  }
+  return tabs
 }
 
 // Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.
