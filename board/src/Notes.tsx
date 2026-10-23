@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Crepe } from '@milkdown/crepe'
 import '@milkdown/crepe/theme/common/style.css'
 import { ago, api, list, unlink, type Doc, type Vault } from './lib'
-import { ProjectSelect } from './Home'
+import { ProjectSelect, load, save } from './Home'
+import type { Speaker } from '../meetings'
 
 type Note = { path: string; name: string; data: Record<string, any>; mtime: string }
 type Action = Record<string, any> & { kind: string; reason: string }
@@ -213,10 +214,11 @@ function MeetingBar({ vault, projects, name, meta, setField, fail }: {
 
 const CHUNK_MS = 30_000
 
-// Records in 30-second, self-contained chunks and sends each to local Whisper; text lands in transcripts/.
+// Records in 30-second, self-contained chunks and sends each to local Whisper; text lands in transcripts/,
+// labelled Me / Others when the call's audio is recorded too.
 function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; fail: (e: Error) => void }) {
   const [rec, setRec] = useState<{ stop: () => void; startedAt: number }>()
-  const [withTab, setWithTab] = useState(false)
+  const [withCall, setWithCall] = useState(() => load('meeting-call-audio', true))
   const [pending, setPending] = useState(0)
   const [, tick] = useState(0)
   useEffect(() => { if (!rec) return; const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t) }, [rec])
@@ -224,23 +226,31 @@ function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; 
 
   async function start() {
     try {
-      const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
-      const streams = [mic]
-      // Online meetings: also capture the call's tab audio, so the other side is in the transcript.
-      if (withTab) {
-        const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-        display.getVideoTracks().forEach((t) => t.stop())
-        if (!display.getAudioTracks().length) flash('No tab audio shared; recording your microphone only.')
-        streams.push(display)
+      // Online meetings: also capture what the others say, from the call's tab or (desktop Teams, Zoom)
+      // the whole screen's system audio. Each source is transcribed on its own, so lines say who spoke.
+      // Asked before the mic: Chrome only allows screen sharing right after the click.
+      let call: MediaStream | undefined
+      if (withCall) {
+        try {
+          const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true, systemAudio: 'include' } as DisplayMediaStreamOptions)
+          display.getVideoTracks().forEach((t) => t.stop())
+          if (display.getAudioTracks().length) call = new MediaStream(display.getAudioTracks())
+          else flash('No call audio shared; recording your microphone only.')
+        } catch (e) { flash(`Call audio not shared (${(e as Error).message}); recording your microphone only.`) }
       }
-      const ctx = new AudioContext()
-      const out = ctx.createMediaStreamDestination()
-      for (const s of streams) if (s.getAudioTracks().length) ctx.createMediaStreamSource(s).connect(out)
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+        .catch((e) => { call?.getTracks().forEach((t) => t.stop()); throw e })
+      const sources: { who: Speaker; stream: MediaStream }[] = [{ who: 'me', stream: mic }, ...(call ? [{ who: 'others' as const, stream: call }] : [])]
+      // With only the microphone, it hears everyone in the room: no label.
+      const labelled = sources.length > 1
 
       let running = true
-      const loop = () => {
-        if (!running) return
-        const r = new MediaRecorder(out.stream, { mimeType: 'audio/webm;codecs=opus' })
+      const current: MediaRecorder[] = []
+      const loop = (i: number) => {
+        const { who, stream } = sources[i]
+        // Also stops when the share ends from Chrome's "Stop sharing" bar.
+        if (!running || !stream.getAudioTracks().some((t) => t.readyState === 'live')) return
+        const r = current[i] = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
         const at = new Date().toISOString()
         const parts: Blob[] = []
         r.ondataavailable = (e) => parts.push(e.data)
@@ -248,22 +258,24 @@ function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; 
           const blob = new Blob(parts, { type: 'audio/webm' })
           if (blob.size > 2000) {
             setPending((n) => n + 1)
-            fetch(`/api/transcribe?name=${encodeURIComponent(name)}&at=${encodeURIComponent(at)}`, { method: 'POST', body: blob })
+            fetch(`/api/transcribe?name=${encodeURIComponent(name)}&at=${encodeURIComponent(at)}${labelled ? `&who=${who}` : ''}`, { method: 'POST', body: blob })
               .then(async (res) => { if (!res.ok) throw new Error((await res.json()).error) })
               .then(onChunk, fail)
               .finally(() => setPending((n) => n - 1))
           }
-          loop()
+          loop(i)
         }
         r.start()
         setTimeout(() => r.state === 'recording' && r.stop(), CHUNK_MS)
-        stopCurrent = () => { running = false; if (r.state === 'recording') r.stop() }
       }
-      let stopCurrent = () => {}
-      loop()
+      sources.forEach((_, i) => loop(i))
       setRec({
         startedAt: Date.now(),
-        stop: () => { stopCurrent(); setTimeout(() => { streams.forEach((s) => s.getTracks().forEach((t) => t.stop())); ctx.close() }, 500) },
+        stop: () => {
+          running = false
+          current.forEach((r) => r.state === 'recording' && r.stop())
+          setTimeout(() => sources.forEach((s) => s.stream.getTracks().forEach((t) => t.stop())), 500)
+        },
       })
     } catch (e) { fail(e as Error) }
   }
@@ -279,8 +291,8 @@ function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; 
   ) : (
     <span className="recorder">
       <button className="rec-btn" onClick={start} title="Transcribe this meeting locally with Whisper (audio never leaves your Mac)">● Transcribe</button>
-      <label className="muted" title="For online meetings: also capture the call's browser tab (pick the tab and tick 'share tab audio')">
-        <input type="checkbox" checked={withTab} onChange={(e) => setWithTab(e.target.checked)} /> + call tab audio
+      <label className="muted" title="For online meetings: also transcribe the other participants. Share the call's tab with 'Share tab audio', or for a desktop app (Teams, Zoom) the entire screen with 'Share system audio'. Use headphones, or the mic hears the others too.">
+        <input type="checkbox" checked={withCall} onChange={(e) => { setWithCall(e.target.checked); save('meeting-call-audio', e.target.checked) }} /> + others (call audio)
       </label>
       {pending > 0 && <span className="muted">transcribing…</span>}
     </span>
