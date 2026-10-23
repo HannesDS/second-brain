@@ -437,38 +437,84 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .dep-lane { width: 100%; height: 100%; border: 1px dashed var(--border); border-radius: var(--radius); }
 .dep-lane-label { display: block; padding: 4px 10px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Brain Terrain: the vault as one graph (React Flow, laid out by graph.ts) */
-.kg-page { display: flex; flex-direction: column; padding: 12px 20px 16px; min-height: 0; flex: 1; }
-.kg-page .filter-bar select { width: auto; }
-.kg-host { flex: 1; height: auto; min-height: 420px; }
-.kg-chips { display: flex; gap: 4px; flex-wrap: wrap; }
-.kg-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; font-size: 12px; color: var(--muted); opacity: 0.6; }
-.kg-chip.on { opacity: 1; color: var(--text); }
-.kg-node { position: relative; width: 14px; height: 14px; cursor: pointer; }
-.kg-node.project { width: 26px; height: 26px; }
-.kg-node, .kg-chip .kg-dot { --kg: var(--p3); }
-.kg-node.project, .kg-chip.project .kg-dot { --kg: var(--text); }
-.kg-node.task, .kg-chip.task .kg-dot { --kg: var(--p2); }
-.kg-node.thought, .kg-chip.thought .kg-dot { --kg: var(--p1); }
-.kg-node.meeting, .kg-chip.meeting .kg-dot { --kg: var(--ok); }
-.kg-node.report, .kg-chip.report .kg-dot { --kg: var(--p0); }
-.kg-dot { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--kg); border: 2px solid var(--surface); box-shadow: var(--shadow); }
-.kg-chip .kg-dot { width: 10px; height: 10px; border: none; }
-.kg-node.done .kg-dot { opacity: 0.45; }
-.kg-node.far { opacity: 0.25; }
-.kg-node.hot .kg-dot { outline: 3px solid var(--focus); outline-offset: 1px; }
-.kg-node:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 50%; }
-.kg-label { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 3px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); pointer-events: none; }
-.kg-node.project .kg-label { font-size: 13px; font-weight: 700; color: var(--text); }
-.kg-flow .react-flow__handle { top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0; }
-.kg-flow .react-flow__edge path { stroke: var(--border); stroke-width: 1.2; }
-.kg-flow .react-flow__edge.link path { stroke: var(--muted); }
-.kg-flow .react-flow__edge.similar path { stroke-dasharray: 3 4; }
-.kg-flow .react-flow__edge.hot path { stroke: var(--focus); stroke-width: 2; }
-.kg-flow .react-flow__edge.far { opacity: 0.2; }
-.kg-line { display: block; width: 16px; border-top: 2px solid var(--border); }
-.kg-chip.link .kg-line { border-top-color: var(--muted); }
-.kg-chip.similar .kg-line { border-top-style: dashed; border-top-color: var(--muted); }
+/* Brain Terrain: the vault as a map (BrainTerrain.tsx). Hills are projects, places are docs, trails are links. */
+.main > main.bt-page { padding: 0; overflow: hidden; display: flex; }
+.bt-map { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--surface-2); cursor: grab; touch-action: none; user-select: none; }
+.bt-map.panning { cursor: grabbing; }
+.bt-map svg { display: block; }
+.bt-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; }
+.bt-graticule { fill: none; stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 6; vector-effect: non-scaling-stroke; }
+.bt-map .ring { fill: none; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.bt-map .ring.base { stroke: var(--muted); stroke-opacity: .35; fill: var(--surface); fill-opacity: .5; }
+.bt-map .ring.todo { stroke: var(--p3); }
+.bt-map .ring.wip { stroke: var(--ok); }
+.bt-map .ring.review { stroke: var(--p2); }
+.bt-map .ring.blocked { stroke: var(--p0); }
+.bt-map .peak { fill: var(--surface); stroke: var(--text); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.bt-map .peak.hot { fill: var(--p1); }
+.bt-hill { cursor: pointer; outline: none; transition: opacity .2s; }
+.bt-hill:focus-visible .ring.base:first-child { stroke: var(--focus); stroke-width: 2.5; }
+.bt-hill.picked .ring.base:first-child { stroke: var(--text); stroke-width: 2; }
+.bt-hill-name { font-weight: 800; letter-spacing: .14em; text-transform: uppercase; fill: var(--text); paint-order: stroke; stroke: var(--surface-2); stroke-width: 4px; stroke-linejoin: round; }
+.bt-hill-meta { font-family: var(--font-mono, ui-monospace, monospace); fill: var(--muted); paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; }
+.bt-trail { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 5 4; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .6; transition: opacity .2s; }
+.bt-trail.similar { stroke-dasharray: 1 5; opacity: .35; }
+.bt-trail.lit { stroke: var(--focus); stroke-width: 2.2; opacity: 1; }
+.bt-trail.far, .bt-place.far, .bt-hill.far { opacity: .25; }
+.bt-place { cursor: pointer; transition: opacity .2s; }
+.bt-hit { fill: transparent; }
+.bt-place .sym { fill: var(--p3); stroke: var(--surface); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.bt-place.task.ready .sym { fill: var(--p2); }
+.bt-place.task.wip .sym { fill: var(--ok); }
+.bt-place.task.review .sym { fill: var(--p2); }
+.bt-place.task.blocked .sym { fill: var(--p0); }
+.bt-place.task.done .sym { fill: var(--text); opacity: .45; }
+.bt-place.thought .sym { fill: var(--surface); stroke: var(--p2); stroke-width: 1.8; }
+.bt-place.meeting .sym { fill: var(--surface); stroke: var(--text); stroke-width: 1.5; }
+.bt-place.report .sym { fill: var(--p1); stroke: var(--text); stroke-width: 1.3; }
+.bt-place.picked .sym { stroke: var(--focus); stroke-width: 3; }
+.bt-place-name { fill: var(--text); paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.bt-uncharted rect { fill: none; stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 8 6; vector-effect: non-scaling-stroke; }
+.bt-uncharted text { fill: var(--muted); letter-spacing: .12em; font-weight: 700; }
+.bt-overlay { position: absolute; z-index: 2; cursor: default; }
+.bt-overlay.top-left { top: 16px; left: 16px; }
+.bt-overlay.top-right { top: 16px; right: 16px; }
+.bt-overlay.bottom-left { bottom: 16px; left: 16px; }
+.bt-overlay.bottom-right { bottom: 16px; right: 16px; }
+.bt-find { position: relative; display: flex; align-items: center; gap: 10px; width: min(440px, calc(100vw - 340px)); min-width: 260px; height: 48px; padding: 0 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 24px; box-shadow: var(--shadow); color: var(--muted); }
+.bt-find:focus-within { border-color: var(--focus); }
+.bt-find input { flex: 1; min-width: 0; border: none; outline: none; background: none; font-size: 16px; color: var(--text); padding: 0; }
+.bt-hits { position: absolute; top: 54px; left: 0; right: 0; margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+.bt-hits li { display: flex; align-items: baseline; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+.bt-hits li[aria-selected="true"] { background: var(--surface-2); }
+.bt-hit-kind { flex: none; width: 58px; font: 500 11px var(--font-mono, ui-monospace, monospace); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.bt-hit-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.bt-zoom { display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+.bt-card { top: 80px; right: 16px; width: 300px; max-height: calc(100% - 200px); overflow-y: auto; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); }
+.bt-card-head { display: flex; align-items: center; }
+.bt-card-kind, .bt-card-label { font: 500 11px var(--font-mono, ui-monospace, monospace); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.bt-card h3 { margin: 2px 0 4px; font-size: 19px; line-height: 1.25; }
+.bt-card p { margin: 0 0 12px; }
+.bt-open { display: inline-flex; align-items: center; gap: 6px; }
+.bt-card-label { margin: 16px 0 6px; }
+.bt-card-trails { list-style: none; margin: 0; padding: 0; }
+.bt-card-trails button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 6px; border: none; background: none; text-align: left; border-radius: 8px; }
+.bt-card-trails button:hover { background: var(--surface-2); }
+.bt-trail-mark { flex: none; width: 14px; border-top: 2px dashed var(--muted); }
+.bt-trail-mark.similar { border-top-style: dotted; }
+.bt-legend { display: flex; flex-direction: column; gap: 2px; padding: 8px; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); font-size: 12px; }
+.bt-legend-row { display: flex; align-items: center; gap: 10px; padding: 3px 6px; border: none; background: none; text-align: left; color: var(--muted); border-radius: 8px; }
+button.bt-legend-row { opacity: .5; }
+button.bt-legend-row.on { opacity: 1; color: var(--text); }
+button.bt-legend-row:hover { background: var(--surface-2); }
+.bt-legend-row svg { flex: none; width: 18px; height: 18px; overflow: visible; }
+.bt-compass { display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; font: 500 11px var(--font-mono, ui-monospace, monospace); color: var(--muted); }
+.bt-compass svg { width: 44px; height: 50px; }
+.bt-compass .needle { fill: var(--text); }
+.bt-compass .tail { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.bt-compass text { font: 700 10px var(--font-mono, ui-monospace, monospace); fill: var(--text); }
+@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place { transition: none; } }
 
 /* Gantt */
 .gantt-host { background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }

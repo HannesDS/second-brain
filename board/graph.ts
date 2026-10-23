@@ -35,7 +35,7 @@ export function knowledgeGraph(): KnowledgeGraph {
     if (project && d.kind !== 'project') add(d.id, `projects/${project}.md`, 'project')
     return {
       id: d.id, kind: d.kind, name: d.name, title: String(d.data.title ?? d.data.name ?? d.name), project,
-      contexts: context ? [String(context)] : [], status: String(d.data.status ?? ''),
+      contexts: context ? [String(context)] : [], status: String(d.data.status ?? ''), priority: String(d.data.priority ?? ''),
     }
   })
   for (const d of docs) {
@@ -53,7 +53,7 @@ export function knowledgeGraph(): KnowledgeGraph {
     const from = docs.filter((d) => d.body.includes(id))
     nodes.push({
       id, kind: 'report', name: file, title: file.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/\.html$/, '').replace(/-/g, ' '),
-      project: nodes.find((n) => n.id === from[0]?.id)?.project ?? '', contexts: [], status: '',
+      project: nodes.find((n) => n.id === from[0]?.id)?.project ?? '', contexts: [], status: '', priority: '',
     })
     for (const d of from) add(d.id, id, 'link')
   }

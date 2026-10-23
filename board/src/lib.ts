@@ -117,6 +117,17 @@ export function urgency(t: Doc): { score: number; reasons: string[] } {
   return { score, reasons }
 }
 
+// A hill's contour rings from the peak outwards: blocked, in progress, review, to do. Shared out by how much
+// open work has each status (at most 7 rings), with at least one ring for every status that has work.
+const RING_ORDER = ['blocked', 'wip', 'review', 'todo']
+export function hillRings(open: string[]) {
+  const n = Math.min(7, open.length)
+  return RING_ORDER.flatMap((s) => {
+    const count = open.filter((x) => x === s).length
+    return Array<string>(count ? Math.max(1, Math.round((count / open.length) * n)) : 0).fill(s)
+  }).slice(0, 7)
+}
+
 export const CONTEXT_LABEL: Record<string, string> = { dataminded: 'Data Minded', personal: 'Personal' }
 
 // The context switch at the top scopes every page. '' is All; things without a known context only show there.
