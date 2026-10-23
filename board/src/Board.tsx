@@ -61,6 +61,13 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
       return mayScroll(pointer.current.start, pointer.current.now, area)
     },
   }), [])
+  // The real pointer: dnd-kit's drag delta also counts what has scrolled, so it drifts once the board scrolls.
+  useEffect(() => {
+    if (!active) return
+    const move = (e: PointerEvent) => { if (pointer.current) pointer.current.now = { x: e.clientX, y: e.clientY } }
+    addEventListener('pointermove', move)
+    return () => removeEventListener('pointermove', move)
+  }, [active])
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -106,11 +113,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={autoScroll}
-      onDragMove={({ activatorEvent, delta }) => {
-        const start = getEventCoordinates(activatorEvent)
-        pointer.current = start ? { start, now: { x: start.x + delta.x, y: start.y + delta.y } } : undefined
-      }}
-      onDragStart={(e) => { pointer.current = undefined; setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+      onDragStart={(e) => { const start = getEventCoordinates(e.activatorEvent); pointer.current = start ? { start, now: start } : undefined; setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {

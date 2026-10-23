@@ -521,8 +521,9 @@ a:hover { text-decoration: underline; }
 .nav:hover, .proj:hover { background: var(--border); }
 .card, .todo-list li, .event-list li, .agent, .project-card { box-shadow: none; }
 .card:hover, .card.lifted, .project-card:hover, .todo-list li:hover { border-color: var(--muted); }
-/* The card in hand follows the pointer: its buttons are for show, not for a click during the drop. */
-.card.lifted { pointer-events: none; }
+/* The card in hand: its buttons are for show, not for a click during the drop. */
+.card.lifted { cursor: grabbing; }
+.card.lifted :is(button, a) { pointer-events: none; }
 .todo-list li.on { box-shadow: inset 2px 0 0 var(--accent); border-color: var(--accent); }
 .column { background: var(--surface-2); border: 1px solid var(--border); }
 .prio { border-radius: 2em; font-weight: 600; padding: 0 7px; }
