@@ -276,6 +276,15 @@ export function vaultApi(): Plugin {
           res.setHeader('content-type', 'text/markdown; charset=utf-8')
           return void res.end(readDoc(path.join(VAULT, 'notes/Guide.md')).body)
         }
+        // Teach reports are HTML the agent wrote: sandboxed so they cannot script against the API.
+        const report = req.url?.match(/^\/reports\/([\w.-]+\.html)$/)?.[1]
+        if (report) {
+          const f = path.join(VAULT, 'reports', report)
+          if (!fs.existsSync(f)) { res.statusCode = 404; return void res.end('report not found') }
+          res.setHeader('content-type', 'text/html; charset=utf-8')
+          res.setHeader('content-security-policy', 'sandbox')
+          return void res.end(fs.readFileSync(f))
+        }
         if (req.url?.startsWith('/transcribe') && req.method === 'POST') {
           return void transcribe(req)
             .then((out) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(out)) })

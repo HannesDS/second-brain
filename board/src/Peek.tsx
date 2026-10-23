@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, Copy, ExternalLink, GitPullRequest, Maximize2, MessagesSquare, Minimize2, NotebookText, Play, Rocket, Square, Star, TerminalSquare, X,
+  ArrowLeft, Copy, ExternalLink, GitPullRequest, GraduationCap, Maximize2, MessagesSquare, Minimize2, NotebookText, Play, Rocket, Square, Star, TerminalSquare, X,
 } from 'lucide-react'
 import { ProjectSelect } from './Home'
 import { Editor } from './Notes'
 import { XTerm, type Term } from './Terminals'
 import type { Actions } from './Today'
 import { IconButton, IconLink } from './ui'
-import { LABELS, PRIORITIES, PRIO_LABEL, STATUSES, TYPES, api, isFocus, list, obsidian, unlink, type Agent, type Doc, type Vault } from './lib'
+import { LABELS, PRIORITIES, PRIO_LABEL, STATUSES, TYPES, api, isFocus, list, obsidian, prReport, unlink, type Agent, type Doc, type Vault } from './lib'
 
 export type PeekItem = { kind: 'task' | 'project' | 'terminal' | 'doc'; id: string }
 
@@ -58,9 +58,9 @@ function Prop({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // The task as a page: title, properties that save as you change them, and the body to write in.
-export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, grill, copyStart, fail, flash }: {
+export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, grill, teach, copyStart, fail, flash }: {
   task: Doc; vault: Vault; projects: Doc[]; act: Actions; agents: Agent[]; openAgent: (a: Agent) => void
-  peek: (p: PeekItem) => void; grill: (t: Doc) => void; copyStart: (t: Doc) => void; fail: (e: Error) => void; flash: (m: string) => void
+  peek: (p: PeekItem) => void; grill: (t: Doc) => void; teach: (t: Doc) => void; copyStart: (t: Doc) => void; fail: (e: Error) => void; flash: (m: string) => void
 }) {
   const d = task.data
   const save = (data: Record<string, unknown>) => api(`tasks/${task.name}`, 'PUT', { data }).catch(fail)
@@ -69,6 +69,7 @@ export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, 
       {opts.map((o) => <option key={o} value={o}>{labels[o] ?? o}</option>)}
     </select>
   )
+  const report = prReport(task)
   const meetings = [...new Set([
     ...list(d.meetings).map(unlink),
     ...vault.meetings.filter((m) => list(m.data.tasks).map(unlink).includes(task.name)).map((m) => m.name),
@@ -80,6 +81,9 @@ export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, 
         <IconButton icon={Play} label="Start agent" showLabel primary onClick={() => act.start(task)} />
         <IconButton icon={Rocket} label="Autopilot" showLabel onClick={() => act.autopilot(task)} />
         <IconButton icon={MessagesSquare} label="Grill me" showLabel onClick={() => grill(task)} />
+        {d.pr && (report
+          ? <IconLink icon={GraduationCap} label="Teach me" showLabel href={`${location.origin}/api/reports/${report}`} />
+          : <IconButton icon={GraduationCap} label="Teach me" showLabel onClick={() => teach(task)} />)}
         <IconButton icon={Star} label={isFocus(task) ? 'In top 3' : 'Top 3'} showLabel active={isFocus(task)} onClick={() => act.focus(task)} />
         <div className="spacer" />
         {d.notion && <IconLink icon={ExternalLink} label="Notion" showLabel href={d.notion} />}
