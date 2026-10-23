@@ -388,7 +388,11 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .cal-dow { padding: 6px 8px; font-size: 12px; color: var(--muted); text-align: center; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .cal-day { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cal-day.other { background: var(--surface-2); opacity: 0.6; }
-.cal-day.today .cal-num { background: var(--p0); color: #fff; border-radius: 999px; padding: 0 7px; }
+.cal-grid:not(.cal-month-view) { grid-auto-rows: minmax(320px, 1fr); }
+.cal-grid.cal-day-view { grid-template-columns: minmax(0, 1fr); }
+.cal-grid:not(.cal-month-view) .cal-item { white-space: normal; }
+/* is-today, not today: .today is My day's page and would lay its padding onto the cell. */
+.cal-day.is-today .cal-num { background: var(--p0); color: #fff; border-radius: 999px; padding: 0 7px; }
 .cal-num { align-self: flex-end; font-size: 13px; font-variant-numeric: tabular-nums; }
 .cal-item { text-align: left; font-size: 12px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--border); }
 .cal-item.event { background: var(--surface-2); }
