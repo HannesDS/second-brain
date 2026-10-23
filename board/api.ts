@@ -17,7 +17,6 @@ import type { Move } from './src/drag'
 import { agentLabel, type Agent } from './src/lib'
 import { ownWrites } from './own-writes'
 import { asList, expand, workdir } from './repos'
-import { startReady } from './queue'
 import { search } from './search'
 import { onTaskChanged, startSync, status as syncStatus, syncNow } from './sync'
 import { attachTerminals, closeTerminal, listTerminals, openTerminal } from './terminal'
@@ -74,8 +73,7 @@ async function handle(req: IncomingMessage) {
     const tab = req.headers['x-tab'] ? String(req.headers['x-tab']) : undefined
     for (const m of body as Move[]) {
       const f = file('tasks', m.id)
-      // Only a new status can start or end an autopilot run; a reorder doesn't need the whole queue read.
-      if (moved.write(f, tab, () => updateDoc(f, { status: m.status, order: m.order })).status !== m.status) runFrontierSoon()
+      moved.write(f, tab, () => updateDoc(f, { status: m.status, order: m.order }))
     }
     return { ok: true }
   }
@@ -164,17 +162,16 @@ function terminalFor(body: { kind: string; agent?: string; project?: string; tas
 // the project's "## Autopilot" section says how this project wants the work done.
 const AUTOPILOT_DEFAULT = 'Read the code the change touches, make the change, run the checks the repo documents (tests, lint, build) and commit.'
 
-// Runs autopilot started, until their task leaves ready/wip (a task stays "ready" for a few seconds,
-// until its session starts). On globalThis so a Vite re-import doesn't start them twice.
+// Runs autopilot started, so a second click doesn't start another while the task is still open (it stays
+// "todo" for a few seconds, until its session starts). On globalThis so a Vite re-import keeps them.
 const g = globalThis as { __secondBrainLaunched?: Map<string, string> }
 const launched = (g.__secondBrainLaunched ??= new Map())
-const AUTOPILOT_MAX = 3
 
 function autopilot(task: string) {
   const t = listDocs('tasks').find((d) => d.name === task)
   if (!t) throw new Error(`unknown task ${task}`)
   const prev = launched.get(t.name)
-  if (prev && ['ready', 'wip'].includes(t.data.status) && listTerminals().some((x) => x.id === prev && !x.exited)) return prev
+  if (prev && ['todo', 'wip'].includes(t.data.status) && listTerminals().some((x) => x.id === prev && !x.exited)) return prev
   const p = listDocs('projects').find((d) => d.name === String(t.data.project ?? '').replace(/\[|\]/g, ''))
   const repo = workdir(p, t)
   // A worktree only in a repo the task or project names, never in the workbench folder it falls back to.
@@ -212,22 +209,6 @@ function worktreeFor(repo: string, name: string) {
     fs.appendFileSync(exclude, `${lines && !lines.endsWith('\n') ? '\n' : ''}.claude/worktrees/\n`)
   }
   return dir
-}
-
-// Runs on every task file change, so the ready queue works from the board, Obsidian or a skill alike,
-// and the next task starts when a run moves its task on.
-let frontierTimer: NodeJS.Timeout | undefined
-function runFrontierSoon() {
-  clearTimeout(frontierTimer)
-  frontierTimer = setTimeout(runFrontier, 1000)
-}
-
-function runFrontier() {
-  const tasks = listDocs('tasks')
-  const status = new Map(tasks.map((t) => [t.name, t.data.status]))
-  const open = new Set(listTerminals().filter((x) => !x.exited).map((x) => x.id))
-  for (const [task, term] of launched) if (!['ready', 'wip'].includes(status.get(task)) || !open.has(term)) launched.delete(task)
-  startReady(tasks, new Set(launched.keys()), AUTOPILOT_MAX, autopilot)
 }
 
 // Runs one chat turn as `claude -p` in the project's repo, with the project's account,
@@ -285,12 +266,10 @@ export function vaultApi(): Plugin {
         if (f.startsWith(AGENTS_DIR)) server.ws.send({ type: 'custom', event: 'agents-change' })
         if (f.startsWith(path.join(VAULT, 'tasks'))) {
           onTaskChanged(f, tab === undefined ? 0 : SETTLE_MS)
-          if (tab === undefined) runFrontierSoon()
         }
       }
       server.watcher.on('add', notify).on('change', notify).on('unlink', notify)
       startSync()
-      runFrontierSoon()
       warmCalendars()
       if (server.httpServer) attachTerminals(server.httpServer as import('node:http').Server)
       ragRefresh().catch((e: Error) => console.error(`rag: ${e.message} (search falls back to plain text)`))

@@ -256,7 +256,7 @@ export default function App() {
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
           board={<><ViewSwitch graph={graph} set={setGraph} />{graph ? deps
-            : <BoardColumns tasks={view.tasks} vault={vault} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
+            : <BoardColumns tasks={view.tasks} vault={vault} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (

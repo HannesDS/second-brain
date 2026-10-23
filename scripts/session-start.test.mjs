@@ -19,7 +19,7 @@ function hook(env, input = { session_id: 'abc-123', cwd: '/repo' }) {
 
 beforeEach(() => {
   fs.rmSync(vault, { recursive: true, force: true })
-  writeDoc(taskFile, { title: 'Fix the board', project: '[[workbench]]', status: 'ready', priority: 'p1', sessions: [], blocked_by: '' }, '## What to build\n\nA fix.\n')
+  writeDoc(taskFile, { title: 'Fix the board', project: '[[workbench]]', status: 'todo', priority: 'p1', sessions: [], blocked_by: '' }, '## What to build\n\nA fix.\n')
 })
 
 afterAll(() => { fs.rmSync(vault, { recursive: true, force: true }) })
@@ -33,7 +33,7 @@ test('stays silent without TASK_ID', () => {
 test('puts the task in context, links the session and starts the task', () => {
   const out = hook({ TASK_ID: 'T-0007' })
   expect(out.stdout).toContain(`This session works on task T-0007: "Fix the board" (file: ${taskFile}).`)
-  expect(out.stdout).toContain('<task id="T-0007">\nproject: [[workbench]]\nstatus: ready\npriority: p1\n\n## What to build\n\nA fix.\n</task>')
+  expect(out.stdout).toContain('<task id="T-0007">\nproject: [[workbench]]\nstatus: todo\npriority: p1\n\n## What to build\n\nA fix.\n</task>')
 
   const task = readDoc(taskFile)
   expect(task.data).toMatchObject({ status: 'wip', sessions: ['abc-123'] })

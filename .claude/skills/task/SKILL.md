@@ -19,7 +19,7 @@ id: T-0042
 title: Add lineage view to output ports
 aliases: [Add lineage view to output ports]   # always equal to title
 project: "[[portal]]"                         # project file name, as wikilink
-status: todo        # todo | ready | wip | review | blocked | done  (ready = an agent picks it up on its own)
+status: todo        # todo | wip | review | blocked | done
 priority: p2        # p0 | p1 | p2 | p3 (default p2)
 order: 0            # position in column; new tasks: max order in column + 1
 type: code          # code | pr-review | meeting | research | admin

@@ -69,10 +69,10 @@ test('a failed drop reloads what the files say', async () => {
   expect(set.mock.calls).toEqual([['dropped'], ['files']])
 })
 
-test('hill rings share out open work by status, from the peak outwards, ready counting as to do', () => {
+test('hill rings share out open work by status, from the peak outwards, unknown counting as to do', () => {
   expect(hillRings([])).toEqual([])
   expect(hillRings(['todo', 'wip', 'blocked'])).toEqual(['blocked', 'wip', 'todo'])
-  expect(hillRings(['ready', 'ready'])).toEqual(['todo', 'todo'])
+  expect(hillRings(['?', '?'])).toEqual(['todo', 'todo'])
   const many = hillRings([...Array(20).fill('todo'), 'review'])
   expect(many).toHaveLength(7)
   expect(many[0]).toBe('review')
