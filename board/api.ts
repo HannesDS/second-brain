@@ -1,7 +1,6 @@
 // Vite plugin: JSON API over the vault, plus a push to the browser when files change.
 import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
@@ -12,6 +11,7 @@ import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calenda
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { createMeeting, readTranscript, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
+import { asList, expand, workdir } from './repos'
 import { onTaskChanged, startSync, status as syncStatus, syncNow } from './sync'
 import { attachTerminals, closeTerminal, listTerminals, openTerminal } from './terminal'
 
@@ -142,14 +142,6 @@ async function transcribe(req: IncomingMessage) {
     chunks.push(c)
   }
   return { text: await transcribeChunk(name, Buffer.concat(chunks), url.searchParams.get('at') ?? '') }
-}
-
-const expand = (p: string) => p.replace(/^~(?=\/|$)/, os.homedir())
-const asList = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : v ? [String(v)] : [])
-
-// The folder Claude works in for a task or project: the task's repo, else the project's first existing repo.
-function workdir(p?: { data: Record<string, any> }, t?: { data: Record<string, any> }) {
-  return [t?.data.repo, ...asList(p?.data.repos)].filter(Boolean).map(expand).find((d) => fs.existsSync(d)) ?? ROOT
 }
 
 // Opens a terminal tab: resume an agent session, or start Claude / a shell for a project or task.

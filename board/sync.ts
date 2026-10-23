@@ -1,11 +1,12 @@
 // Keeps tasks in step with the outside world while the board runs:
 // - Notion: pulls Roadmap stories assigned to me, pushes status changes of linked tasks.
-// - GitHub: marks a task done when its PR is merged (which then pushes to Notion too).
+// - GitHub: fills in the PR of a task's branch; marks a task done when its PR is merged (which then pushes to Notion too).
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
+import { workdir } from './repos'
 
 const run = promisify(execFile)
 const API = 'https://api.notion.com/v1'
@@ -121,6 +122,25 @@ async function pullRoadmap() {
   }
 }
 
+// An agent records its branch but often not its PR: look the PR up by branch, in the task's repo.
+// Merged ones count too, also for done tasks, so a PR merged before we saw it still lands on the task.
+async function findPullRequests() {
+  const projects = listDocs('projects')
+  for (const t of listDocs('tasks')) {
+    if (t.error || !t.data.branch || t.data.pr) continue
+    const p = projects.find((d) => d.name === String(t.data.project ?? '').replace(/\[|\]/g, ''))
+    try {
+      const { stdout } = await run('gh', ['pr', 'list', '--head', t.data.branch, '--state', 'all', '--json', 'url,state'],
+        { cwd: workdir(p, t), timeout: 20_000 })
+      // Newest first; a PR closed without merging isn't the task's PR.
+      const url = JSON.parse(stdout).find((x: { state: string }) => x.state !== 'CLOSED')?.url
+      if (url) updateDoc(taskFile(t.name), { pr: url })
+    } catch (e: any) {
+      status.github = `error: ${e.message.split('\n')[0]}`
+    }
+  }
+}
+
 async function pollPullRequests() {
   for (const t of listDocs('tasks')) {
     if (t.error || t.data.status === 'done' || !/^https:\/\/github\.com\/.+\/pull\/\d+/.test(t.data.pr ?? '')) continue
@@ -156,6 +176,7 @@ export async function syncNow() {
     status.error = e.message
   }
   status.github = 'ok'
+  await findPullRequests()
   await pollPullRequests()
 }
 
