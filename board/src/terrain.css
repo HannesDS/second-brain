@@ -278,7 +278,7 @@
 /* ---------- Calendar, notes, terminals, guide ---------- */
 [data-theme="terrain"] .cal-grid { border-radius: var(--radius-lg); background: var(--surface); }
 [data-theme="terrain"] .cal-dow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-[data-theme="terrain"] .cal-day.today .cal-num { background: var(--ochre); color: var(--moss); }
+[data-theme="terrain"] .cal-day.is-today .cal-num { background: var(--ochre); color: var(--moss); }
 [data-theme="terrain"] .cal-item { border-radius: 10px; }
 [data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
 [data-theme="terrain"] .cal-item.task { border-color: var(--muted); }

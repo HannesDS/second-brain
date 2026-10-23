@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { IconButton } from './ui'
 import { useEffect, useState } from 'react'
 import { api, unlink, type Doc, type Vault } from './lib'
+import { daysOf, heading, step, VIEWS, type CalView } from './calendarView'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string; calendar: number; label: string }
 type Feed = { index: number; label: string; host: string }
@@ -10,12 +11,13 @@ type Picked = { title: string; date: string; time: string; free?: boolean }
 
 const iso = (d: Date) => d.toLocaleDateString('sv')
 
-// Month view like Notion's meeting-notes calendar: events, meeting notes and due tasks per day.
+// Like Notion's meeting-notes calendar: events, meeting notes and due tasks per day, by month, week or day.
 export default function Calendar({ vault, tasks, open, write, prep, meetingNote, fail }: {
   vault: Vault; tasks: Doc[]; open: (d: Doc) => void; write: (p: string) => void
   prep: (title: string, date: string, prefix?: string) => void; meetingNote: (title: string, date: string, time?: string) => void; fail: (e: Error) => void
 }) {
-  const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })
+  const [view, setView] = useState<CalView>('month')
+  const [anchor, setAnchor] = useState(() => new Date())
   const [events, setEvents] = useState<CalEvent[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -23,43 +25,44 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
   const [feedsOpen, setFeedsOpen] = useState(false)
   const [reload, setReload] = useState(0)
 
-  // Grid from the Monday on/before the 1st, 6 weeks.
-  const first = new Date(month)
-  first.setDate(1 - ((month.getDay() + 6) % 7))
-  const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(first); d.setDate(first.getDate() + i); return d })
+  const days = daysOf(view, anchor)
 
   useEffect(() => {
-    const to = new Date(days[41]); to.setDate(to.getDate() + 1)
+    const to = new Date(days[days.length - 1]); to.setDate(to.getDate() + 1)
+    let live = true // switching fast: only the last range's answer lands
     setLoading(true)
     api(`calendar?from=${days[0].toISOString()}&to=${to.toISOString()}`)
-      .then((r) => { setEvents(r.events); setError(r.error) }, fail)
-      .finally(() => setLoading(false))
-  }, [month, reload])
+      .then((r) => { if (live) { setEvents(r.events); setError(r.error) } }, fail)
+      .finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [iso(days[0]), view, reload])
 
-  const shift = (n: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1))
   const today = iso(new Date())
 
   return (
     <main className="calendar">
       <div className="cal-head">
-        <h2>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>
+        <h2>{heading(view, anchor)}</h2>
         <div className="spacer" />
+        <div className="view-switch" role="group" aria-label="Show">
+          {VIEWS.map((v) => <button key={v} className={v === view ? 'tab on' : 'tab'} aria-pressed={v === view} onClick={() => setView(v)}>{v[0].toUpperCase() + v.slice(1)}</button>)}
+        </div>
         <button onClick={() => setFeedsOpen(true)}>Calendars</button>
-        <IconButton icon={ChevronLeft} label="Previous month" onClick={() => shift(-1)} />
-        <button onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) }}>Today</button>
-        <IconButton icon={ChevronRight} label="Next month" onClick={() => shift(1)} />
+        <IconButton icon={ChevronLeft} label={`Previous ${view}`} onClick={() => setAnchor((a) => step(view, a, -1))} />
+        <button onClick={() => setAnchor(new Date())}>Today</button>
+        <IconButton icon={ChevronRight} label={`Next ${view}`} onClick={() => setAnchor((a) => step(view, a, 1))} />
       </div>
       {loading && <p className="muted">Loading your calendars…</p>}
       {error && <p className="muted">{error}</p>}
-      <div className="cal-grid">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div key={d} className="cal-dow">{d}</div>)}
+      <div className={`cal-grid cal-${view}-view`}>
+        {days.slice(0, 7).map((d) => <div key={d.getDay()} className="cal-dow">{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>)}
         {days.map((d) => {
           const key = iso(d)
           const evs = events.filter((e) => iso(new Date(e.start)) === key)
           const notes = vault.meetings.filter((m) => String(m.data.date) === key)
           const due = tasks.filter((t) => t.data.due === key && t.data.status !== 'done')
           return (
-            <div key={key} title="Click an empty spot to add a meeting note or task" onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) setPicked({ title: '', date: key, time: '', free: true }) }} className={`cal-day ${d.getMonth() !== month.getMonth() ? 'other' : ''} ${key === today ? 'today' : ''}`}>
+            <div key={key} title="Click an empty spot to add a meeting note or task" onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) setPicked({ title: '', date: key, time: '', free: true }) }} className={`cal-day ${view === 'month' && d.getMonth() !== anchor.getMonth() ? 'other' : ''} ${key === today ? 'is-today' : ''}`}>
               <div className="cal-num">{d.getDate()}</div>
               {evs.map((e) => (
                 <button key={e.id} className={`cal-item event cal-${e.calendar % 4}`} title={`${e.title} (${e.label})`}
