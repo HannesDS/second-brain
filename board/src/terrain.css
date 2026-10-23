@@ -304,6 +304,12 @@
 [data-theme="terrain"] .dep-lane { border-color: var(--contour); border-radius: var(--radius-lg); }
 [data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }
 [data-theme="terrain"] .guide :is(code, pre) { font-family: var(--font-mono); border-radius: 10px; }
+[data-theme="terrain"] .integration { border-radius: var(--radius-lg); padding: 16px 20px; }
+[data-theme="terrain"] .integration h3 { font-size: 17px; font-weight: 650; }
+[data-theme="terrain"] .integration-state { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+[data-theme="terrain"] .integration .dot.ok { background: var(--st-wip-ink); }
+[data-theme="terrain"] .integration .dot.error { background: var(--st-blocked); }
+[data-theme="terrain"] .integration-config { border-top-style: dashed; }
 [data-theme="terrain"] .milkdown {
   --crepe-color-primary: var(--text);
   --crepe-color-inline-code: var(--p1);

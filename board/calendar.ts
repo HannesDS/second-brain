@@ -5,7 +5,7 @@ import path from 'node:path'
 import ical, { type CalendarResponse, type VEvent } from 'node-ical'
 import { ROOT } from '../lib/vault.mjs'
 
-const FILE = path.join(ROOT, 'state', 'calendars.json')
+export const CALENDARS_FILE = path.join(ROOT, 'state', 'calendars.json')
 const TTL_MS = 5 * 60 * 1000
 // Parsed feeds, per URL: downloading and parsing is the slow part (seconds); expanding a date range is fast.
 // Keyed by URL, not by range, so My day (one day) and the Calendar (six weeks) share the same download.
@@ -26,17 +26,25 @@ export type CalEvent = { id: string; title: string; start: string; end: string; 
 type Feed = { label: string; url: string }
 
 function feeds(): Feed[] {
-  try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) } catch { return [] }
+  try { return JSON.parse(fs.readFileSync(CALENDARS_FILE, 'utf8')) } catch { return [] }
 }
 
 function saveFeeds(list: Feed[]) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true })
-  fs.writeFileSync(FILE, JSON.stringify(list, null, 2), { mode: 0o600 })
+  fs.mkdirSync(path.dirname(CALENDARS_FILE), { recursive: true })
+  fs.writeFileSync(CALENDARS_FILE, JSON.stringify(list, null, 2), { mode: 0o600 })
   parsed.clear()
 }
 
 // The browser only ever sees labels and hosts, never the secret part of a URL.
+// Fetch errors can quote the address, so they lose it too.
+export const redact = (message: string) => message.replace(/\b(?:https?|webcal):\/\/[^\s/]+\S*/g, (u) => u.match(/^\w+:\/\/[^\s/]+/)![0])
 export const listFeeds = () => feeds().map((f, i) => ({ index: i, label: f.label, host: new URL(f.url).host }))
+
+// Whether each feed loads, and when it was last downloaded (from the cache, so this is cheap within 5 minutes).
+export const checkFeeds = () => Promise.all(feeds().map(async (f) => {
+  const error = await feedData(f.url).then(() => '', (e: Error) => redact(e.message))
+  return { label: f.label, at: parsed.get(f.url)?.at ?? 0, error }
+}))
 
 export async function addFeed(label: string, url: string) {
   const u = new URL(String(url).trim().replace(/^webcal:/, 'https:'))
@@ -74,7 +82,7 @@ export async function events(from: Date, to: Date) {
         }
       }
     } catch (e: any) {
-      errors.push(`${label}: ${e.message}`)
+      errors.push(`${label}: ${redact(e.message)}`)
     }
   }))
   return { events: out.sort((a, b) => a.start.localeCompare(b.start)), error: errors.join('; ') }

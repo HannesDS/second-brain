@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
   Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Mountain, Sparkles, Square, Sun, Workflow, X, type LucideIcon,
+  Mountain, Plug, Sparkles, Square, Sun, Workflow, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
@@ -12,6 +12,7 @@ import { THEME_LABEL, useTheme } from './theme'
 import Calendar, { guessProject } from './Calendar'
 import Deps from './Deps'
 import Gantt from './Gantt'
+import Integrations from './Integrations'
 import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
 import Notes from './Notes'
 import Split from './Split'
@@ -25,8 +26,8 @@ import {
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
-type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'deps' | 'agents' | 'projects' | 'guide'
-// The views in the side menu. Projects (overview) and Guide live elsewhere in the menu.
+type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'deps' | 'agents' | 'projects' | 'integrations' | 'guide'
+// The views in the side menu. Projects (overview), Integrations and Guide live elsewhere in the menu.
 const VIEWS: [Page, string, LucideIcon][] = [
   ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
   ['gantt', 'Timeline', GanttChart], ['deps', 'Dependencies', Workflow], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
@@ -37,7 +38,7 @@ const PANE: Partial<Record<PeekItem['kind'], Page>> = { doc: 'notes', terminal: 
 const inPane = (p: PeekItem, page: Page) => PANE[p.kind] === page && (p.kind !== 'doc' || /^(inbox|notes|meetings)\//.test(p.id))
 const PAGE: Record<Page, [string, LucideIcon]> = {
   ...Object.fromEntries(VIEWS.map(([p, l, i]) => [p, [l, i]])) as Record<Page, [string, LucideIcon]>,
-  projects: ['Projects', FolderKanban], guide: ['Guide', HelpCircle],
+  projects: ['Projects', FolderKanban], integrations: ['Integrations', Plug], guide: ['Guide', HelpCircle],
 }
 
 // Routes live in the URL hash (#notes/inbox%2Fx.md, #agents/<terminal>) so back/forward and reloads work.
@@ -201,6 +202,7 @@ export default function App() {
         </nav>
 
         <div className="side-foot">
+          <button className={`nav ${page === 'integrations' ? 'on' : ''}`} onClick={() => go('integrations')}><Plug size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />Integrations</button>
           <button className={`nav ${page === 'guide' ? 'on' : ''}`} onClick={() => go('guide')}><HelpCircle size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />Guide</button>
           <div className="sync-line">
             <span title={sync.error || ''}>Notion: {sync.notion || '…'}</span>
@@ -213,7 +215,7 @@ export default function App() {
         <header className="topbar">
           <nav className="crumbs" aria-label="You are here">
             <span className="crumb"><PageIcon size={18} strokeWidth={1.8} aria-hidden /><h1>{pageLabel}</h1></span>
-            {page !== 'projects' && page !== 'guide' && <>
+            {!['projects', 'integrations', 'guide'].includes(page) && <>
               <ChevronRight size={16} className="crumb-sep" aria-hidden />
               <span className="crumb project-crumb">
                 <span className={`dot ${scopeProject?.data.context ?? 'all'}`} />
@@ -258,6 +260,7 @@ export default function App() {
             <Agents agents={shown} vault={view} open={openAgent} seen={markSeen} act={act} start={terminal} />
           </Split>
         )}
+        {page === 'integrations' && <Integrations synced={setSync} fail={fail} />}
         {page === 'guide' && <Guide />}
       </div>
 
