@@ -102,11 +102,20 @@ test('over a column the drag aims at its nearest card, an empty column at the co
   expect(aim('B', layout, nearest, sticky)).toBe('B')
 })
 
-test('over nothing the drag keeps its last target, or the card itself right after it changed column', () => {
-  const sticky = { justMoved: false, active: 'A' }
-  aim('C', layout, () => undefined, sticky)
-  expect(aim(undefined, layout, () => undefined, sticky)).toBe('C')
-  sticky.justMoved = true
+test('over nothing the drag aims at the card right after it changed column, else at nothing', () => {
+  const sticky = { justMoved: true, active: 'A' }
   expect(aim(undefined, layout, () => undefined, sticky)).toBe('A')
+  // Let go off the board: the drag is cancelled.
+  sticky.justMoved = false
+  expect(aim(undefined, layout, () => undefined, sticky)).toBeUndefined()
 })
 
+test('a card entering a column stays with the cards starred like it', () => {
+  const withStars = { ...layout, wip: ['S1', 'S2', 'D', 'E'] }
+  const starred = (id: string) => id.startsWith('S') || id === 'A2'
+  // Unstarred A over a starred card goes right after the starred ones, where the drop will put it.
+  expect(dragOver(withStars, 'A', 'S2', undefined, starred).wip).toEqual(['S1', 'S2', 'A', 'D', 'E'])
+  // A starred card over an unstarred one goes last of the starred ones.
+  const withA2 = { ...withStars, todo: ['A2', 'B', 'C'] }
+  expect(dragOver(withA2, 'A2', 'E', undefined, starred).wip).toEqual(['S1', 'S2', 'A2', 'D', 'E'])
+})

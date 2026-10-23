@@ -13,30 +13,34 @@ const columnFor = (layout: Layout, id: string) =>
   id.startsWith(COL) ? id.slice(COL.length) : Object.keys(layout).find((s) => layout[s].includes(id))
 
 // Where a drag aims, given what the pointer hit. Over a column, at its nearest card. Over nothing right
-// after the card changed column, at the card itself until the layout has caught up; otherwise at the last
-// target. Without this the card flips between two columns at their edge (dnd-kit's multiple-containers recipe).
-export type Sticky = { last?: string; justMoved: boolean; active: string }
+// after the card changed column, at the card itself until the layout has caught up, or the card flips
+// between two columns at their edge (dnd-kit's multiple-containers recipe). Over nothing otherwise, at
+// nothing: letting go off the board cancels the drag.
+export type Sticky = { justMoved: boolean; active: string }
 export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Set<string>) => string | undefined, sticky: Sticky) {
-  if (hit !== undefined) {
-    const cards = hit.startsWith(COL) ? layout[hit.slice(COL.length)] : undefined
-    sticky.last = (cards?.length ? nearest(new Set(cards)) : undefined) ?? hit
-    return sticky.last
-  }
-  if (sticky.justMoved) sticky.last = sticky.active
-  return sticky.last
+  if (hit === undefined) return sticky.justMoved ? sticky.active : undefined
+  const cards = hit.startsWith(COL) ? layout[hit.slice(COL.length)] : undefined
+  return (cards?.length ? nearest(setOf(cards)) : undefined) ?? hit
 }
+
+// Collision detection runs on every pointer move; a column's set is built once per layout.
+const sets = new WeakMap<string[], Set<string>>()
+const setOf = (cards: string[]) => sets.get(cards) ?? sets.set(cards, new Set(cards)).get(cards)!
 
 // Dragging over another column moves the card into it, before the card it's over, or last of the cards
 // shown when it's over the column itself. From there the sortable list moves it within the column. It
-// never goes past the cards shown, or it would vanish mid-drag on My day. Done lists the latest finished first, so there it goes on top.
+// stays with the cards starred like it (starred ones sit on top), and never goes past the cards shown, or
+// it would vanish mid-drag on My day. Done lists the latest finished first, so there it goes on top.
 // Same layout back when nothing changes, or for the unknown-status column, which a drop can't move to.
-export function dragOver(layout: Layout, id: string, over: string, limit?: number): Layout {
+export function dragOver(layout: Layout, id: string, over: string, limit?: number, starred: (id: string) => boolean = () => false): Layout {
   const from = columnFor(layout, id)
   const to = columnFor(layout, over)
   if (!from || !to || from === to || to === '?') return layout
   const target = layout[to]
   const i = target.indexOf(over)
-  const at = to === 'done' ? 0 : Math.min(i >= 0 ? i : Infinity, lastShown(target.length + 1, limit))
+  const stars = target.filter(starred).length
+  const grouped = starred(id) ? Math.min(i >= 0 ? i : Infinity, stars) : Math.max(i >= 0 ? i : Infinity, stars)
+  const at = to === 'done' ? 0 : Math.min(grouped, lastShown(target.length + 1, limit))
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
@@ -45,8 +49,8 @@ const STEP = 10
 
 // The writes for a drop, from the layout `before` the drag and the previewed one `now`. The card takes an
 // order between its new neighbours, so a drop is one write. Only when there's no room is the column
-// renumbered, minus the cards that are already right. Done sorts by when
-// a task was finished, so only the card itself moves there.
+// renumbered, minus the cards that are already right. Done sorts by when a task was finished, so only the
+// card itself moves there.
 export function dropMoves(before: Layout, now: Layout, id: string, over: string, current: (id: string) => { status?: unknown; order?: unknown; focus?: unknown }, limit?: number): Move[] {
   const to = columnFor(now, id)
   if (!to || to === '?') return []

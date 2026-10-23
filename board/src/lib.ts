@@ -29,18 +29,23 @@ export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished
 // Names this browser tab to the server, so the tab can skip the reload for a drop it already shows.
 export const TAB = crypto.randomUUID()
 
-// Whether a vault change needs a reload in this tab. The tab skips the echo of its own drop, which it
-// already shows, unless the drop landed while a reload was on its way: that reload brings the old state.
-export function echoes(tab: string = TAB) {
-  let loading = 0
-  let stale = false
+// Loads the vault without undoing a drop the files don't have yet. A load waits for the drops sent before
+// it; one already on its way when a drop comes is asked again once that drop is written. A failed drop
+// reloads, to show what the files really say.
+export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
+  let writing: Promise<unknown> = Promise.resolve()
+  let drops = 0
+  const load = (): Promise<void> => {
+    const at = drops
+    return writing.then(fetch).then((v) => { if (at === drops) set(v); else return load() })
+  }
   return {
-    loading<T>(p: Promise<T>) { loading++; return p.finally(() => { loading-- }) },
-    dropped() { if (loading) stale = true },
-    needsReload(from?: string) {
-      if (from === tab && !stale) return false
-      stale = false
-      return true
+    load,
+    dropped(v: T, write: Promise<unknown>) {
+      drops++
+      writing = Promise.all([writing, write.catch(() => undefined)])
+      write.catch(() => load())
+      set(v)
     },
   }
 }

@@ -14,8 +14,8 @@ import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabe
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
-export default function BoardColumns({ tasks, vault, setVault, fail, act, statuses = STATUSES, limit, more }: {
-  tasks: Doc[]; vault: Vault; setVault: (v: Vault) => void; fail: (e: Error) => void; act: Actions
+export default function BoardColumns({ tasks, vault, drop, fail, act, statuses = STATUSES, limit, more }: {
+  tasks: Doc[]; vault: Vault; drop: (v: Vault, write: Promise<unknown>) => void; fail: (e: Error) => void; act: Actions
   statuses?: string[]; limit?: number; more?: () => void
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
@@ -55,10 +55,9 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
   function onDragOver({ active: a, over }: DragOverEvent) {
     if (!over) return
     const now = live.current ?? layout
-    const next = dragOver(now, String(a.id), String(over.id), limit)
+    const next = dragOver(now, String(a.id), String(over.id), limit, (id) => byName[id]?.data.focus === true)
     if (next === now) return
-    // The card now stands where the target was, which may have been pushed out of sight: aim at the card.
-    sticky.current = { ...sticky.current, last: String(a.id), justMoved: true }
+    sticky.current.justMoved = true
     setPreview(next)
   }
 
@@ -69,9 +68,9 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
     if (!moves.length) return
     const from = byName[a.id]?.data.status
     const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
-    setVault({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) })
-    // This tab skips the echo of its own drop, so a failed one reloads to show what the files really say.
-    api('move', 'POST', moves).catch((e) => { fail(e); api('data').then(setVault, fail) })
+    const write = api('move', 'POST', moves)
+    write.catch(fail)
+    drop({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) }, write)
   }
 
   return (
