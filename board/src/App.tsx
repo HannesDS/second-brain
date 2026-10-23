@@ -82,7 +82,8 @@ export default function App() {
     let vaultTimer: number
     let agentsTimer: number
     // A drop in this tab already shows, and a reload can't undo it (see loader): its own echo needs none.
-    const onChange = (e?: { tab?: string }) => { if (!vaultLoader.needsReload(e?.tab, TAB)) return; clearTimeout(vaultTimer); vaultTimer = window.setTimeout(load, 100) }
+    // The server tags a write with the tab only while the tab still waits for it (see the move route).
+    const onChange = (e?: { tab?: string }) => { if (e?.tab === TAB) return; clearTimeout(vaultTimer); vaultTimer = window.setTimeout(load, 100) }
     const onAgents = () => { clearTimeout(agentsTimer); agentsTimer = window.setTimeout(loadAgents, 300) }
     // Switching view closes the peek: it belonged to the page you left.
     const onHash = () => { setRoute(parseHash()); setPeeks([]) }
@@ -102,7 +103,7 @@ export default function App() {
       window.removeEventListener('keydown', onKey)
       clearInterval(poll)
     }
-  }, [load, loadAgents, vaultLoader])
+  }, [load, loadAgents])
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
   const fail = (e: Error) => flash(e.message)

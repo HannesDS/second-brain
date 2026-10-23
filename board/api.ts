@@ -71,9 +71,10 @@ async function handle(req: IncomingMessage) {
       const f = file('tasks', m.id)
       // Only a new status can start or end an autopilot run; a reorder doesn't need the whole queue read.
       if (updateDoc(f, { status: m.status, order: m.order }).status !== m.status) runFrontierSoon()
-      // Without a tab (a script, a skill) it's a change like any other.
+      // Without a tab (a script, a skill), or once the tab gave up waiting, it's a change like any other:
+      // the tab doesn't show it, so its echo must reach the tab.
       const tab = req.headers['x-tab']
-      if (tab) moved.mark(f, String(tab))
+      if (tab && !req.socket.destroyed) moved.mark(f, String(tab))
     }
     return { ok: true }
   }

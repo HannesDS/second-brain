@@ -73,8 +73,8 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     const from = byName[a.id]?.data.status
     const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
     const write = api('move', 'POST', moves, MOVE_TIMEOUT_MS)
-    // A request that gave up may still have been written: say so, the reload shows which.
-    write.catch((e: Error) => fail(e.name === 'TimeoutError' ? new Error('No answer on the move yet; reloading to show what the files say') : e))
+    // A request that gave up may still be written: say so. The board reloads once the server answers.
+    write.catch((e: Error) => fail(e.name === 'TimeoutError' ? new Error('No answer on the move yet; the board catches up once the server answers') : e))
     drop({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) }, write).catch(fail)
   }
 
