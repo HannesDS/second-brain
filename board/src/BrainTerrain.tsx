@@ -27,7 +27,7 @@ const nodeTypes = { doc: DocDot }
 
 // Brain Terrain: the whole vault as one graph. Filters start at the global context and project, and follow them.
 // The search box searches only the docs the filters show (by meaning, or plain text when Ollama is down).
-// In Ask mode Claude answers from the best of those docs instead, and the docs it cites light up.
+// In Ask mode the local LLM (Ollama) answers from the best of those docs instead, and the docs it cites light up.
 // `vault` is only read to refetch the graph when it changes.
 export default function BrainTerrain({ vault, projects, context, scope, open, fail }: {
   vault: Vault; projects: Doc[]; context: string; scope: string; open: (n: GraphNode) => void; fail: (e: Error) => void
@@ -87,7 +87,7 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
   }))
   const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
   const switchMode = (m: typeof mode) => { resetAsk(); setMode(m) }
-  // One question at a time: each one runs a Claude on the server.
+  // One question at a time: each one keeps the local model busy.
   const ask = () => {
     if (!searching || searchState === 'loading') return
     const seq = ++askSeq.current
@@ -137,7 +137,7 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
         <div className="view-switch" role="group" aria-label="Search mode">
           <button className={mode === 'search' ? 'tab on' : 'tab'} aria-pressed={mode === 'search'} onClick={() => switchMode('search')}>Search</button>
           <button className={mode === 'ask' ? 'tab on' : 'tab'} aria-pressed={mode === 'ask'} onClick={() => switchMode('ask')}
-            title="Claude answers from the docs shown and cites them">Ask</button>
+            title="The local LLM answers from the docs shown and cites them">Ask</button>
         </div>
         <input type="search" className="kg-search" value={q} placeholder={mode === 'ask' ? 'Ask these docs, then Enter…' : 'Search these docs…'}
           aria-label={mode === 'ask' ? 'Ask a question about the docs shown' : 'Search the docs shown'} onChange={(e) => setQ(e.target.value)}
@@ -160,7 +160,7 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
             <aside className="kg-hits" aria-label={mode === 'ask' ? 'Answer' : 'Search results'}>
               <p className="search-note" role="status">
                 {mode === 'ask'
-                  ? searchState === 'loading' ? 'Asking Claude…' : searchState === 'failed' ? 'Asking failed, try again' : reply?.answer ? reply.q : `Nothing in these docs about “${reply?.q}”`
+                  ? searchState === 'loading' ? 'Asking the local model…' : searchState === 'failed' ? 'Asking failed: is Ollama running?' : reply?.answer ? reply.q : `Nothing in these docs about “${reply?.q}”`
                   : searchState === 'loading' ? 'Searching…' : searchState === 'failed' ? 'Search failed, try again' : found?.length ? `${found.length} found` : `Nothing found for “${q.trim()}”`}
               </p>
               {mode === 'ask' && reply?.answer && (

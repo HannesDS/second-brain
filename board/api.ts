@@ -79,7 +79,7 @@ async function handle(req: IncomingMessage) {
     }
     return { ok: true }
   }
-  // POST, because the Brain Terrain sends the paths it shows (too many for a URL). Ask answers from them with Claude.
+  // POST, because the Brain Terrain sends the paths it shows (too many for a URL). Ask answers from them with the local LLM.
   if (method === 'POST' && kind === 'search') return await search(String(body.q ?? ''), Array.isArray(body.within) ? body.within.map(String) : undefined)
   if (method === 'POST' && kind === 'ask') return await ask(String(body.q ?? ''), Array.isArray(body.within) ? body.within.map(String) : undefined)
   if (method === 'POST' && kind === 'sync') { await syncNow(); return syncStatus }
