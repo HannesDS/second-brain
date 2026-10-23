@@ -520,7 +520,10 @@ a:hover { text-decoration: underline; }
 .nav.on, .proj.on { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); font-weight: 600; }
 .nav:hover, .proj:hover { background: var(--border); }
 .card, .todo-list li, .event-list li, .agent, .project-card { box-shadow: none; }
-.card:hover, .project-card:hover, .todo-list li:hover { border-color: var(--muted); }
+.card:is(:hover, .lifted), .project-card:hover, .todo-list li:hover { border-color: var(--muted); }
+/* The card in hand: its buttons are for show, not for a click during the drop. */
+.card.in-hand { cursor: grabbing; }
+.card.in-hand :is(button, a) { pointer-events: none; }
 .todo-list li.on { box-shadow: inset 2px 0 0 var(--accent); border-color: var(--accent); }
 .column { background: var(--surface-2); border: 1px solid var(--border); }
 .prio { border-radius: 2em; font-weight: 600; padding: 0 7px; }
@@ -649,7 +652,7 @@ h2 { font-weight: 600; }
 .clickable:focus-visible { outline: 2px solid var(--focus); }
 /* Secondary actions stay out of the way until you point at (or tab into) the row. */
 .hover-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
-:is(.mini-card, .card, .agent, .meeting-pill, .todo-list li):is(:hover, :focus-within) .hover-actions { opacity: 1; }
+:is(.mini-card, .card, .agent, .meeting-pill, .todo-list li):is(:hover, :focus-within, .lifted) .hover-actions { opacity: 1; }
 @media (hover: none) { .hover-actions { opacity: 1; } }
 .link-plain { border: none; background: none; padding: 0; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .link-plain:hover { text-decoration: underline; }

@@ -65,6 +65,14 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
   return same(next) ? now : next
 }
 
+// Whether a dragged card has left the spot it was picked up (by `px`), so the board may auto-scroll.
+// dnd-kit scrolls an area as soon as the pointer is near its edge and twitches that way, so picking up a
+// card low in a long column set the cards moving under the pointer. The board switches dnd-kit's
+// auto-scroll on at half of PICKUP_PX (off, it forgets a twitch's direction; on, it learns the direction
+// from the moves after) and lets it scroll from PICKUP_PX. After that it's dnd-kit's own auto-scroll.
+export const PICKUP_PX = 12
+export const leftPickup = (delta: { x: number; y: number }, px = PICKUP_PX) => Math.hypot(delta.x, delta.y) > px
+
 // Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
 const STEP = 10
 

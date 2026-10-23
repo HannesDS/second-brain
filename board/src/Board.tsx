@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DndContext, DragOverlay, PointerSensor, closestCenter, getFirstCollision, pointerWithin, rectIntersection, useDroppable, useSensor,
   useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent,
@@ -7,7 +8,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, dragOver, dropMoves, rebase, type Layout, type Sticky } from './drag'
+import { PICKUP_PX, aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -49,6 +50,13 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     const next = rebase(live.current, layout, sticky.current.active, sticky.current.home)
     if (next !== live.current) setPreview(next)
   }, [layout])
+
+  // Auto-scroll waits until the card left the spot it was picked up (see leftPickup).
+  const [scrolling, setScrolling] = useState(false)
+  const leftSpot = useRef(false)
+  const autoScroll = useMemo(() => ({ canScroll: () => leftSpot.current }), [])
+  // The card in hand looks hovered if the card was hovered when picked up (a mouse or pen, not a finger).
+  const [hovered, setHovered] = useState(false)
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -93,8 +101,12 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver}
-      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={scrolling && autoScroll}
+      onDragMove={({ delta }) => {
+        leftSpot.current ||= leftPickup(delta)
+        if (!scrolling && leftPickup(delta, PICKUP_PX / 2)) setScrolling(true)
+      }}
+      onDragStart={(e) => { setScrolling(false); leftSpot.current = false; setHovered(!!(e.activatorEvent.target as Element | null)?.closest('.card')?.matches(':hover')); setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
@@ -111,7 +123,9 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
           )
         })}
       </div>
-      <DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} />}</DragOverlay>
+      {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer.
+          It lives on <body>: dnd-kit places it in window coordinates, which a transformed view would offset. */}
+      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} inHand={hovered ? 'lifted' : 'held'} />}</DragOverlay>, document.body)}
     </DndContext>
   )
 }
@@ -137,11 +151,11 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: 
 }
 
 // Memoised: while you drag, the board re-renders on every move, but a card only when its task changes.
-const Card = memo(function Card({ task, project, act, chained }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean }) {
+const Card = memo(function Card({ task, project, act, chained, inHand }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean; inHand?: 'lifted' | 'held' }) {
   const d = task.data
   const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
   return (
-    <article className={`card ${isFocus(task) ? 'focus' : ''}`}>
+    <article className={`card ${isFocus(task) ? 'focus' : ''} ${inHand ? `in-hand ${inHand}` : ''}`}>
       <div className="card-top">
         <button className="link-plain project" title="Open project overview" {...stop(() => act?.project(unlink(d.project)))}>
           <span className={`dot ${project?.data.context ?? ''}`} />{project?.data.name ?? (unlink(d.project) || 'No project')}

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { aim, dragOver, dropMoves, rebase, type Layout } from './drag'
+import { aim, dragOver, dropMoves, leftPickup, rebase, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -186,3 +186,10 @@ test('a card dragged into Done previews where Done sorts it', () => {
   expect(dragOver({ ...layout, done: ['F', 'G', 'H'] }, 'A', 'col:done', 2, undefined, () => 3).done).toEqual(['F', 'A', 'G', 'H'])
 })
 
+test('a card has left its pickup spot once it moved more than a twitch', () => {
+  expect(leftPickup({ x: 1, y: 10 })).toBe(false)
+  expect(leftPickup({ x: 0, y: 13 })).toBe(true)
+  expect(leftPickup({ x: -9, y: -9 })).toBe(true)
+  // The board switches auto-scroll on at half the distance, so it learns the direction before it scrolls.
+  expect(leftPickup({ x: 0, y: 7 }, 6)).toBe(true)
+})
