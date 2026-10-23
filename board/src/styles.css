@@ -399,9 +399,12 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .popover h3 { margin: 0 0 4px; }
 
 /* Dependencies: tickets as a left-to-right graph (React Flow) */
-.deps-page { padding: 16px 20px; display: flex; flex-direction: column; }
+.view-switch { display: flex; gap: 4px; }
+.today .view-switch { margin-bottom: 10px; }
+.deps { display: flex; flex-direction: column; gap: 8px; padding-bottom: 16px; }
+.deps-head { display: flex; align-items: center; gap: 8px; min-height: 32px; }
 .dep-head-title { color: var(--muted); }
-.deps-host { flex: 1; min-height: 420px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.deps-host { height: 62vh; min-height: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .deps-flow {
   --xy-background-color: var(--surface);
   --xy-background-pattern-dots-color: var(--border);
