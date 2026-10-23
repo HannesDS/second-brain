@@ -22,7 +22,7 @@ import { place, step, type Place } from './combobox'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
-  contextOf, inContext, projectForPath, scopeVault, startCommand, teachPrompt, unlink,
+  TAB, contextOf, inContext, loader, projectForPath, scopeVault, startCommand, teachPrompt, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -72,15 +72,18 @@ export default function App() {
   const [captured, setCaptured] = useState('')
   const [theme, nextTheme] = useTheme()
 
-  const load = useCallback(() => api('data').then(setVault), [])
+  const [vaultLoader] = useState(() => loader<Vault>(() => api('data'), setVault))
+  const load = useCallback(() => vaultLoader.load(), [vaultLoader])
   const loadAgents = useCallback(() => api('agents').then(setAgents), [])
   useEffect(() => {
     load()
     loadAgents()
     api('sync').then(setSync)
-    let timer: number
-    const onChange = () => { clearTimeout(timer); timer = window.setTimeout(load, 100) }
-    const onAgents = () => { clearTimeout(timer); timer = window.setTimeout(loadAgents, 300) }
+    let vaultTimer: number
+    let agentsTimer: number
+    // A drop in this tab already shows, and a reload can't undo it (see loader): its own echo needs none.
+    const onChange = (e?: { tab?: string }) => { if (e?.tab === TAB) return; clearTimeout(vaultTimer); vaultTimer = window.setTimeout(load, 100) }
+    const onAgents = () => { clearTimeout(agentsTimer); agentsTimer = window.setTimeout(loadAgents, 300) }
     // Switching view closes the peek: it belonged to the page you left.
     const onHash = () => { setRoute(parseHash()); setPeeks([]) }
     import.meta.hot?.on('vault-change', onChange)
@@ -237,7 +240,7 @@ export default function App() {
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
           board={<><ViewSwitch graph={graph} set={setGraph} />{graph ? deps
-            : <BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
+            : <BoardColumns tasks={view.tasks} vault={vault} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (
@@ -254,7 +257,7 @@ export default function App() {
               <span className="spacer" />
               <ViewSwitch graph={graph} set={setGraph} />
             </div>
-            {graph ? deps : <BoardColumns tasks={filtered} vault={vault} setVault={setVault} fail={fail} act={act} />}
+            {graph ? deps : <BoardColumns tasks={filtered} vault={vault} drop={vaultLoader.dropped} fail={fail} act={act} />}
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}

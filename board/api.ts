@@ -12,6 +12,7 @@ import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { integrations } from './integrations'
 import { createMeeting, readTranscript, transcribe as whisper, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
+import type { Move } from './src/drag'
 import { ownWrites } from './own-writes'
 import { asList, expand, workdir } from './repos'
 import { startReady } from './queue'
@@ -27,8 +28,8 @@ const TASK_DEFAULTS = {
   sessions: [], meetings: [], sources: [], due: '',
 }
 
-// Cards the board moved on a drop. It already shows them, so the browser gets no reload for them, and
-// RAG and the Notion push wait until you are done dragging.
+// Cards the board moved on a drop. The tab that dropped them already shows them, so it skips the reload
+// (other tabs reload as usual), and RAG and the Notion push wait until you are done dragging.
 const moved = ownWrites()
 const SETTLE_MS = 10_000
 
@@ -66,10 +67,12 @@ async function handle(req: IncomingMessage) {
   const body = await readJson(req)
 
   if (method === 'POST' && kind === 'move') {
-    for (const m of body as { id: string; status: string; order: number }[]) {
+    // Without a tab (a script, a skill) it's a change like any other.
+    const tab = req.headers['x-tab'] ? String(req.headers['x-tab']) : undefined
+    for (const m of body as Move[]) {
       const f = file('tasks', m.id)
-      updateDoc(f, { status: m.status, order: m.order })
-      moved.mark(f)
+      // Only a new status can start or end an autopilot run; a reorder doesn't need the whole queue read.
+      if (moved.write(f, tab, () => updateDoc(f, { status: m.status, order: m.order })).status !== m.status) runFrontierSoon()
     }
     return { ok: true }
   }
@@ -266,13 +269,16 @@ export function vaultApi(): Plugin {
       fs.mkdirSync(AGENTS_DIR, { recursive: true })
       server.watcher.add([VAULT, AGENTS_DIR])
       const notify = (f: string) => {
-        const own = moved.isOwn(f)
+        const tab = moved.writer(f)
         if (f.startsWith(VAULT) && f.endsWith('.md')) {
-          if (!own) server.ws.send({ type: 'custom', event: 'vault-change' })
-          ragRefreshSoon(own ? SETTLE_MS : undefined)
+          server.ws.send({ type: 'custom', event: 'vault-change', data: { tab } })
+          ragRefreshSoon(tab === undefined ? undefined : SETTLE_MS)
         }
         if (f.startsWith(AGENTS_DIR)) server.ws.send({ type: 'custom', event: 'agents-change' })
-        if (f.startsWith(path.join(VAULT, 'tasks'))) { onTaskChanged(f, own ? SETTLE_MS : 0); runFrontierSoon() }
+        if (f.startsWith(path.join(VAULT, 'tasks'))) {
+          onTaskChanged(f, tab === undefined ? 0 : SETTLE_MS)
+          if (tab === undefined) runFrontierSoon()
+        }
       }
       server.watcher.on('add', notify).on('change', notify).on('unlink', notify)
       startSync()

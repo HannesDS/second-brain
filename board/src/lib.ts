@@ -26,8 +26,34 @@ export const byOrder = (a: Doc, b: Doc) => (Number(a.data.order) || 0) - (Number
 const finished = (t: Doc) => String(t.data.completed ?? t.data.updated ?? '')
 export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished(a)) || b.name.localeCompare(a.name)
 
+// Names this browser tab to the server, so the tab can skip the reload for a drop it already shows.
+export const TAB = crypto.randomUUID()
+
+// Loads the vault without undoing a drop the files don't have yet. A load waits for the drops still being
+// written (the server writes a move as soon as it reads it, so each answers or fails); one already on its
+// way when a drop comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands
+// back that reload, so its own failure can be shown too.
+export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
+  const writing = new Set<Promise<void>>()
+  let drops = 0
+  const load = (): Promise<void> => {
+    const at = drops
+    return Promise.all(writing).then(fetch).then((v) => { if (at === drops) set(v); else return load() })
+  }
+  return {
+    load,
+    dropped(v: T, write: Promise<unknown>) {
+      drops++
+      const done: Promise<void> = write.then(() => {}, () => {}).finally(() => { writing.delete(done) })
+      writing.add(done)
+      set(v)
+      return write.then(() => {}, () => load())
+    },
+  }
+}
+
 export async function api(url: string, method = 'GET', body?: unknown) {
-  const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json' } })
+  const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
   const out = await res.json()
   if (!res.ok) throw new Error(out.error)
   return out
@@ -115,4 +141,6 @@ export function contextOf(run: { cwd: string; account: string; task?: string }, 
 
 // Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.
 export const FOCUS_MAX = 3
-export const isFocus = (t: Doc) => t.data.focus === true && t.data.status !== 'done'
+// Starred in the file. It counts everywhere but in Done, where tasks sort by when they were finished.
+export const starred = (d: Fields) => d.focus === true
+export const isFocus = (t: Doc) => starred(t.data) && t.data.status !== 'done'

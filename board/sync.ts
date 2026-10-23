@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { settle } from '../lib/settle.mjs'
 import { VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
 import { workdir } from './repos'
 
@@ -155,12 +156,12 @@ async function pollPullRequests() {
 
 // Status each linked task had when we last saw it; a change means: push it to Notion.
 const lastPushed = new Map<string, string>()
-const pushTimers = new Map<string, NodeJS.Timeout>()
+const pushers = new Map<string, (wait: number) => void>()
 
 // `wait` holds the push back, so a card dragged around the board pushes only where it ends up.
 export function onTaskChanged(file: string, wait = 0) {
-  clearTimeout(pushTimers.get(file))
-  pushTimers.set(file, setTimeout(() => { pushTimers.delete(file); pushChange(file) }, wait))
+  if (!pushers.has(file)) pushers.set(file, settle(() => { pushers.delete(file); pushChange(file) }))
+  pushers.get(file)!(wait)
 }
 
 async function pushChange(file: string) {

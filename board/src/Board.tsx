@@ -1,24 +1,29 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragOverlay, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent,
+  DndContext, DragOverlay, PointerSensor, closestCenter, getFirstCollision, pointerWithin, rectIntersection, useDroppable, useSensor,
+  useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { dragOver, dropMoves, type Layout } from './drag'
+import { aim, dragOver, dropMoves, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
-import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, todayISO, unlink, type Doc, type Vault } from './lib'
+import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
-export default function BoardColumns({ tasks, vault, setVault, fail, act, statuses = STATUSES, limit, more }: {
-  tasks: Doc[]; vault: Vault; setVault: (v: Vault) => void; fail: (e: Error) => void; act: Actions
+export default function BoardColumns({ tasks, vault, drop, fail, act, statuses = STATUSES, limit, more }: {
+  tasks: Doc[]; vault: Vault; drop: (v: Vault, write: Promise<unknown>) => Promise<void>; fail: (e: Error) => void; act: Actions
   statuses?: string[]; limit?: number; more?: () => void
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
   const byName = useMemo(() => Object.fromEntries(tasks.map((t) => [t.name, t])), [tasks])
+  // Where a card goes in a column that isn't Done, which ignores stars. Made anew only when the vault
+  // changes, so the groups cached while aiming last the whole drag.
+  const stars = useMemo(() => new Set(vault.tasks.filter((t) => starred(t.data)).map((t) => t.name)), [vault.tasks])
+  const isStarred = useCallback((id: string) => stars.has(id), [stars])
   const chained = useMemo(() => linked(vault.tasks), [vault.tasks])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [active, setActive] = useState<Doc>()
@@ -32,24 +37,64 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
     return Object.fromEntries(Object.entries(docs).map(([s, c]) => [s, c.map((t) => t.name)])) as Layout
   }, [tasks, cols])
   // While dragging, the board shows where the card would land; the drop clears it.
-  const [preview, setPreview] = useState<Layout>()
+  const [preview, setPreviewState] = useState<Layout>()
+  // The preview as of the last drag event, ahead of React's render, so quick moves build on each other.
+  const live = useRef<Layout>(undefined)
+  const setPreview = (l?: Layout) => { live.current = l; setPreviewState(l) }
   const shownLayout = preview ?? layout
+  // The vault reloaded mid-drag (an agent, Obsidian): carry the preview over, so the drop works from the
+  // columns as they are. The layout is also rebuilt on renders that changed nothing; then nothing moves.
+  useEffect(() => {
+    if (!live.current) return
+    const next = rebase(live.current, layout, sticky.current.active, sticky.current.home)
+    if (next !== live.current) setPreview(next)
+  }, [layout])
+
+  const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
+  useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
+  const collision = useCallback<CollisionDetection>((args) => {
+    const hits = pointerWithin(args)
+    const hit = getFirstCollision(hits.length ? hits : rectIntersection(args), 'id')
+    const nearest = (cards: Set<string>) => {
+      const id = closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => cards.has(String(c.id))) })[0]?.id
+      return id == null ? undefined : String(id)
+    }
+    const target = aim(hit == null ? undefined : String(hit), live.current ?? layout, nearest, sticky.current, isStarred)
+    return target === undefined ? [] : [{ id: target }]
+  }, [layout, isStarred])
+
+  // Where a card dropped into Done lands: Done sorts by when a task was finished, and it's finished today.
+  const doneAt = (target: string[], id: string) => {
+    const t = byName[id]
+    const finished = t && { ...t, data: { ...t.data, completed: todayISO() } }
+    const i = finished ? target.findIndex((x) => byName[x] && byFinished(finished, byName[x]) < 0) : 0
+    return i < 0 ? target.length : i
+  }
+
+  function onDragOver({ active: a, over }: DragOverEvent) {
+    if (!over) return
+    const now = live.current ?? layout
+    const next = dragOver(now, String(a.id), String(over.id), limit, isStarred, doneAt)
+    if (next === now) return
+    sticky.current.justMoved = true
+    setPreview(next)
+  }
 
   function onDragEnd({ active: a, over }: DragEndEvent) {
-    const moves = over ? dropMoves(shownLayout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
+    const moves = over ? dropMoves(layout, live.current ?? layout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit, isStarred) : []
     setActive(undefined)
     setPreview(undefined)
     if (!moves.length) return
     const from = byName[a.id]?.data.status
     const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
-    setVault({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) })
-    api('move', 'POST', moves).catch(fail)
+    const write = api('move', 'POST', moves)
+    write.catch(fail)
+    drop({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) }, write).catch(fail)
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}
-      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout) }}
-      onDragOver={({ active: a, over }) => over && setPreview((l) => l && dragOver(l, String(a.id), String(over.id), limit))}
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver}
+      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
