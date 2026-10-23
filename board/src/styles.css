@@ -487,10 +487,12 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-walk { pointer-events: none; }
 .bt-walk-casing { fill: none; stroke: var(--map-ground); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 /* Its width is set in the drawing, per zoom: the dash that draws it in needs a scaling stroke. */
-.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s var(--ease, ease-in-out) both; }
+.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s linear both; }
 .bt-walk-line.still { stroke-width: 2.4; stroke-dasharray: none; animation: none; vector-effect: non-scaling-stroke; }
 @keyframes bt-walk { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .bt-stop { fill: var(--map-walk); }
+.bt-stop-mark { animation: bt-appear .25s var(--ease, ease-out) both; }
+@keyframes bt-appear { from { opacity: 0; } }
 .bt-hill-name.here { letter-spacing: .16em; }
 .bt-place { cursor: pointer; transition: opacity .2s; }
 .bt-hit { fill: transparent; stroke: none; }
@@ -555,7 +557,7 @@ button.bt-legend-row:hover { background: var(--surface-2); }
 .bt-compass .rose { fill: none; stroke: var(--muted); stroke-width: 1; }
 .bt-compass .needle { fill: var(--text); }
 .bt-compass text { font: 700 10px var(--font-ui, inherit); fill: var(--text); }
-@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place, .bt-wood { transition: none; } .bt-walk-line, .bt-pulse, .bt-here-pulse { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place, .bt-wood { transition: none; } .bt-walk-line, .bt-stop-mark, .bt-pulse, .bt-here-pulse { animation: none; } }
 
 /* Gantt */
 .gantt-host { background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
