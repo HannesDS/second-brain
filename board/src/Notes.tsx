@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Crepe } from '@milkdown/crepe'
 import '@milkdown/crepe/theme/common/style.css'
-import { ago, api, list, unlink, type Doc, type Vault } from './lib'
+import { SPEAKERS, ago, api, list, unlink, type Doc, type Speaker, type Vault } from './lib'
 import { ProjectSelect, load, save } from './Home'
-import type { Speaker } from '../meetings'
 
 type Note = { path: string; name: string; data: Record<string, any>; mtime: string }
 type Action = Record<string, any> & { kind: string; reason: string }
@@ -212,14 +211,29 @@ function MeetingBar({ vault, projects, name, meta, setField, fail }: {
   )
 }
 
-const CHUNK_MS = 30_000
+// Turns audio into 16 kHz PCM (the AudioContext resamples), posted 100 ms at a time. Any message
+// to it flushes what it still holds, then it answers 'flushed'.
+const PCM_WORKLET = `registerProcessor('pcm', class extends AudioWorkletProcessor {
+  buf = new Int16Array(1600); n = 0
+  constructor() {
+    super()
+    this.port.onmessage = () => { this.port.postMessage(this.buf.slice(0, this.n)); this.n = 0; this.port.postMessage('flushed') }
+  }
+  process([input]) {
+    for (const x of input[0] ?? []) {
+      this.buf[this.n++] = Math.max(-1, Math.min(1, x)) * 32767
+      if (this.n === this.buf.length) { this.port.postMessage(this.buf, [this.buf.buffer]); this.buf = new Int16Array(1600); this.n = 0 }
+    }
+    return true
+  }
+})`
 
-// Records in 30-second, self-contained chunks and sends each to local Whisper; text lands in transcripts/,
-// labelled Me / Others when the call's audio is recorded too.
+// Streams each source to local Whisper over /listen, which writes every finished sentence to transcripts/,
+// labelled Me / Others when the call's audio is recorded too. Meanwhile it shows what is being said.
 function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; fail: (e: Error) => void }) {
-  const [rec, setRec] = useState<{ stop: () => void; startedAt: number }>()
+  const [rec, setRec] = useState<{ stop: () => void; startedAt: number; labelled: boolean }>()
   const [withCall, setWithCall] = useState(() => load('meeting-call-audio', true))
-  const [pending, setPending] = useState(0)
+  const [live, setLive] = useState<Partial<Record<Speaker, string>>>({})
   const [, tick] = useState(0)
   useEffect(() => { if (!rec) return; const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t) }, [rec])
   useEffect(() => () => rec?.stop(), [rec])
@@ -244,37 +258,53 @@ function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; 
       // With only the microphone, it hears everyone in the room: no label.
       const labelled = sources.length > 1
 
-      let running = true
-      const current: MediaRecorder[] = []
-      const loop = (i: number) => {
-        const { who, stream } = sources[i]
-        // Also stops when the share ends from Chrome's "Stop sharing" bar.
-        if (!running || !stream.getAudioTracks().some((t) => t.readyState === 'live')) return
-        const r = current[i] = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
-        const at = new Date().toISOString()
-        const parts: Blob[] = []
-        r.ondataavailable = (e) => parts.push(e.data)
-        r.onstop = () => {
-          const blob = new Blob(parts, { type: 'audio/webm' })
-          if (blob.size > 2000) {
-            setPending((n) => n + 1)
-            fetch(`/api/transcribe?name=${encodeURIComponent(name)}&at=${encodeURIComponent(at)}${labelled ? `&who=${who}` : ''}`, { method: 'POST', body: blob })
-              .then(async (res) => { if (!res.ok) throw new Error((await res.json()).error) })
-              .then(onChunk, fail)
-              .finally(() => setPending((n) => n - 1))
-          }
-          loop(i)
-        }
-        r.start()
-        setTimeout(() => r.state === 'recording' && r.stop(), CHUNK_MS)
+      let stopped = false
+      const ctx = new AudioContext({ sampleRate: 16_000 })
+      const ends: (() => void)[] = []
+      const release = () => {
+        sources.forEach((s) => s.stream.getTracks().forEach((t) => t.stop()))
+        ends.forEach((end) => end())
+        // Time for the worklets to flush their last 100 ms.
+        setTimeout(() => ctx.close(), 1000)
       }
-      sources.forEach((_, i) => loop(i))
+      try {
+        await ctx.resume()
+        const worklet = URL.createObjectURL(new Blob([PCM_WORKLET], { type: 'text/javascript' }))
+        await ctx.audioWorklet.addModule(worklet).finally(() => URL.revokeObjectURL(worklet))
+        for (const { who, stream } of sources) {
+          const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/listen?name=${encodeURIComponent(name)}${labelled ? `&who=${who}` : ''}`)
+          // Its output stays silent; connected to the speakers only so Chrome keeps it running.
+          const pcm = new AudioWorkletNode(ctx, 'pcm', { channelCount: 1, channelCountMode: 'explicit' })
+          pcm.port.onmessage = (e) => { if (ws.readyState === WebSocket.OPEN) ws.send(e.data === 'flushed' ? 'end' : e.data) }
+          ctx.createMediaStreamSource(stream).connect(pcm).connect(ctx.destination)
+          // Ending sends what the worklet still holds, then "end": the server saves the last words and closes.
+          let ending = false
+          const end = () => {
+            if (ending) return
+            ending = true
+            if (ws.readyState === WebSocket.OPEN) pcm.port.postMessage('flush')
+            else ws.close()
+          }
+          ends.push(end)
+          // Sharing stopped from Chrome's "Stop sharing" bar: only this source ends.
+          stream.getAudioTracks().forEach((t) => t.addEventListener('ended', end))
+          ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data)
+            if (msg.error) fail(new Error(msg.error))
+            if ('partial' in msg) setLive((l) => ({ ...l, [who]: msg.partial }))
+            if ('final' in msg) { setLive((l) => ({ ...l, [who]: '' })); if (msg.final) onChunk() }
+          }
+          ws.onclose = () => { if (!stopped && !ending) fail(new Error('Transcription stopped: lost the connection to the board')) }
+        }
+      } catch (e) { stopped = true; release(); throw e }
+      setLive({})
       setRec({
         startedAt: Date.now(),
+        labelled,
         stop: () => {
-          running = false
-          current.forEach((r) => r.state === 'recording' && r.stop())
-          setTimeout(() => sources.forEach((s) => s.stream.getTracks().forEach((t) => t.stop())), 500)
+          if (stopped) return
+          stopped = true
+          release()
         },
       })
     } catch (e) { fail(e as Error) }
@@ -282,19 +312,23 @@ function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; 
 
   const flash = (m: string) => fail(new Error(m))
   const secs = rec ? Math.floor((Date.now() - rec.startedAt) / 1000) : 0
+  // The end of what is being said: the newest words matter.
+  const speaking = (Object.entries(live) as [Speaker, string][]).filter(([, t]) => t)
+    .map(([who, t]) => <span key={who} className="rec-live muted">{rec?.labelled ? `${SPEAKERS[who]}: ` : ''}{t.length > 140 ? `…${t.slice(-140)}` : t}</span>)
   return rec ? (
-    <span className="recorder on">
-      <button className="rec-btn on" onClick={() => { rec.stop(); setRec(undefined) }}>■ Stop</button>
-      <span className="rec-dot" aria-hidden /> {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}
-      {pending > 0 && <span className="muted"> · transcribing…</span>}
-    </span>
+    <>
+      <span className="recorder on">
+        <button className="rec-btn on" onClick={() => { rec.stop(); setRec(undefined) }}>■ Stop</button>
+        <span className="rec-dot" aria-hidden /> {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}
+      </span>
+      {speaking}
+    </>
   ) : (
     <span className="recorder">
       <button className="rec-btn" onClick={start} title="Transcribe this meeting locally with Whisper (audio never leaves your Mac)">● Transcribe</button>
       <label className="muted" title="For online meetings: also transcribe the other participants. Share the call's tab with 'Share tab audio', or for a desktop app (Teams, Zoom) the entire screen with 'Share system audio'. Use headphones, or the mic hears the others too.">
         <input type="checkbox" checked={withCall} onChange={(e) => { setWithCall(e.target.checked); save('meeting-call-audio', e.target.checked) }} /> + others (call audio)
       </label>
-      {pending > 0 && <span className="muted">transcribing…</span>}
     </span>
   )
 }

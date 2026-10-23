@@ -97,7 +97,7 @@ export async function ollama(): Promise<Integration> {
 }
 
 export function whisper(): Integration {
-  const tools = { 'whisper-cli': onPath('whisper-cli'), ffmpeg: onPath('ffmpeg') }
+  const tools = { 'whisper-server': onPath('whisper-server'), 'whisper-cli': onPath('whisper-cli'), ffmpeg: onPath('ffmpeg') }
   const transcripts = path.join(VAULT, 'transcripts')
   const latest = fs.existsSync(transcripts) ? fs.readdirSync(transcripts).map((f) => mtime(path.join(transcripts, f))).sort().at(-1) : ''
   const base = {
@@ -106,7 +106,7 @@ export function whisper(): Integration {
   }
   const missing = [...Object.entries(tools).filter(([, v]) => !v).map(([k]) => k), ...(fs.existsSync(WHISPER_MODEL) ? [] : ['the model file'])]
   if (missing.length) return { ...base, state: 'error', detail: `Missing ${missing.join(', ')}: meetings can't be transcribed.` }
-  return { ...base, state: 'ok', detail: 'Transcribes meeting recordings locally.' }
+  return { ...base, state: 'ok', detail: 'Transcribes meetings live and dictated thoughts locally.' }
 }
 
 export const integrations = () => Promise.all([notion(), github(), calendars(), claude(), ollama(), whisper()])

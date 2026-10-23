@@ -7,7 +7,7 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-meetings-'))
 const model = path.join(scratch, 'model.bin')
 vi.stubEnv('SECOND_BRAIN_VAULT', scratch)
 vi.stubEnv('WHISPER_MODEL', model)
-const { transcribe, transcribeChunk, transcriptPath } = await import('./meetings')
+const { appendTranscript, meetingName, transcribe, transcriptPath } = await import('./meetings')
 
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }))
 afterEach(() => { vi.unstubAllEnvs(); vi.stubEnv('SECOND_BRAIN_VAULT', scratch); vi.stubEnv('WHISPER_MODEL', model) })
@@ -32,18 +32,19 @@ test('says how to install Whisper when ffmpeg is there but whisper-cli is not', 
   await expect(transcribe(Buffer.from('x'))).rejects.toThrow('whisper-cli not found: install it with `brew install whisper-cpp`')
 })
 
-test('labels each transcript line with who spoke, when the clip says', async () => {
-  fs.writeFileSync(model, '')
-  // Stand-ins: ffmpeg writes its output file, whisper-cli prints a fixed line.
-  const bin = path.join(scratch, 'bin')
-  fs.mkdirSync(bin, { recursive: true })
-  fs.writeFileSync(path.join(bin, 'ffmpeg'), '#!/bin/sh\nfor a; do out="$a"; done\n: > "$out"\n', { mode: 0o755 })
-  fs.writeFileSync(path.join(bin, 'whisper-cli'), '#!/bin/sh\necho " Goedemorgen allemaal."\n', { mode: 0o755 })
-  vi.stubEnv('PATH', `${bin}:/bin:/usr/bin`)
-  const at = new Date(2026, 9, 23, 10, 5).toISOString()
-  await transcribeChunk('2026-10-23 Standup', Buffer.from('x'), at, 'me')
-  await transcribeChunk('2026-10-23 Standup', Buffer.from('x'), at, 'others')
-  await transcribeChunk('2026-10-23 Standup', Buffer.from('x'), at)
+test('labels each transcript line with who spoke, when it is known', () => {
+  const at = new Date(2026, 9, 23, 10, 5).getTime()
+  appendTranscript('2026-10-23 Standup', 'Goedemorgen allemaal.', at, 'me')
+  appendTranscript('2026-10-23 Standup', 'Hallo!', at, 'others')
+  appendTranscript('2026-10-23 Standup', 'Zullen we beginnen?', at)
   const lines = fs.readFileSync(transcriptPath('2026-10-23 Standup'), 'utf8').split('\n').filter((l) => l.startsWith('**'))
-  expect(lines).toEqual(['**10:05** Me: Goedemorgen allemaal.', '**10:05** Others: Goedemorgen allemaal.', '**10:05** Goedemorgen allemaal.'])
+  expect(lines).toEqual(['**10:05** Me: Goedemorgen allemaal.', '**10:05** Others: Hallo!', '**10:05** Zullen we beginnen?'])
+})
+
+test('only takes the name of an existing meeting note, never a path', () => {
+  fs.mkdirSync(path.join(scratch, 'meetings'), { recursive: true })
+  fs.writeFileSync(path.join(scratch, 'meetings', '2026-10-23 Standup.md'), '')
+  expect(meetingName('2026-10-23 Standup')).toBe('2026-10-23 Standup')
+  expect(() => meetingName('2026-10-24 Retro')).toThrow('no meeting note')
+  expect(() => meetingName('../meetings/2026-10-23 Standup')).toThrow('no meeting note')
 })

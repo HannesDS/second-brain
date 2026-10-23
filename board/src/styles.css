@@ -676,6 +676,8 @@ h2 { font-weight: 600; }
 .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: 0.2; } }
 @media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+/* What is being said right now, on its own line under the meeting's buttons. */
+.rec-live { order: 1; flex-basis: 100%; font-size: 13px; font-style: italic; }
 .transcript { max-height: 220px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; }
 .note-filter { display: flex; gap: 2px; margin-bottom: 6px; }
 .note-filter .tab { flex: 1; padding: 3px 0; font-size: 12px; }

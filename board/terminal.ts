@@ -48,8 +48,8 @@ export function closeTerminal(id: string) {
   terms.delete(id)
 }
 
-// Only the workbench page itself may connect: a terminal is a shell on this machine.
-function trusted(req: IncomingMessage) {
+// Only the workbench page itself may connect: a terminal is a shell on this machine (and /listen writes the vault).
+export function trusted(req: IncomingMessage) {
   const host = req.headers.host ?? ''
   const origin = req.headers.origin
   return /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host) && !!origin && new URL(origin).host === host
