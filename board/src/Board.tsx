@@ -61,7 +61,10 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     canScroll: (el: Element) => {
       if (!scroll.current) return false
       if (el === document.scrollingElement) return scroll.current.may({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, { x: false, y: false })
-      return scroll.current.may(el.getBoundingClientRect(), { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight })
+      // Level with a column means anywhere across the column, not only across its list of cards.
+      const r = el.getBoundingClientRect()
+      const across = el.closest('.column')?.getBoundingClientRect() ?? r
+      return scroll.current.may({ left: across.left, right: across.right, top: r.top, bottom: r.bottom }, { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight })
     },
   }), [])
 

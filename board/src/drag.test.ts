@@ -189,28 +189,41 @@ test('a card dragged into Done previews where Done sorts it', () => {
 const column = { left: 0, right: 300, top: 0, bottom: 700 }
 const down = { x: false, y: true }
 
-test('the board scrolls only once the card travelled, and from then on for the whole drag', () => {
+test('the board scrolls once the card travelled, from then on for the whole drag', () => {
+  const scroll = dragScroll({ x: 150, y: 300 })
+  scroll.move({ x: 150, y: 340 })
+  expect(scroll.may(column, down)).toBe(false)
+  scroll.move({ x: 150, y: 690 })
+  expect(scroll.may(column, down)).toBe(true)
+})
+
+test('a card picked up low in a column scrolls nothing until it is pushed past the edge', () => {
   const scroll = dragScroll({ x: 150, y: 680 })
-  // Just picked up low in the column: nothing scrolls.
   scroll.move({ x: 150, y: 699 })
   expect(scroll.may(column, down)).toBe(false)
-  // Carried up and back down to near where it began: it travelled, so pushing at the edge scrolls.
-  scroll.move({ x: 150, y: 500 })
-  scroll.move({ x: 150, y: 695 })
+  // Pushed past the bottom, onto the padding below, as near a screen edge: it scrolls.
+  scroll.move({ x: 150, y: 715 })
+  expect(scroll.may(column, down)).toBe(true)
+})
+
+test('carried up inside a column\'s lower part, the column does not scroll down', () => {
+  const scroll = dragScroll({ x: 150, y: 690 })
+  scroll.move({ x: 150, y: 640 })
+  expect(scroll.may(column, down)).toBe(false)
+  // Heading back down: it may.
+  scroll.move({ x: 150, y: 660 })
   expect(scroll.may(column, down)).toBe(true)
 })
 
 test('a column scrolls with the pointer level with it, also past its edge, not from beside it', () => {
   const scroll = dragScroll({ x: 150, y: 300 })
-  // Pushed past the bottom edge, onto the padding below: still scrolls.
   scroll.move({ x: 150, y: 720 })
   expect(scroll.may(column, down)).toBe(true)
   // Carried on to the next column at the same height: this one stays put.
-  scroll.move({ x: 400, y: 690 })
+  scroll.move({ x: 400, y: 721 })
   expect(scroll.may(column, down)).toBe(false)
   // The board scrolls sideways with the pointer level with it, also past its right edge.
   const board = { left: 0, right: 1000, top: 0, bottom: 800 }
   scroll.move({ x: 1010, y: 400 })
   expect(scroll.may(board, { x: true, y: false })).toBe(true)
 })
-

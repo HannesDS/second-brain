@@ -65,27 +65,34 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
   return same(next) ? now : next
 }
 
-// When the board may scroll an area while a card is dragged: only once the card has travelled TRAVEL_PX
-// from where it was picked up (from then on, for the rest of the drag), and only an area the pointer is
-// level with: across a column for its vertical scroll, along the board for its sideways scroll. Past the
-// edge in the scroll direction is fine; that's how you ask for more. dnd-kit scrolls any area whose edge
-// the pointer nears, also from beside it, so a card picked up low in a long column, or carried on to the
-// next one, set that column's cards moving under the pointer.
+// When the board may scroll an area while a card is dragged. dnd-kit scrolls any area whose edge the
+// pointer nears, also from beside it, and keeps a direction once the pointer twitched that way, so a card
+// picked up low in a long column, or carried up or on to the next column, set cards moving under it. Here:
+// - only once the card travelled TRAVEL_PX (for the rest of the drag), or is pushed past the area's edge;
+// - only an area the pointer is level with (across a column for its vertical scroll, along the board for
+//   its sideways scroll; past the edge in the scroll direction is fine, that's how you ask for more);
+// - only toward the edge the pointer last moved to: carried up inside a column's lower part, it stays put.
 export const TRAVEL_PX = 40
 type Point = { x: number; y: number }
 type Rect = { left: number; right: number; top: number; bottom: number }
 export function dragScroll(start: Point) {
   let now = start
   let travelled = false
+  const last = { x: 0, y: 0 }
   return {
     move(p: Point) {
+      if (p.x !== now.x) last.x = Math.sign(p.x - now.x)
+      if (p.y !== now.y) last.y = Math.sign(p.y - now.y)
       now = p
       travelled ||= Math.hypot(p.x - start.x, p.y - start.y) > TRAVEL_PX
     },
     may(area: Rect, scrolls: { x: boolean; y: boolean }) {
-      const levelX = now.x >= area.left && now.x <= area.right
-      const levelY = now.y >= area.top && now.y <= area.bottom
-      return travelled && (!scrolls.y || levelX) && (!scrolls.x || levelY)
+      const level = (!scrolls.y || (now.x >= area.left && now.x <= area.right)) && (!scrolls.x || (now.y >= area.top && now.y <= area.bottom))
+      const past = (scrolls.y && (now.y < area.top || now.y > area.bottom)) || (scrolls.x && (now.x < area.left || now.x > area.right))
+      // Which edge the pointer is nearer, and whether it last moved toward it.
+      const toward = (axis: 'x' | 'y', lo: number, hi: number) => last[axis] === 0 || (now[axis] > (lo + hi) / 2 ? last[axis] > 0 : last[axis] < 0)
+      const heading = (!scrolls.y || toward('y', area.top, area.bottom)) && (!scrolls.x || toward('x', area.left, area.right))
+      return (travelled || past) && level && heading
     },
   }
 }
