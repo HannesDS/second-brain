@@ -6,7 +6,7 @@ import pty, { type IPty } from 'node-pty'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { cleanEnv } from './claude'
 
-type Term = { id: string; title: string; cwd: string; account: string; agent?: string; proc: IPty; buffer: string; sockets: Set<WebSocket>; exited: boolean; started: string }
+type Term = { id: string; title: string; cwd: string; account: string; agent?: string; task?: string; proc: IPty; buffer: string; sockets: Set<WebSocket>; exited: boolean; started: string }
 
 // On globalThis so terminals survive Vite re-importing this module after a config change.
 const g = globalThis as { __secondBrainTerms?: Map<string, Term> }
@@ -24,7 +24,7 @@ export function openTerminal({ title, cwd, account, run, taskId, agent }: { titl
   const args = run ? ['-lc', `${run}; exec ${quote(shell)} -l`] : ['-l']
   const proc = pty.spawn(shell, args, { name: 'xterm-256color', cols: 120, rows: 32, cwd, env })
   const id = Math.random().toString(36).slice(2, 10)
-  const t: Term = { id, title, cwd, account, agent, proc, buffer: '', sockets: new Set(), exited: false, started: new Date().toISOString() }
+  const t: Term = { id, title, cwd, account, agent, task: taskId, proc, buffer: '', sockets: new Set(), exited: false, started: new Date().toISOString() }
   proc.onData((d) => {
     t.buffer = (t.buffer + d).slice(-SCROLLBACK)
     for (const s of t.sockets) s.send(d)
@@ -38,7 +38,7 @@ export function openTerminal({ title, cwd, account, run, taskId, agent }: { titl
 }
 
 export const listTerminals = () =>
-  [...terms.values()].map(({ id, title, cwd, account, agent, exited, started }) => ({ id, title, cwd, account, agent, exited, started }))
+  [...terms.values()].map(({ id, title, cwd, account, agent, task, exited, started }) => ({ id, title, cwd, account, agent, task, exited, started }))
 
 export function closeTerminal(id: string) {
   const t = terms.get(id)

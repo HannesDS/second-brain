@@ -140,6 +140,7 @@ export default function App() {
     open: openTask,
     project: (id) => id && peek({ kind: 'project', id }),
     start: (t) => terminal({ kind: 'claude', task: t.name }),
+    autopilot: (t) => terminal({ kind: 'autopilot', task: t.name }),
     focus: toggleFocus,
     done: (t) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail),
     write,
@@ -222,7 +223,7 @@ export default function App() {
           <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote}
-          board={<BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked']} limit={6} more={() => go('board')} />} />}
+          board={<BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked']} limit={6} more={() => go('board')} />} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (

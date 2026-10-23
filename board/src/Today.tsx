@@ -10,6 +10,7 @@ export type Actions = {
   open: (d: Doc) => void
   project: (id: string) => void
   start: (d: Doc) => void
+  autopilot: (d: Doc) => void
   focus: (d: Doc) => void
   done: (d: Doc) => void
   write: (p: string) => void

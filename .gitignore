@@ -4,3 +4,4 @@ vault/.obsidian/workspace*.json
 state/
 vault/
 .env.local
+.claude/worktrees/

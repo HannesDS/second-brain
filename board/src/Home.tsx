@@ -4,7 +4,7 @@ import { MessagesSquare, Play, RotateCcw, X } from 'lucide-react'
 import Split from './Split'
 import { IconButton } from './ui'
 
-const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, todo: 3 }
+const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, ready: 3, todo: 4 }
 const rank = (t: Doc) => RANK[t.data.status] ?? 4
 const prio = (t: Doc) => { const i = PRIORITIES.indexOf(t.data.priority); return i < 0 ? 2 : i }
 

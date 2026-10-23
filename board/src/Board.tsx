@@ -4,7 +4,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GitPullRequest, Play, Star } from 'lucide-react'
+import { GitPullRequest, Play, Rocket, Star } from 'lucide-react'
 import type { Actions } from './Today'
 import { IconButton, IconLink } from './ui'
 import { LABELS, STATUSES, api, byOrder, columnOf, isFocus, prioLabel, unlink, type Doc, type Vault } from './lib'
@@ -118,7 +118,7 @@ function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions 
         {d.due && <span className="due">due {d.due}</span>}
         <div className="spacer" />
         {d.pr && <IconLink icon={GitPullRequest} label="Pull request" href={d.pr} />}
-        {act && <span className="hover-actions"><IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /></span>}
+        {act && <span className="hover-actions"><IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}
       </div>
     </article>
   )

@@ -390,6 +390,7 @@ tbody tr:hover { background: var(--surface-2); }
 .project-card h3 { margin: 2px 0; font-size: 18px; }
 .status-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
 .seg.todo { background: var(--p3); }
+.seg.ready { background: var(--p2); }
 .seg.wip { background: var(--accent); }
 .seg.review { background: var(--p1); }
 .seg.blocked { background: var(--p0); }

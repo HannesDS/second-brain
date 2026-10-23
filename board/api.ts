@@ -156,6 +156,7 @@ function workdir(p?: { data: Record<string, any> }, t?: { data: Record<string, a
 const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 
 function terminalFor(body: { kind: string; agent?: string; project?: string; task?: string; prompt?: string }) {
+  if (body.kind === 'autopilot') return autopilot(String(body.task))
   if (body.kind === 'resume') {
     const a = listAgents().find((x) => x.id === body.agent)
     if (!a || !ID.test(a.id)) throw new Error('unknown agent session')
@@ -170,6 +171,65 @@ function terminalFor(body: { kind: string; agent?: string; project?: string; tas
   const prompt = String(body.prompt ?? '').trim()
   const run = body.kind === 'claude' ? (prompt ? `claude ${shellQuote(prompt)}` : 'claude') : undefined
   return openTerminal({ title, cwd, account: p?.data.account || WORKBENCH_ACCOUNT, run, taskId: t?.name })
+}
+
+// Autopilot: Claude solves a task on its own in a visible terminal, in auto permission mode, on its own
+// worktree and branch so several runs don't collide. The task reaches it through the SessionStart hook;
+// the project's "## Autopilot" section says how this project wants the work done.
+const AUTOPILOT_DEFAULT = 'Read the code the change touches, make the change, run the checks the repo documents (tests, lint, build) and commit.'
+
+// Runs autopilot started, until their task leaves ready/wip (a task stays "ready" for a few seconds,
+// until its session starts). On globalThis so a Vite re-import doesn't start them twice.
+const g = globalThis as { __secondBrainLaunched?: Map<string, string> }
+const launched = (g.__secondBrainLaunched ??= new Map())
+const AUTOPILOT_MAX = 3
+
+function autopilot(task: string) {
+  const t = listDocs('tasks').find((d) => d.name === task)
+  if (!t) throw new Error(`unknown task ${task}`)
+  const prev = launched.get(t.name)
+  if (prev && ['ready', 'wip'].includes(t.data.status) && listTerminals().some((x) => x.id === prev && !x.exited)) return prev
+  const p = listDocs('projects').find((d) => d.name === String(t.data.project ?? '').replace(/\[|\]/g, ''))
+  const cwd = workdir(p, t)
+  // A worktree only in a repo the task or project names, never in the workbench folder it falls back to.
+  const inRepo = [t.data.repo, ...asList(p?.data.repos)].filter(Boolean).map(expand).includes(cwd) && fs.existsSync(path.join(cwd, '.git'))
+  const workflow = p?.body.match(/^## Autopilot[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1].trim() || AUTOPILOT_DEFAULT
+  const prompt = [
+    `Autopilot: solve task ${t.name} ("${t.data.title}") end to end, without waiting for me. The task is in your context.`,
+    inRepo ? 'You are in your own git worktree on its own branch: work and commit there, and leave the main checkout alone.' : '',
+    `How this project wants the work done:\n${workflow}`,
+    `When you are done, in ${VAULT}/tasks/${t.name}.md set status: review and branch: <your branch> (and pr: <url> if you opened one), and add a short "## Result" section to the body: what changed, how you verified it, anything left open.`,
+    'If you hit a decision only I can make, write the question under "## Questions" in the task body, set status: blocked, and stop.',
+  ].filter(Boolean).join('\n\n')
+  const flags = ['--permission-mode auto', inRepo ? `--worktree ${t.name.toLowerCase()}` : '', `--name ${shellQuote(`${t.name} ${t.data.title}`)}`].filter(Boolean).join(' ')
+  const id = openTerminal({ title: `🚀 ${t.name} ${t.data.title}`, cwd, account: p?.data.account || WORKBENCH_ACCOUNT, run: `claude ${flags} ${shellQuote(prompt)}`, taskId: t.name })
+  launched.set(t.name, id)
+  return id
+}
+
+// The "ready" column is a queue: a ready task whose blockers are all done starts on its own, most urgent
+// first, at most AUTOPILOT_MAX at a time. Runs on every task file change, so it works from the board,
+// Obsidian or a skill alike, and the next task starts when a run moves its task on.
+let frontierTimer: NodeJS.Timeout | undefined
+function runFrontierSoon() {
+  clearTimeout(frontierTimer)
+  frontierTimer = setTimeout(runFrontier, 1000)
+}
+
+function runFrontier() {
+  const tasks = listDocs('tasks')
+  const status = new Map(tasks.map((t) => [t.name, t.data.status]))
+  const open = new Set(listTerminals().filter((x) => !x.exited).map((x) => x.id))
+  for (const [task, term] of launched) if (!['ready', 'wip'].includes(status.get(task)) || !open.has(term)) launched.delete(task)
+  let free = AUTOPILOT_MAX - launched.size
+  const queue = tasks.filter((t) => t.data.status === 'ready' && !launched.has(t.name))
+    .sort((a, b) => String(a.data.priority).localeCompare(String(b.data.priority)) || (Number(a.data.order) || 0) - (Number(b.data.order) || 0))
+  for (const t of queue) {
+    if (free <= 0) break
+    const blockers = String(t.data.blocked_by ?? '').match(/T-\d{4}/g) ?? []
+    if (blockers.some((b) => status.get(b) !== 'done')) continue
+    try { autopilot(t.name); free-- } catch (e: any) { console.error(`autopilot ${t.name}: ${e.message}`) }
+  }
 }
 
 // Runs one chat turn as `claude -p` in the project's repo, with the project's account,
@@ -221,10 +281,11 @@ export function vaultApi(): Plugin {
       const notify = (f: string) => {
         if (f.startsWith(VAULT) && f.endsWith('.md')) { server.ws.send({ type: 'custom', event: 'vault-change' }); ragRefreshSoon() }
         if (f.startsWith(AGENTS_DIR)) server.ws.send({ type: 'custom', event: 'agents-change' })
-        if (f.startsWith(path.join(VAULT, 'tasks'))) onTaskChanged(f)
+        if (f.startsWith(path.join(VAULT, 'tasks'))) { onTaskChanged(f); runFrontierSoon() }
       }
       server.watcher.on('add', notify).on('change', notify).on('unlink', notify)
       startSync()
+      runFrontierSoon()
       warmCalendars()
       if (server.httpServer) attachTerminals(server.httpServer as import('node:http').Server)
       ragRefresh().catch((e: Error) => console.error(`rag: ${e.message} (search falls back to plain text)`))

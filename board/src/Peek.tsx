@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, Copy, ExternalLink, GitPullRequest, Maximize2, MessagesSquare, Minimize2, NotebookText, Play, Square, Star, TerminalSquare, X,
+  ArrowLeft, Copy, ExternalLink, GitPullRequest, Maximize2, MessagesSquare, Minimize2, NotebookText, Play, Rocket, Square, Star, TerminalSquare, X,
 } from 'lucide-react'
 import { ProjectSelect } from './Home'
 import { Editor } from './Notes'
@@ -78,6 +78,7 @@ export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, 
     <div className="task-page">
       <div className="page-actions">
         <IconButton icon={Play} label="Start agent" showLabel primary onClick={() => act.start(task)} />
+        <IconButton icon={Rocket} label="Autopilot" showLabel onClick={() => act.autopilot(task)} />
         <IconButton icon={MessagesSquare} label="Grill me" showLabel onClick={() => grill(task)} />
         <IconButton icon={Star} label={isFocus(task) ? 'In top 3' : 'Top 3'} showLabel active={isFocus(task)} onClick={() => act.focus(task)} />
         <div className="spacer" />
