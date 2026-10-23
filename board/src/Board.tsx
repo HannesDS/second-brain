@@ -8,7 +8,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
+import { PICKUP_PX, aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -53,8 +53,10 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 
   // Auto-scroll waits until the card left the spot it was picked up (see leftPickup).
   const [scrolling, setScrolling] = useState(false)
-  // The card in hand looks hovered only when a mouse picked it up; a finger never hovered it.
-  const [byMouse, setByMouse] = useState(false)
+  const leftSpot = useRef(false)
+  const autoScroll = useMemo(() => ({ canScroll: () => leftSpot.current }), [])
+  // The card in hand looks hovered if the card was hovered when picked up (a mouse or pen, not a finger).
+  const [hovered, setHovered] = useState(false)
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -99,9 +101,12 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={scrolling}
-      onDragMove={({ delta }) => { if (!scrolling && leftPickup(delta)) setScrolling(true) }}
-      onDragStart={(e) => { setScrolling(false); setByMouse((e.activatorEvent as PointerEvent).pointerType === 'mouse'); setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={scrolling && autoScroll}
+      onDragMove={({ delta }) => {
+        leftSpot.current ||= leftPickup(delta)
+        if (!scrolling && leftPickup(delta, PICKUP_PX / 2)) setScrolling(true)
+      }}
+      onDragStart={(e) => { setScrolling(false); leftSpot.current = false; setHovered(!!(e.activatorEvent.target as Element | null)?.closest('.card')?.matches(':hover')); setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
@@ -120,7 +125,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
       </div>
       {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer.
           It lives on <body>: dnd-kit places it in window coordinates, which a transformed view would offset. */}
-      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} inHand={byMouse ? 'lifted' : 'held'} />}</DragOverlay>, document.body)}
+      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} inHand={hovered ? 'lifted' : 'held'} />}</DragOverlay>, document.body)}
     </DndContext>
   )
 }

@@ -190,4 +190,6 @@ test('a card has left its pickup spot once it moved more than a twitch', () => {
   expect(leftPickup({ x: 1, y: 10 })).toBe(false)
   expect(leftPickup({ x: 0, y: 13 })).toBe(true)
   expect(leftPickup({ x: -9, y: -9 })).toBe(true)
+  // The board switches auto-scroll on at half the distance, so it learns the direction before it scrolls.
+  expect(leftPickup({ x: 0, y: 7 }, 6)).toBe(true)
 })
