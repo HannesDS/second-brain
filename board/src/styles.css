@@ -292,11 +292,15 @@ tbody tr:hover { background: var(--surface-2); }
 .search { position: relative; }
 .search input { width: 100%; }
 .search-hits {
-  position: absolute; z-index: 20; top: 100%; left: 0; width: 420px; max-height: 60vh; overflow-y: auto; list-style: none; margin: 4px 0 0; padding: 4px;
+  position: fixed; z-index: 20; overflow-y: auto; margin: 0; padding: 4px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
 }
 .search-hits li { padding: 8px 10px; border-radius: var(--radius); cursor: pointer; }
-.search-hits li:hover { background: var(--surface-2); }
+.search-hits li[aria-selected="true"] { background: var(--surface-2); }
+.search-hits ul { list-style: none; margin: 0; padding: 0; }
+.search-hits ul.stale { opacity: 0.55; }
+.search-note { margin: 0; padding: 8px 10px; color: var(--muted); }
+.search-note:empty { display: none; }
 
 /* My day + agents */
 .today { grid-template-columns: minmax(380px, 1.1fr) minmax(360px, 1fr); }
@@ -407,7 +411,6 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
   .side-projects, .side-nav { flex-direction: row; flex-wrap: wrap; }
   .main { overflow: visible; }
   .home, .today, .notes { grid-template-columns: 1fr; }
-  .search-hits { width: 100%; }
   .cal-grid { grid-auto-rows: minmax(70px, auto); }
 }
 
