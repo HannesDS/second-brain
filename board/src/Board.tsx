@@ -8,7 +8,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS, getEventCoordinates } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, dragOver, dropMoves, mayScroll, rebase, type Layout, type Sticky } from './drag'
+import { aim, dragOver, dragScroll, dropMoves, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -51,23 +51,19 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     if (next !== live.current) setPreview(next)
   }, [layout])
 
-  // Where the drag began and where the pointer is now, for when the board may scroll (see mayScroll).
-  const pointer = useRef<{ start: { x: number; y: number }; now: { x: number; y: number } }>(undefined)
+  // When the board may scroll (see dragScroll). It follows the real pointer: dnd-kit's drag delta also
+  // counts what has scrolled, so it drifts once the board scrolls.
+  const scroll = useRef<ReturnType<typeof dragScroll>>(undefined)
+  const follow = useCallback((e: PointerEvent) => scroll.current?.move({ x: e.clientX, y: e.clientY }), [])
+  const stopFollowing = () => { removeEventListener('pointermove', follow); scroll.current = undefined }
+  useEffect(() => () => removeEventListener('pointermove', follow), [follow])
   const autoScroll = useMemo(() => ({
     canScroll: (el: Element) => {
-      if (!pointer.current) return false
-      const page = el === document.scrollingElement
-      const area = page ? { left: 0, top: 0, right: innerWidth, bottom: innerHeight } : el.getBoundingClientRect()
-      return mayScroll(pointer.current.start, pointer.current.now, area)
+      if (!scroll.current) return false
+      if (el === document.scrollingElement) return scroll.current.may({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, { x: false, y: false })
+      return scroll.current.may(el.getBoundingClientRect(), { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight })
     },
   }), [])
-  // The real pointer: dnd-kit's drag delta also counts what has scrolled, so it drifts once the board scrolls.
-  useEffect(() => {
-    if (!active) return
-    const move = (e: PointerEvent) => { if (pointer.current) pointer.current.now = { x: e.clientX, y: e.clientY } }
-    addEventListener('pointermove', move)
-    return () => removeEventListener('pointermove', move)
-  }, [active])
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -100,6 +96,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   function onDragEnd({ active: a, over }: DragEndEvent) {
+    stopFollowing()
     const moves = over ? dropMoves(layout, live.current ?? layout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit, isStarred) : []
     setActive(undefined)
     setPreview(undefined)
@@ -113,8 +110,8 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={autoScroll}
-      onDragStart={(e) => { const start = getEventCoordinates(e.activatorEvent); pointer.current = start ? { start, now: start } : undefined; setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
-      onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
+      onDragStart={(e) => { const start = getEventCoordinates(e.activatorEvent); if (start) { scroll.current = dragScroll(start); addEventListener('pointermove', follow) } setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+      onDragCancel={() => { stopFollowing(); setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
           // A task can vanish mid-drag when the vault reloads; the preview may still name it.

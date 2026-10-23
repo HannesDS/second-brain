@@ -158,13 +158,14 @@
   border-radius: 18px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
   transition: border-color .2s, box-shadow .3s var(--ease); }
 /* No transform on draggable cards: dnd-kit moves them with transform. */
-/* The card in hand (.lifted) looks like the hovered card it was picked up as. */
-[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .agent, .meeting-pill, .due-pill, .clickable):hover,
-[data-theme="terrain"] .card.lifted { border-color: var(--muted); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .agent, .meeting-pill, .due-pill, .clickable):hover { border-color: var(--muted); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .card { padding: 12px 14px; }
 [data-theme="terrain"] :is(.title, .mini-title, .todo-title, .agent-title) { font-weight: 650; letter-spacing: -0.01em; }
 /* Highlighted cards get a soft ochre field instead of a coloured left border. */
 [data-theme="terrain"] :is(.mini-card.big, .mini-card.focus, .card.focus) { border-left-width: 1px; border-color: var(--highlight); background: linear-gradient(var(--highlight-soft), var(--highlight-soft)), var(--surface); }
+/* The card in hand looks like the hovered card it was picked up as. The hover rule above outranks the
+   starred one (its :is() counts as .todo-list li); this one ties with it, so it comes after. */
+[data-theme="terrain"] .card.lifted { border-color: var(--muted); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .todo-list li.on { border-color: var(--text); box-shadow: 0 0 0 3px var(--highlight-soft); }
 [data-theme="terrain"] .project-card { border-top: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; position: relative; overflow: hidden;
   transition: transform .4s var(--spring), box-shadow .3s; }

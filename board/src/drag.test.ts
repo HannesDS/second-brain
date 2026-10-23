@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { aim, dragOver, dropMoves, mayScroll, rebase, type Layout } from './drag'
+import { aim, dragOver, dragScroll, dropMoves, rebase, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -186,16 +186,31 @@ test('a card dragged into Done previews where Done sorts it', () => {
   expect(dragOver({ ...layout, done: ['F', 'G', 'H'] }, 'A', 'col:done', 2, undefined, () => 3).done).toEqual(['F', 'A', 'G', 'H'])
 })
 
-test('the board scrolls an area only once the card travelled, and only with the pointer over it', () => {
-  const column = { left: 0, right: 300, top: 0, bottom: 700 }
-  const start = { x: 150, y: 680 }
-  // Just picked up low in the column: no scrolling yet.
-  expect(mayScroll(start, { x: 150, y: 690 }, column)).toBe(false)
-  expect(mayScroll(start, { x: 150, y: 640 }, column)).toBe(false)
-  expect(mayScroll(start, { x: 150, y: 699 }, column)).toBe(false)
-  // Carried on down the column: it scrolls.
-  expect(mayScroll({ x: 150, y: 600 }, { x: 150, y: 690 }, column)).toBe(true)
-  // Carried sideways to the next column at the same height: this column stays put.
-  expect(mayScroll(start, { x: 400, y: 690 }, column)).toBe(false)
+const column = { left: 0, right: 300, top: 0, bottom: 700 }
+const down = { x: false, y: true }
+
+test('the board scrolls only once the card travelled, and from then on for the whole drag', () => {
+  const scroll = dragScroll({ x: 150, y: 680 })
+  // Just picked up low in the column: nothing scrolls.
+  scroll.move({ x: 150, y: 699 })
+  expect(scroll.may(column, down)).toBe(false)
+  // Carried up and back down to near where it began: it travelled, so pushing at the edge scrolls.
+  scroll.move({ x: 150, y: 500 })
+  scroll.move({ x: 150, y: 695 })
+  expect(scroll.may(column, down)).toBe(true)
+})
+
+test('a column scrolls with the pointer level with it, also past its edge, not from beside it', () => {
+  const scroll = dragScroll({ x: 150, y: 300 })
+  // Pushed past the bottom edge, onto the padding below: still scrolls.
+  scroll.move({ x: 150, y: 720 })
+  expect(scroll.may(column, down)).toBe(true)
+  // Carried on to the next column at the same height: this one stays put.
+  scroll.move({ x: 400, y: 690 })
+  expect(scroll.may(column, down)).toBe(false)
+  // The board scrolls sideways with the pointer level with it, also past its right edge.
+  const board = { left: 0, right: 1000, top: 0, bottom: 800 }
+  scroll.move({ x: 1010, y: 400 })
+  expect(scroll.may(board, { x: true, y: false })).toBe(true)
 })
 

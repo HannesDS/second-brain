@@ -65,15 +65,29 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
   return same(next) ? now : next
 }
 
-// Whether the board may scroll `area` while a card is dragged: only once the pointer has travelled from
-// where the drag began, and only while it's over that area. dnd-kit scrolls an area as soon as the pointer
-// is near its top or bottom edge, also from beside it, so a card picked up low in a long column, or carried
-// past it to the next column, set that column's cards moving under the pointer.
+// When the board may scroll an area while a card is dragged: only once the card has travelled TRAVEL_PX
+// from where it was picked up (from then on, for the rest of the drag), and only an area the pointer is
+// level with: across a column for its vertical scroll, along the board for its sideways scroll. Past the
+// edge in the scroll direction is fine; that's how you ask for more. dnd-kit scrolls any area whose edge
+// the pointer nears, also from beside it, so a card picked up low in a long column, or carried on to the
+// next one, set that column's cards moving under the pointer.
 export const TRAVEL_PX = 40
 type Point = { x: number; y: number }
-export function mayScroll(start: Point, pointer: Point, area: { left: number; right: number; top: number; bottom: number }) {
-  const travelled = Math.hypot(pointer.x - start.x, pointer.y - start.y) > TRAVEL_PX
-  return travelled && pointer.x >= area.left && pointer.x <= area.right && pointer.y >= area.top && pointer.y <= area.bottom
+type Rect = { left: number; right: number; top: number; bottom: number }
+export function dragScroll(start: Point) {
+  let now = start
+  let travelled = false
+  return {
+    move(p: Point) {
+      now = p
+      travelled ||= Math.hypot(p.x - start.x, p.y - start.y) > TRAVEL_PX
+    },
+    may(area: Rect, scrolls: { x: boolean; y: boolean }) {
+      const levelX = now.x >= area.left && now.x <= area.right
+      const levelY = now.y >= area.top && now.y <= area.bottom
+      return travelled && (!scrolls.y || levelX) && (!scrolls.x || levelY)
+    },
+  }
 }
 
 // Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
