@@ -1,5 +1,5 @@
 // Vite plugin: JSON API over the vault, plus a push to the browser when files change.
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -190,9 +190,10 @@ function autopilot(task: string) {
   const prev = launched.get(t.name)
   if (prev && ['ready', 'wip'].includes(t.data.status) && listTerminals().some((x) => x.id === prev && !x.exited)) return prev
   const p = listDocs('projects').find((d) => d.name === String(t.data.project ?? '').replace(/\[|\]/g, ''))
-  const cwd = workdir(p, t)
+  const repo = workdir(p, t)
   // A worktree only in a repo the task or project names, never in the workbench folder it falls back to.
-  const inRepo = [t.data.repo, ...asList(p?.data.repos)].filter(Boolean).map(expand).includes(cwd) && fs.existsSync(path.join(cwd, '.git'))
+  const inRepo = [t.data.repo, ...asList(p?.data.repos)].filter(Boolean).map(expand).includes(repo) && fs.existsSync(path.join(repo, '.git'))
+  const cwd = inRepo ? worktreeFor(repo, t.name.toLowerCase()) : repo
   const workflow = p?.body.match(/^## Autopilot[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1].trim() || AUTOPILOT_DEFAULT
   const prompt = [
     `Autopilot: solve task ${t.name} ("${t.data.title}") end to end, without waiting for me. The task is in your context.`,
@@ -201,10 +202,29 @@ function autopilot(task: string) {
     `When you are done, in ${VAULT}/tasks/${t.name}.md set status: review and branch: <your branch> (and pr: <url> if you opened one), and add a short "## Result" section to the body: what changed, how you verified it, anything left open.`,
     'If you hit a decision only I can make, write the question under "## Questions" in the task body, set status: blocked, and stop.',
   ].filter(Boolean).join('\n\n')
-  const flags = ['--permission-mode auto', inRepo ? `--worktree ${t.name.toLowerCase()}` : '', `--name ${shellQuote(`${t.name} ${t.data.title}`)}`].filter(Boolean).join(' ')
+  const flags = `--permission-mode auto --name ${shellQuote(`${t.name} ${t.data.title}`)}`
   const id = openTerminal({ title: `🚀 ${t.name} ${t.data.title}`, cwd, account: p?.data.account || WORKBENCH_ACCOUNT, run: `claude ${flags} ${shellQuote(prompt)}`, taskId: t.name })
   launched.set(t.name, id)
   return id
+}
+
+// The run's worktree and branch (autopilot/<task>), from the commit the checkout is on now: `claude --worktree`
+// starts from origin's default branch, which misses unpushed work and local-only branches. A rerun reuses both.
+function worktreeFor(repo: string, name: string) {
+  const dir = path.join(repo, '.claude', 'worktrees', name)
+  if (fs.existsSync(dir)) return dir
+  const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' })
+  const branch = `autopilot/${name}`
+  const exists = (() => { try { git('rev-parse', '--verify', '--quiet', `refs/heads/${branch}`); return true } catch { return false } })()
+  git('worktree', 'add', ...(exists ? [dir, branch] : ['-b', branch, dir, 'HEAD']))
+  // Keep the worktrees out of the repo's own status, also in repos that don't ignore .claude/.
+  const exclude = path.join(git('rev-parse', '--git-common-dir').trim().replace(/^(?!\/)/, `${repo}/`), 'info', 'exclude')
+  const lines = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8') : ''
+  if (!lines.split('\n').includes('.claude/worktrees/')) {
+    fs.mkdirSync(path.dirname(exclude), { recursive: true })
+    fs.appendFileSync(exclude, `${lines && !lines.endsWith('\n') ? '\n' : ''}.claude/worktrees/\n`)
+  }
+  return dir
 }
 
 // The "ready" column is a queue: a ready task whose blockers are all done starts on its own, most urgent
