@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Maximize, Minus, Plus, Search, X } from 'lucide-react'
 import { BLOB } from './Landscape'
 import { step } from './combobox'
-import { KINDS, filterGraph, hillBox, mapOf, type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind } from './graph'
+import { KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind } from './graph'
 import { IconButton } from './ui'
 import { LABELS, OPEN_WORK, api, type Vault } from './lib'
 
@@ -55,6 +55,8 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [picked, setPicked] = useState('')
   const [hover, setHover] = useState('')
+  // What the search box finds: lit on the map while you type, the rest fades.
+  const [matches, setMatches] = useState<Set<string>>()
   const host = useRef<HTMLDivElement>(null)
   const viewRef = useRef(view)
   viewRef.current = view
@@ -185,7 +187,10 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
     return [all, trail]
   }, [shown])
   const nearFocus = useMemo(() => new Set(focus ? [focus, ...(neighbours.get(focus) ?? [])] : []), [focus, neighbours])
-  const faded = (n: GraphNode) => (focus ? !nearFocus.has(n.id) : !!home && n.project !== home)
+  // Pointing beats a search, a search beats the project you're in.
+  const stateOf = (id: string) => nodeState(id, focus, nearFocus, matches)
+  const faded = (n: GraphNode) => { const st = stateOf(n.id); return st === 'far' || (!st && !!home && n.project !== home) }
+  const matchedHills = new Set([...(matches ?? [])].map((id) => byId.get(id)).filter((n) => n?.project).map((n) => `projects/${n!.project}.md`))
   const places = useMemo(() => shown?.nodes.filter((n) => n.kind !== 'project' && kinds.includes(n.kind)) ?? [], [shown, kinds])
   // Trails inside one hill, and the faint similar ones, show only up close or from the place you point at:
   // from afar the map keeps the trails between hills and the lowlands.
@@ -204,8 +209,9 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   const named = useMemo(() => {
     const out = new Set<string>()
     if (!map) return out
-    // From afar only what you point at and the places its trails lead to get a name (pointing at a hill names none).
-    const linked = new Set(focus ? [focus, ...(trailEnds.get(focus) ?? [])] : [])
+    // From afar only what you point at, the places its trails lead to and what you searched get a name
+    // (pointing at a hill names none).
+    const linked = new Set(focus ? [focus, ...(trailEnds.get(focus) ?? [])] : matches ?? [])
     const taken: Box[] = []
     const candidates = places.filter((n) => view.k >= NAMES_AT || linked.has(n.id))
       .sort((a, b) => Number(b.id === focus) - Number(a.id === focus) || Number(linked.has(b.id)) - Number(linked.has(a.id)) || rank(a) - rank(b) || a.id.localeCompare(b.id))
@@ -218,7 +224,7 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
       out.add(n.id)
     }
     return out
-  }, [map, places, focus, trailEnds, view.k])
+  }, [map, places, focus, trailEnds, matches, view.k])
   const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
 
   return (
@@ -243,7 +249,7 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
               {map.hills.map((h, i) => {
                 const rings = [...h.rings].reverse()
                 return (
-                  <g key={h.id} className={`bt-hill ${focus ? (nearFocus.has(h.id) ? '' : 'far') : home && h.project !== home ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
+                  <g key={h.id} className={`bt-hill ${focus ? (nearFocus.has(h.id) ? '' : 'far') : matches ? (matches.has(h.id) || matchedHills.has(h.id) ? '' : 'far') : home && h.project !== home ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
                     role="button" tabIndex={0} aria-label={`${h.title}: ${h.open} open, ${h.docs} docs`}
                     onClick={(e) => { e.stopPropagation(); if (!dragged()) goTo(h.id) }} onDoubleClick={() => open(byId.get(h.id)!)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(h.id) } }} onPointerEnter={() => setHover(h.id)} onPointerLeave={() => setHover('')}>
@@ -260,13 +266,14 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
               {trails.map((e) => {
                 const [a, b] = [map.at.get(e.a), map.at.get(e.b)]
                 if (!a || !b) return null
-                const lit = focus && (e.a === focus || e.b === focus)
-                return <path key={`${e.a}\n${e.b}\n${e.kind}`} className={`bt-trail ${e.kind} ${lit ? 'lit' : focus || home ? 'far' : ''}`} d={trailPath(a, b)} />
+                const st = edgeState(e, focus, matches)
+                const dim = st === 'far' || (!st && home && ![e.a, e.b].some((id) => byId.get(id)?.project === home))
+                return <path key={`${e.a}\n${e.b}\n${e.kind}`} className={`bt-trail ${e.kind} ${st === 'hot' ? 'lit' : dim ? 'far' : ''}`} d={trailPath(a, b)} />
               })}
               {places.map((n) => {
                 const p = map.at.get(n.id)!
                 return (
-                  <g key={n.id} className={`bt-place ${n.kind} ${n.status} ${picked === n.id ? 'picked' : ''} ${faded(n) ? 'far' : ''}`}
+                  <g key={n.id} className={`bt-place ${n.kind} ${n.status} ${picked === n.id ? 'picked' : ''} ${stateOf(n.id) === 'match' ? 'match' : ''} ${faded(n) ? 'far' : ''}`}
                     transform={`translate(${p.x} ${p.y})`} onClick={(e) => { e.stopPropagation(); if (!dragged()) (picked === n.id ? open(n) : setPicked(n.id)) }} onDoubleClick={() => open(n)}
                     onPointerEnter={() => setHover(n.id)} onPointerLeave={() => setHover('')}>
                     <title>{n.title}</title>
@@ -281,7 +288,7 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
         )}
 
         {ready && <>
-          <div className="bt-overlay top-left" {...stopMap}><Finder nodes={shown.nodes} go={goTo} /></div>
+          <div className="bt-overlay top-left" {...stopMap}><Finder nodes={shown.nodes} go={goTo} found={setMatches} fail={fail} /></div>
           <div className="bt-overlay top-right bt-zoom" {...stopMap}>
             <IconButton icon={Plus} label="Zoom in" onClick={() => zoomBy(1.5)} />
             <IconButton icon={Minus} label="Zoom out" onClick={() => zoomBy(1 / 1.5)} />
@@ -316,38 +323,63 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   )
 }
 
-// Find a place: type part of a title or id, pick a result, and the map flies there.
-function Finder({ nodes, go }: { nodes: GraphNode[]; go: (id: string) => void }) {
+// Find a place: by meaning (the RAG index) and plain text, within the docs on the map, or by title
+// right away while that answer comes. Everything it finds lights up on the map; picking a result flies there.
+type Hit = { path: string; snippet: string }
+function Finder({ nodes, go, found, fail }: { nodes: GraphNode[]; go: (id: string) => void; found: (ids?: Set<string>) => void; fail: (e: Error) => void }) {
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
+  const [searched, setSearched] = useState<{ q: string; hits: Hit[] }>()
   const id = useId()
   const terms = q.trim().toLowerCase()
-  const hits = terms.length < 2 ? [] : nodes
-    .filter((n) => `${n.title} ${n.name}`.toLowerCase().includes(terms))
-    .sort((a, b) => Number(b.kind === 'project') - Number(a.kind === 'project') || a.title.localeCompare(b.title))
-    .slice(0, 8)
+  const searching = terms.length >= 2
+  // A new list only when the docs on the map change, not on every refetch.
+  const within = useMemo(() => nodes.map((n) => n.id).join('\n'), [nodes])
+  useEffect(() => {
+    if (!searching) return setSearched(undefined)
+    // A slower answer to an earlier query arrives after this cleanup ran, so it's dropped.
+    let live = true
+    const t = setTimeout(() => api('search', 'POST', { q, within: within.split('\n') })
+      .then((hits: Hit[]) => { if (live) setSearched({ q, hits }) }, (e: Error) => { if (live) fail(e) }), 200)
+    return () => { live = false; clearTimeout(t) }
+  }, [q, searching, within])
+  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
+  const hits = useMemo(() => {
+    if (!searching) return []
+    const titled = nodes.filter((n) => `${n.title} ${n.name}`.toLowerCase().includes(terms))
+      .sort((a, b) => Number(b.kind === 'project') - Number(a.kind === 'project') || a.title.localeCompare(b.title))
+      .map((n) => ({ n, snippet: '' }))
+    const meant = searched?.q === q ? searched.hits.flatMap((h) => (byId.has(h.path) ? [{ n: byId.get(h.path)!, snippet: h.snippet }] : [])) : []
+    const seen = new Set<string>()
+    return [...titled.filter((x) => x.n.kind === 'project'), ...meant, ...titled].filter((x) => !seen.has(x.n.id) && !!seen.add(x.n.id))
+  }, [searching, terms, q, nodes, searched, byId])
+  useEffect(() => found(searching ? new Set(hits.map((h) => h.n.id)) : undefined), [hits, searching, found])
   const pick = (n: GraphNode) => { go(n.id); setQ('') }
+  const shown = hits.slice(0, 8)
   return (
     <div className="bt-find">
       <Search size={18} strokeWidth={1.8} aria-hidden />
       <input type="search" value={q} placeholder="Find a place on the map…" aria-label="Find a place on the map"
-        role="combobox" aria-expanded={hits.length > 0} aria-controls={`${id}-hits`} aria-activedescendant={hits.length ? `${id}-${active}` : undefined}
+        role="combobox" aria-expanded={shown.length > 0} aria-controls={`${id}-hits`} aria-activedescendant={shown.length ? `${id}-${active}` : undefined}
         onChange={(e) => { setQ(e.target.value); setActive(0) }}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => step(a, e.key === 'ArrowDown' ? 1 : -1, hits.length)) }
-          else if (e.key === 'Enter' && hits.length) { e.preventDefault(); pick(hits[Math.max(0, active)]) }
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => step(a, e.key === 'ArrowDown' ? 1 : -1, shown.length)) }
+          else if (e.key === 'Enter' && shown.length) { e.preventDefault(); pick(shown[Math.max(0, active)].n) }
           else if (e.key === 'Escape') setQ('')
         }} />
-      {terms.length >= 2 && !hits.length && <p className="bt-hits muted">Nothing on the map called “{q.trim()}”</p>}
-      {hits.length > 0 && (
-        <ul id={`${id}-hits`} role="listbox" aria-label="Places" className="bt-hits">
-          {hits.map((n, i) => (
+      {searching && !shown.length && <p className="bt-hits muted" role="status">{searched?.q === q ? `Nothing on the map about “${q.trim()}”` : 'Searching…'}</p>}
+      {shown.length > 0 && (
+        <ul id={`${id}-hits`} role="listbox" aria-label={`${hits.length} places found`} className="bt-hits">
+          {shown.map(({ n, snippet }, i) => (
             <li key={n.id} id={`${id}-${i}`} role="option" aria-selected={i === active} onMouseMove={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(n)}>
               <span className="bt-hit-kind">{n.kind === 'project' ? 'hill' : n.kind}</span>
-              <span className="bt-hit-title">{n.title}</span>
-              {n.kind !== 'project' && n.project && <span className="muted">{n.project}</span>}
+              <span className="bt-hit-text">
+                <span className="bt-hit-title">{n.title}{n.kind !== 'project' && n.project && <span className="muted"> · {n.project}</span>}</span>
+                {snippet && <span className="bt-hit-snippet muted">…{snippet}…</span>}
+              </span>
             </li>
           ))}
+          {hits.length > shown.length && <li className="bt-hits-more muted" aria-hidden>{hits.length - shown.length} more lit on the map</li>}
         </ul>
       )}
     </div>

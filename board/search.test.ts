@@ -36,3 +36,11 @@ test('falls back to text search when the embeddings are down', async () => {
   const out = await search('gantt')
   expect(out.map((r: any) => [r.path, r.score])).toEqual([['notes/Ideas.md', 4], ['tasks/T-0001.md', 2]])
 })
+
+test('within keeps only the given docs, semantic and text hits alike', async () => {
+  rag.search.mockResolvedValue([hit('meetings/Standup.md', 0.8), hit('tasks/T-0001.md', 0.6)])
+  expect((await search('gantt', ['tasks/T-0001.md'])).map((r: any) => r.path)).toEqual(['tasks/T-0001.md'])
+  expect(rag.search).toHaveBeenCalledWith('gantt', Infinity, 1)
+  rag.search.mockRejectedValue(new Error('Ollama down'))
+  expect((await search('gantt', ['notes/Ideas.md'])).map((r: any) => r.path)).toEqual(['notes/Ideas.md'])
+})
