@@ -65,6 +65,17 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
   return same(next) ? now : next
 }
 
+// Whether the board may scroll `area` while a card is dragged: only once the pointer has travelled from
+// where the drag began, and only while it's over that area. dnd-kit scrolls an area as soon as the pointer
+// is near its top or bottom edge, also from beside it, so a card picked up low in a long column, or carried
+// past it to the next column, set that column's cards moving under the pointer.
+export const TRAVEL_PX = 40
+type Point = { x: number; y: number }
+export function mayScroll(start: Point, pointer: Point, area: { left: number; right: number; top: number; bottom: number }) {
+  const travelled = Math.hypot(pointer.x - start.x, pointer.y - start.y) > TRAVEL_PX
+  return travelled && pointer.x >= area.left && pointer.x <= area.right && pointer.y >= area.top && pointer.y <= area.bottom
+}
+
 // Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
 const STEP = 10
 

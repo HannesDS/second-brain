@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { aim, dragOver, dropMoves, rebase, type Layout } from './drag'
+import { aim, dragOver, dropMoves, mayScroll, rebase, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -184,5 +184,18 @@ test('a card dragged into Done previews where Done sorts it', () => {
   expect(dragOver({ ...layout, done: ['F', 'G'] }, 'A', 'G', undefined, undefined, (target) => target.indexOf('G')).done).toEqual(['F', 'A', 'G'])
   // On My day, no further down than the cards shown, or it would vanish mid-drag.
   expect(dragOver({ ...layout, done: ['F', 'G', 'H'] }, 'A', 'col:done', 2, undefined, () => 3).done).toEqual(['F', 'A', 'G', 'H'])
+})
+
+test('the board scrolls an area only once the card travelled, and only with the pointer over it', () => {
+  const column = { left: 0, right: 300, top: 0, bottom: 700 }
+  const start = { x: 150, y: 680 }
+  // Just picked up low in the column: no scrolling yet.
+  expect(mayScroll(start, { x: 150, y: 690 }, column)).toBe(false)
+  expect(mayScroll(start, { x: 150, y: 640 }, column)).toBe(false)
+  expect(mayScroll(start, { x: 150, y: 699 }, column)).toBe(false)
+  // Carried on down the column: it scrolls.
+  expect(mayScroll({ x: 150, y: 600 }, { x: 150, y: 690 }, column)).toBe(true)
+  // Carried sideways to the next column at the same height: this column stays put.
+  expect(mayScroll(start, { x: 400, y: 690 }, column)).toBe(false)
 })
 

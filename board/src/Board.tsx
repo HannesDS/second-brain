@@ -5,17 +5,13 @@ import {
   useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { CSS, getEventCoordinates } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, dragOver, dropMoves, rebase, type Layout, type Sticky } from './drag'
+import { aim, dragOver, dropMoves, mayScroll, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
-
-// How far a card travels before the board may scroll. dnd-kit scrolls a column or the page as soon as the
-// pointer is near its edge, so a card picked up low in a long column set the cards moving under the pointer.
-const TRAVEL_PX = 40
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
@@ -55,8 +51,16 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     if (next !== live.current) setPreview(next)
   }, [layout])
 
-  const travelled = useRef(false)
-  const autoScroll = useMemo(() => ({ canScroll: () => travelled.current }), [])
+  // Where the drag began and where the pointer is now, for when the board may scroll (see mayScroll).
+  const pointer = useRef<{ start: { x: number; y: number }; now: { x: number; y: number } }>(undefined)
+  const autoScroll = useMemo(() => ({
+    canScroll: (el: Element) => {
+      if (!pointer.current) return false
+      const page = el === document.scrollingElement
+      const area = page ? { left: 0, top: 0, right: innerWidth, bottom: innerHeight } : el.getBoundingClientRect()
+      return mayScroll(pointer.current.start, pointer.current.now, area)
+    },
+  }), [])
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -102,8 +106,11 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={autoScroll}
-      onDragMove={({ delta }) => { if (Math.hypot(delta.x, delta.y) > TRAVEL_PX) travelled.current = true }}
-      onDragStart={(e) => { travelled.current = false; setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+      onDragMove={({ activatorEvent, delta }) => {
+        const start = getEventCoordinates(activatorEvent)
+        pointer.current = start ? { start, now: { x: start.x + delta.x, y: start.y + delta.y } } : undefined
+      }}
+      onDragStart={(e) => { pointer.current = undefined; setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
