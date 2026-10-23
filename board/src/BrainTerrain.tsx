@@ -2,9 +2,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Maximize, Minus, Plus, Search, X } from 'lucide-react'
 import { BLOB } from './Landscape'
 import { step } from './combobox'
-import { KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind } from './graph'
+import {
+  KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, unfiled, walkOf,
+  type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind, type Point,
+} from './graph'
 import { IconButton } from './ui'
-import { LABELS, OPEN_WORK, api, type Vault } from './lib'
+import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, todayISO, type Agent, type Vault } from './lib'
 
 type View = { x: number; y: number; k: number }
 type PlaceKind = Exclude<Kind, 'project'>
@@ -12,6 +15,8 @@ const MIN_K = 0.12
 const MAX_K = 4
 // Below this zoom a place shows its name only when you point at it, pick it, or it is on a trail from there.
 const NAMES_AT = 1.3
+// A hill gets one contour per open task, up to this many; every third is an index contour.
+const MAX_CONTOURS = 16
 const short = (t: string) => (t.length > 34 ? `${t.slice(0, 32)}…` : t)
 // Which names win when they would overlap: what you look at, then open work, then notes, then done work.
 const rank = (n: GraphNode) => (n.kind !== 'task' ? 2 : n.status === 'done' ? 3 : OPEN_WORK.includes(n.status) ? 0 : 1)
@@ -19,34 +24,56 @@ const clampK = (k: number) => Math.min(MAX_K, Math.max(MIN_K, k))
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 // Overlays sit on the map: a press or click on them must not pan the map or clear what you picked.
 const stopMap = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => e.stopPropagation() }
+const time = (at: string) => at.slice(11, 16)
 
-const PLACE_LABEL: Record<PlaceKind, string> = { task: 'Task', thought: 'Thought', meeting: 'Meeting', report: 'Report' }
-const LEGEND: [PlaceKind, string][] = [
-  ['task', 'Tasks: in progress near the summit, done at the foot'], ['thought', 'Thoughts'], ['meeting', 'Meetings'], ['report', 'Teach reports'],
+const PLACE_LABEL: Record<PlaceKind, string> = { task: 'Task', thought: 'Thought', meeting: 'Meeting', report: 'Report', lake: 'Lake' }
+// The map key (docs/MAP-STYLE.md). Each row hides or shows that kind of place.
+const LEGEND: [PlaceKind, string, string][] = [
+  ['task', 'wip', 'Tasks: waypoint, camp, pass, closed, summit'], ['thought', 'tree', 'Thoughts: trees, unfiled ones saplings'],
+  ['meeting', 'hut', 'Meetings: huts'], ['report', 'view', 'Teach reports: viewpoints'], ['lake', 'lake', 'Learning: lakes'],
 ]
 
-// A place's map marker, `s` world units across, around (0, 0). Tasks use the design system's status markers.
-function Marker({ kind, status, s }: { kind: PlaceKind; status: string; s: number }) {
-  if (kind === 'thought') return <circle className="sym" r={s * 0.5} />
-  if (kind === 'meeting') return <path className="sym" d={`M${-s * 0.5},${s * 0.45} V${-s * 0.1} L0,${-s * 0.55} L${s * 0.5},${-s * 0.1} V${s * 0.45} Z`} />
-  if (kind === 'report') return <path className="sym" d={`M${-s * 0.35},${s * 0.6} V${-s * 0.6} L${s * 0.5},${-s * 0.35} L${-s * 0.35},${-s * 0.1}`} />
-  if (status === 'blocked') return <path className="sym" d={`M0,${-s * 0.55} L${s * 0.55},0 L0,${s * 0.55} L${-s * 0.55},0 Z`} />
-  if (['wip', 'review', 'done'].includes(status)) return <path className="sym" d={`M0,${-s * 0.6} L${s * 0.55},${s * 0.45} L${-s * 0.55},${s * 0.45} Z`} />
-  return <circle className="sym" r={s * 0.4} />
+// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Ready and unknown statuses are to do.
+const symbolOf = (n: GraphNode) => (n.kind === 'task' ? (['wip', 'review', 'blocked', 'done'].includes(n.status) ? n.status : 'todo')
+  : n.kind === 'thought' ? (unfiled(n) ? 'sapling' : 'tree') : n.kind === 'meeting' ? 'hut' : n.kind === 'report' ? 'view' : 'lake')
+
+// The map's symbols on a 12x12 grid, hairline, coloured by the map tokens. Mirrors board/public/map/symbols.svg.
+function Symbols() {
+  return <>
+    <symbol id="s-todo" viewBox="0 0 12 12"><circle className="bt-s ground note" cx="6" cy="6" r="3" strokeWidth="1.1" /></symbol>
+    <symbol id="s-wip" viewBox="0 0 12 12"><circle className="bt-s wood-fill ground-line" cx="6" cy="6" r="3.6" strokeWidth="1" /></symbol>
+    <symbol id="s-review" viewBox="0 0 12 12"><path className="bt-s water" d="M3.4 1.8c2.1 2.2 2.1 6.2 0 8.4M8.6 1.8c-2.1 2.2-2.1 6.2 0 8.4" fill="none" strokeWidth="1.3" /></symbol>
+    <symbol id="s-blocked" viewBox="0 0 12 12"><path className="bt-s trail" d="M3 3l6 6M9 3 3 9" strokeWidth="1.6" /></symbol>
+    <symbol id="s-done" viewBox="0 0 12 12"><path className="bt-s ink" d="M6 1.2v8.2M3.4 3.8h5.2M3.6 10.8h4.8" strokeWidth="1.2" /></symbol>
+    <symbol id="s-tree" viewBox="0 0 12 12"><circle className="bt-s ground wood" cx="6" cy="4.8" r="2.9" strokeWidth="1.1" /><path className="bt-s wood" d="M6 7.7v3.3" strokeWidth="1.1" /></symbol>
+    <symbol id="s-sapling" viewBox="0 0 12 12"><path className="bt-s faint" d="M6 10.6V5.2M6 7 3.9 5M6 6 8.1 4" fill="none" strokeWidth="1" /></symbol>
+    <symbol id="s-hut" viewBox="0 0 12 12"><path className="bt-s ink" d="M1.6 6.2 6 2.4l4.4 3.8" fill="none" strokeWidth="1.2" /><rect className="bt-s ink-fill" x="3" y="6" width="6" height="4.4" /></symbol>
+    <symbol id="s-view" viewBox="0 0 12 12"><path className="bt-s water-ink" d="M6 10 2 4.6M6 10 4.2 3M6 10V2.6M6 10 7.8 3M6 10l4-5.4" strokeWidth=".9" /><circle className="bt-s water-ink-fill" cx="6" cy="10" r="1.3" /></symbol>
+    <symbol id="s-lake" viewBox="0 0 12 12"><path className="bt-lake" d="M1.4 6.4C1.6 3.4 5 2.6 7.8 3s3.4 2.4 2.6 4.2-4.2 2.4-6.4 2S1.3 7.6 1.4 6.4Z" /><path className="bt-s water" d="M3.6 5.6c1.6-.8 3.4-.8 5 0" fill="none" strokeWidth=".6" /></symbol>
+    <symbol id="s-peak" viewBox="0 0 12 12"><path className="bt-s ink-fill" d="M6 2.5 10.2 9.8H1.8Z" /></symbol>
+    <symbol id="s-peak-hot" viewBox="0 0 12 12"><path className="bt-s walk-fill" d="M6 2.5 10.2 9.8H1.8Z" /></symbol>
+    <symbol id="s-agent" viewBox="0 0 12 12"><rect className="bt-s water-fill" x="3" y="3" width="6" height="6" rx="1.2" /></symbol>
+    <symbol id="s-start" viewBox="0 0 12 12"><circle className="bt-s ground walk" cx="6" cy="6" r="3.4" strokeWidth="1.6" /></symbol>
+    <symbol id="s-here" viewBox="0 0 12 12"><circle className="bt-s walk-fill ground-line" cx="6" cy="6" r="3.6" strokeWidth="1.4" /></symbol>
+  </>
 }
 
+// A symbol `s` world units across, centred on (0, 0).
+const Sym = ({ id, s }: { id: string; s: number }) => <use href={`#s-${id}`} x={-s / 2} y={-s / 2} width={s} height={s} />
+
 // A trail between two places: a gentle curve, always bending the same way, never far off the straight line.
-const trailPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+const trailPath = (a: Point, b: Point) => {
   const [dx, dy] = [b.x - a.x, b.y - a.y]
   const bend = Math.min(0.18, 40 / (Math.hypot(dx, dy) || 1))
   return `M${a.x},${a.y} Q${(a.x + b.x) / 2 - dy * bend},${(a.y + b.y) / 2 + dx * bend} ${b.x},${b.y}`
 }
 
-// Brain Terrain: the vault as a map. Projects are hills, their docs sit on the slopes, links are trails.
+// Brain Terrain: the vault as a survey map (docs/MAP-STYLE.md). Projects are hills in their context's region,
+// their docs sit on the slopes, links are trails, and today's sessions are the walk.
 // It follows the global context; the global project is where the map flies to.
 // `vault` is only read to refetch the map when the vault changes.
-export default function BrainTerrain({ vault, context, scope, open, fail }: {
-  vault: Vault; context: string; scope: string; open: (n: GraphNode) => void; fail: (e: Error) => void
+export default function BrainTerrain({ vault, context, scope, agents, open, fail }: {
+  vault: Vault; context: string; scope: string; agents: Agent[]; open: (n: GraphNode) => void; fail: (e: Error) => void
 }) {
   const [graph, setGraph] = useState<KnowledgeGraph>()
   const [kinds, setKinds] = useState<Kind[]>([...KINDS])
@@ -73,9 +100,12 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   }, [])
 
   // Laid out with every kind, so hiding one doesn't move the rest.
-  const shown = useMemo(() => graph && filterGraph(graph, { context, kinds: KINDS, links: ['link', 'project', 'similar'] }), [graph, context])
+  const shown = useMemo(() => graph && filterGraph(graph, { context, kinds: KINDS, links: ['link', 'project', 'similar', 'stream'] }), [graph, context])
   const map = useMemo(() => shown && mapOf(shown), [shown])
   const byId = useMemo(() => new Map(shown?.nodes.map((n) => [n.id, n])), [shown])
+  const walk = useMemo(() => map && shown && walkOf(shown.walk ?? [], map.at, byId, todayISO()), [map, shown, byId])
+  // Where a place is drawn: today's thoughts stand on the walk, everything else where the map put it.
+  const where = useCallback((id: string) => walk?.planted.get(id) ?? map?.at.get(id), [walk, map])
 
   const flyTo = useCallback((to: View) => {
     cancelAnimationFrame(flight.current)
@@ -164,13 +194,13 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
     setPicked(id)
     const hill = map.hills.find((h) => h.id === id)
     if (hill) return flyTo(frameBox(hillBox(hill), 1.6))
-    const p = map.at.get(id)
+    const p = where(id)
     if (!p) return
     const k = Math.max(view.k, 1.8)
     flyTo({ k, x: size.w / 2 - p.x * k, y: size.h / 2 - p.y * k })
   }
 
-  const ready = map && shown
+  const ready = map && shown && walk
   const focus = hover || picked
   // The project you're in: everything off its hill fades, unless you point at it.
   const home = scope && map?.hills.some((h) => h.project === scope) ? scope : ''
@@ -192,17 +222,18 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   const faded = (n: GraphNode) => { const st = stateOf(n.id); return st === 'far' || (!st && !!home && n.project !== home) }
   const matchedHills = new Set([...(matches ?? [])].map((id) => byId.get(id)).filter((n) => n?.project).map((n) => `projects/${n!.project}.md`))
   const places = useMemo(() => shown?.nodes.filter((n) => n.kind !== 'project' && kinds.includes(n.kind)) ?? [], [shown, kinds])
+  const visible = useCallback((id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }, [byId, kinds])
   // Trails inside one hill, and the faint similar ones, show only up close or from the place you point at:
   // from afar the map keeps the trails between hills and the lowlands.
   const trails = useMemo(() => {
-    const visible = (id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }
     const local = (e: GraphEdge) => e.kind === 'similar' || (!!byId.get(e.a)?.project && byId.get(e.a)?.project === byId.get(e.b)?.project)
-    return shown?.edges.filter((e) => e.kind !== 'project' && links.includes(e.kind) && visible(e.a) && visible(e.b)
+    return shown?.edges.filter((e) => (e.kind === 'link' || e.kind === 'similar') && links.includes(e.kind) && visible(e.a) && visible(e.b)
       && (!local(e) || view.k >= NAMES_AT || e.a === focus || e.b === focus)) ?? []
-  }, [shown, byId, kinds, links, view.k >= NAMES_AT, focus])
-  // Markers shrink slower than the map; names keep their size on screen.
-  const markerSize = 9 / Math.sqrt(view.k)
-  const nameSize = 12 / view.k
+  }, [shown, byId, visible, links, view.k >= NAMES_AT, focus])
+  const streams = shown?.edges.filter((e) => e.kind === 'stream' && visible(e.a) && visible(e.b)) ?? []
+  // Symbols shrink slower than the map; names keep their size on screen.
+  const markerSize = 13 / Math.sqrt(view.k)
+  const px = (n: number) => n / view.k
   const pickedNode = byId.get(picked)
   // Names are placed like on a printed map: most important first, and one that would cover another is left out.
   // Only the zoom changes their boxes, so panning reuses the last placement.
@@ -210,22 +241,34 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
     const out = new Set<string>()
     if (!map) return out
     // From afar only what you point at, the places its trails lead to and what you searched get a name
-    // (pointing at a hill names none).
+    // (pointing at a hill names none). Lakes always carry their name, like water on a map.
     const linked = new Set(focus ? [focus, ...(trailEnds.get(focus) ?? [])] : matches ?? [])
     const taken: Box[] = []
-    const candidates = places.filter((n) => view.k >= NAMES_AT || linked.has(n.id))
+    const candidates = places.filter((n) => view.k >= NAMES_AT || linked.has(n.id) || n.kind === 'lake')
       .sort((a, b) => Number(b.id === focus) - Number(a.id === focus) || Number(linked.has(b.id)) - Number(linked.has(a.id)) || rank(a) - rank(b) || a.id.localeCompare(b.id))
     for (const n of candidates) {
-      const p = map.at.get(n.id)!
+      const p = where(n.id)!
       const w = (short(n.title).length * 6.3 + 6) / view.k
-      const box = { x: p.x - w / 2, y: p.y + markerSize, w, h: nameSize * 1.3 }
+      const box = { x: p.x - w / 2, y: p.y + markerSize / 2, w, h: px(16) }
       if (n.id !== focus && taken.some((t) => box.x < t.x + t.w && t.x < box.x + box.w && box.y < t.y + t.h && t.y < box.y + box.h)) continue
       taken.push(box)
       out.add(n.id)
     }
     return out
-  }, [map, places, focus, trailEnds, matches, view.k])
+  }, [map, places, focus, trailEnds, matches, view.k, where])
   const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
+  const fadeHill = (h: Hill) => (focus ? !nearFocus.has(h.id) : matches ? !(matches.has(h.id) || matchedHills.has(h.id)) : !!home && h.project !== home)
+  // Agents on the map: a cable line from the foot of the task's hill up to the task. Waiting ones pulse.
+  const cables = map ? agents.filter((a) => a.task && ['working', 'needs-input'].includes(a.state)).flatMap((a) => {
+    const id = `tasks/${a.task}.md`
+    const [to, hill] = [where(id), map.hills.find((h) => h.project === byId.get(id)?.project)]
+    if (!to || !hill || !visible(id)) return []
+    const d = Math.hypot(to.x - hill.x, to.y - hill.y)
+    const [ux, uy] = d > 1 ? [(to.x - hill.x) / d, (to.y - hill.y) / d] : [0, 1]
+    return [{ id: a.id, task: a.task!, waiting: a.state === 'needs-input', from: { x: hill.x + ux * (hill.r + 40), y: hill.y + uy * (hill.r + 40) }, to }]
+  }) : []
+  const stops = walk?.today ?? []
+  const line = (ps: Point[]) => ps.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')
 
   return (
     <main className="bt-page">
@@ -236,53 +279,130 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
           <svg width={size.w} height={size.h} role="group" aria-label="Map of the vault">
             <defs>
               <path id="bt-blob" d={BLOB} />
+              <filter id="bt-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14" /></filter>
               <pattern id="bt-grid" width="240" height="240" patternUnits="userSpaceOnUse"><path className="bt-graticule" d="M240,0 H0 V240" /></pattern>
+              <pattern id="bt-wood" width="9" height="9" patternUnits="userSpaceOnUse"><circle className="bt-stipple" cx="2.5" cy="2.5" r="1.1" /><circle className="bt-stipple" cx="7" cy="7" r="1.1" /></pattern>
+              <Symbols />
             </defs>
             <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
+              <rect className="bt-paper" x={map.bounds.x - 4000} y={map.bounds.y - 4000} width={map.bounds.w + 8000} height={map.bounds.h + 8000} />
               <rect x={map.bounds.x - 4000} y={map.bounds.y - 4000} width={map.bounds.w + 8000} height={map.bounds.h + 8000} fill="url(#bt-grid)" />
+              {map.regions.map((r) => (
+                <g key={r.context} className="bt-region">
+                  <path d={smoothPath(r.outline)} />
+                  <text x={r.label.x} y={r.label.y} fontSize={px(30)} textAnchor="middle">{(CONTEXT_LABEL[r.context] ?? r.context).toUpperCase()}</text>
+                </g>
+              ))}
               {map.uncharted && (
                 <g className="bt-uncharted">
                   <rect x={map.uncharted.x} y={map.uncharted.y} width={map.uncharted.w} height={map.uncharted.h} rx={22} />
-                  <text x={map.uncharted.x + 12} y={map.uncharted.y - nameSize * 0.6} fontSize={nameSize}>UNCHARTED · linked to nothing yet</text>
+                  <text className="bt-hill-name" x={map.uncharted.x + 12} y={map.uncharted.y - px(8)} fontSize={px(10)}>UNCHARTED</text>
+                  <text className="bt-meta" x={map.uncharted.x + 12 + px(96)} y={map.uncharted.y - px(8)} fontSize={px(10.5)}>linked to nothing yet</text>
                 </g>
               )}
-              {map.hills.map((h, i) => {
-                const rings = [...h.rings].reverse()
+              {map.hills.map((h) => (
+                <g key={`shade:${h.id}`} className={`bt-shade-host ${fadeHill(h) ? 'far' : ''}`} filter="url(#bt-soft)">
+                  <use href="#bt-blob" className="bt-shade" transform={`translate(${h.x + 16} ${h.y + 20}) rotate(${rotation(h)}) scale(${h.r / 100})`} />
+                </g>
+              ))}
+              {map.hills.map((h) => {
+                const n = 1 + Math.min(h.open, MAX_CONTOURS - 1)
                 return (
-                  <g key={h.id} className={`bt-hill ${focus ? (nearFocus.has(h.id) ? '' : 'far') : matches ? (matches.has(h.id) || matchedHills.has(h.id) ? '' : 'far') : home && h.project !== home ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
+                  <g key={h.id} className={`bt-hill ${fadeHill(h) ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
                     role="button" tabIndex={0} aria-label={`${h.title}: ${h.open} open, ${h.docs} docs`}
                     onClick={(e) => { e.stopPropagation(); if (!dragged()) goTo(h.id) }} onDoubleClick={() => open(byId.get(h.id)!)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(h.id) } }} onPointerEnter={() => setHover(h.id)} onPointerLeave={() => setHover('')}>
-                    <g transform={`rotate(${((i * 37) % 40) - 20})`}>
-                      {[0, 1, 2, 3].map((k) => <use key={`b${k}`} href="#bt-blob" className="ring base" transform={`scale(${(h.r / 100) * (1 - k * 0.1)})`} />)}
-                      {rings.map((st, k) => <use key={k} href="#bt-blob" className={`ring ${st}`} transform={`scale(${(h.r / 100) * 0.6 * (1 - (k + 1) / (rings.length + 1.5))})`} />)}
-                      <use href="#bt-blob" className={`peak ${h.hot ? 'hot' : ''}`} transform={`scale(${(h.r / 100) * 0.05})`} />
+                    {h.client && <circle className="bt-enclave" r={h.r + 46} />}
+                    <g transform={`rotate(${rotation(h)})`}>
+                      {Array.from({ length: n }, (_, k) => (
+                        <use key={k} href="#bt-blob" className={`bt-contour h${Math.min(5, Math.floor(k / 2)) + 1} ${k % 3 ? '' : 'index'}`}
+                          transform={`scale(${(h.r / 100) * (1 - (k / n) * 0.86)})`} />
+                      ))}
                     </g>
-                    <text className="bt-hill-name" y={-h.r - 18 / view.k} fontSize={15 / view.k} textAnchor="middle">{h.title}</text>
-                    <text className="bt-hill-meta" y={-h.r - 4 / view.k} fontSize={11 / view.k} textAnchor="middle">{h.open} open · {h.docs} docs</text>
+                    <Sym id={h.hot ? 'peak-hot' : 'peak'} s={markerSize * 1.1} />
+                    <text className="bt-hill-name" y={-h.r - px(20)} fontSize={px(10 + 8 * Math.min(1, h.open / 12))} textAnchor="middle">{h.title.toUpperCase()}</text>
+                    <text className="bt-meta" y={-h.r - px(6)} fontSize={px(10.5)} textAnchor="middle">▲ {h.open} open · {h.docs} docs</text>
+                    {h.client && <text className="bt-meta enclave" y={h.r + 46 + px(16)} fontSize={px(10.5)} textAnchor="middle">CLIENT ENCLAVE</text>}
                   </g>
                 )
               })}
+              {kinds.includes('thought') && map.woods.map((w) => (
+                <g key={`wood:${w.hill}`} className={`bt-wood ${fadeHill(map.hills.find((h) => h.id === w.hill)!) ? 'far' : ''}`}>
+                  <circle cx={w.x} cy={w.y} r={w.r} />
+                  {view.k >= 0.6 && <text className="bt-meta wood" x={w.x + w.r * 0.7} y={w.y - w.r * 0.7} fontSize={px(10.5)}>wood · {w.count}</text>}
+                </g>
+              ))}
+              {map.clearing && kinds.includes('thought') && (
+                <g className="bt-clearing">
+                  <ellipse cx={map.clearing.x} cy={map.clearing.y} rx={map.clearing.rx} ry={map.clearing.ry} />
+                  <text className="bt-hill-name" x={map.clearing.x} y={map.clearing.y + map.clearing.ry + px(18)} fontSize={px(10)} textAnchor="middle">THE CLEARING</text>
+                  <text className="bt-meta" x={map.clearing.x} y={map.clearing.y + map.clearing.ry + px(32)} fontSize={px(10.5)} textAnchor="middle">{map.clearing.count} unfiled thoughts</text>
+                </g>
+              )}
+              {streams.map((e) => {
+                const [a, b] = [where(e.a), where(e.b)]
+                return a && b && <path key={`${e.a}\n${e.b}`} className={`bt-stream ${edgeState(e, focus, matches) === 'far' ? 'far' : ''}`} d={trailPath(a, b)} />
+              })}
               {trails.map((e) => {
-                const [a, b] = [map.at.get(e.a), map.at.get(e.b)]
+                const [a, b] = [where(e.a), where(e.b)]
                 if (!a || !b) return null
                 const st = edgeState(e, focus, matches)
                 const dim = st === 'far' || (!st && home && ![e.a, e.b].some((id) => byId.get(id)?.project === home))
                 return <path key={`${e.a}\n${e.b}\n${e.kind}`} className={`bt-trail ${e.kind} ${st === 'hot' ? 'lit' : dim ? 'far' : ''}`} d={trailPath(a, b)} />
               })}
+              {walk.earlier.map((t, i) => <path key={`old${i}`} className="bt-old-track" d={line(t)} />)}
+              {cables.map((c) => (
+                <g key={c.id} className={`bt-cable ${c.waiting ? 'waiting' : ''}`}>
+                  <path d={`M${c.from.x},${c.from.y} L${c.to.x},${c.to.y}`} />
+                  <g transform={`translate(${(c.from.x + c.to.x) / 2} ${(c.from.y + c.to.y) / 2})`}>
+                    {c.waiting && <circle className="bt-pulse" r={markerSize * 0.5} />}
+                    <Sym id="agent" s={markerSize} />
+                    {c.waiting && <text className="bt-meta water" x={markerSize} y={px(4)} fontSize={px(10.5)}>agent waiting · {c.task}</text>}
+                  </g>
+                </g>
+              ))}
               {places.map((n) => {
-                const p = map.at.get(n.id)!
+                const p = where(n.id)!
                 return (
-                  <g key={n.id} className={`bt-place ${n.kind} ${n.status} ${picked === n.id ? 'picked' : ''} ${stateOf(n.id) === 'match' ? 'match' : ''} ${faded(n) ? 'far' : ''}`}
+                  <g key={n.id} className={`bt-place ${n.kind} ${picked === n.id ? 'picked' : ''} ${stateOf(n.id) === 'match' ? 'match' : ''} ${faded(n) ? 'far' : ''}`}
                     transform={`translate(${p.x} ${p.y})`} onClick={(e) => { e.stopPropagation(); if (!dragged()) (picked === n.id ? open(n) : setPicked(n.id)) }} onDoubleClick={() => open(n)}
                     onPointerEnter={() => setHover(n.id)} onPointerLeave={() => setHover('')}>
                     <title>{n.title}</title>
-                    <circle className="bt-hit" r={markerSize} />
-                    <Marker kind={n.kind as PlaceKind} status={n.status} s={markerSize} />
-                    {named.has(n.id) && <text className="bt-place-name" y={markerSize + nameSize} fontSize={nameSize} textAnchor="middle">{short(n.title)}</text>}
+                    <circle className="bt-hit" r={markerSize * (n.kind === 'lake' ? 1.4 : 0.7)} />
+                    <Sym id={symbolOf(n)} s={markerSize * (n.kind === 'lake' ? 2.6 : 1)} />
+                    {named.has(n.id) && <text className={n.kind === 'lake' ? 'bt-water-name' : 'bt-place-name'} y={markerSize * (n.kind === 'lake' ? 1 : 0.5) + px(13)} fontSize={px(n.kind === 'lake' ? 12 : 11)} textAnchor="middle">{short(n.title)}</text>}
                   </g>
                 )
               })}
+              {stops.length > 0 && (
+                <g className="bt-walk">
+                  {/* Keyed by the first stop, so it draws itself once on load, not on every refetch. */}
+                  <path className="bt-walk-casing" d={line(stops)} />
+                  <path key={stops[0].at} className="bt-walk-line" d={line(stops)} pathLength={1} strokeWidth={px(2.4)} />
+                  {stops.map((s, i) => {
+                    const prev = stops[i - 1]
+                    const last = i === stops.length - 1
+                    const arrival = !prev || prev.hill !== s.hill
+                    // A leg to another hill is a context switch: labelled when it's long enough on screen to carry it.
+                    const leg = prev && prev.hill !== s.hill && Math.hypot(s.x - prev.x, s.y - prev.y) * view.k > 220
+                    const angle = prev ? (Math.atan2(s.y - prev.y, s.x - prev.x) * 180) / Math.PI : 0
+                    const upright = angle > 90 || angle < -90 ? angle + 180 : angle
+                    return (
+                      <g key={`${s.at}${s.id}`}>
+                        {leg && <text className="bt-meta traverse" fontSize={px(10.5)} textAnchor="middle"
+                          transform={`translate(${(s.x + prev.x) / 2} ${(s.y + prev.y) / 2}) rotate(${upright}) translate(0 ${px(-6)})`}>context switch</text>}
+                        <g transform={`translate(${s.x} ${s.y})`}>
+                          {i === 0 && <Sym id="start" s={markerSize} />}
+                          {last && <><circle className="bt-here-pulse" r={markerSize * 0.5} /><Sym id="here" s={markerSize * 1.2} /></>}
+                          {!last && i > 0 && <circle className="bt-stop" r={px(3)} />}
+                          {last && <text className="bt-hill-name here" x={markerSize} y={px(-2)} fontSize={px(10)}>YOU ARE HERE</text>}
+                          {(arrival || last) && <text className="bt-time" x={markerSize * 0.8} y={last ? px(12) : px(-6)} fontSize={px(10.5)}>{time(s.at)}{i === 0 ? ' start' : ''}</text>}
+                        </g>
+                      </g>
+                    )
+                  })}
+                </g>
+              )}
             </g>
           </svg>
         )}
@@ -297,31 +417,45 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
           {pickedNode && <Card node={pickedNode} hills={map.hills} edges={shown.edges} byId={byId} open={open} go={goTo} close={() => setPicked('')} />}
           <div className="bt-overlay bottom-left bt-legend" {...stopMap}>
             <div className="bt-legend-row">
-              <svg viewBox="-12 -12 24 24" aria-hidden><use href="#bt-blob" className="ring base" transform="scale(.1)" /><use href="#bt-blob" className="peak hot" transform="scale(.035)" /></svg>
-              Hills are projects; an ochre peak has urgent work
+              <svg viewBox="-12 -12 24 24" aria-hidden>
+                <use href="#bt-blob" className="bt-contour h1 index" transform="scale(.1)" /><use href="#bt-blob" className="bt-contour h3" transform="scale(.06)" />
+                <Sym id="peak-hot" s={9} />
+              </svg>
+              Hills are projects, a contour per open task; an ochre summit has urgent work
             </div>
-            {LEGEND.map(([k, text]) => (
+            {LEGEND.map(([k, sym, text]) => (
               <button key={k} className={`bt-legend-row ${kinds.includes(k) ? 'on' : ''}`} aria-pressed={kinds.includes(k)} onClick={() => toggle(kinds, setKinds, k)}>
-                <svg viewBox="-8 -8 16 16" aria-hidden><g className={`bt-place ${k} ${k === 'task' ? 'wip' : ''}`}><Marker kind={k} status={k === 'task' ? 'wip' : ''} s={11} /></g></svg>
+                <svg viewBox="-9 -9 18 18" aria-hidden><Sym id={sym} s={k === 'lake' ? 18 : 14} /></svg>
                 {text}
               </button>
             ))}
             {(['link', 'similar'] as const).map((l) => (
               <button key={l} className={`bt-legend-row ${links.includes(l) ? 'on' : ''}`} aria-pressed={links.includes(l)} onClick={() => toggle(links, setLinks, l)}>
                 <svg viewBox="0 -4 16 8" aria-hidden><path className={`bt-trail ${l}`} d="M0,0 H16" /></svg>
-                {l === 'link' ? 'Trails: links between docs' : 'Faint trails: docs that read alike'}
+                {l === 'link' ? 'Marked trails: links between docs' : 'Faint paths: docs that read alike'}
               </button>
             ))}
+            <div className="bt-legend-row">
+              <svg viewBox="0 -4 16 8" aria-hidden><path className="bt-walk-casing" d="M1,0 H15" /><path className="bt-walk-line still" d="M1,0 H15" /></svg>
+              Today's walk; old tracks for earlier days
+            </div>
+            <div className="bt-legend-row">
+              <svg viewBox="-9 -9 18 18" aria-hidden><Sym id="agent" s={14} /></svg>
+              Agents: cable lines, waiting ones pulse
+            </div>
           </div>
           <div className="bt-overlay bottom-right bt-compass" aria-hidden>
-            <svg viewBox="-20 -26 40 46"><path className="needle" d="M0,-16 L5,0 L0,-3 L-5,0 Z" /><path className="tail" d="M0,16 L5,0 L0,3 L-5,0 Z" /><text y={-18} textAnchor="middle">N</text></svg>
-            <span>{places.length} places · {map.hills.length} hills</span>
+            <svg viewBox="-28 -40 56 70"><circle r="26" /><path className="rose" d="M0 -22 L5 0 L0 22 L-5 0Z" /><path className="needle" d="M0 -22 L5 0 L-5 0Z" /><text y={-30} textAnchor="middle">N</text></svg>
+            <span>{map.hills.length} hills · {places.length} places{stops.length ? ` · ${stops.length} stops today` : ''}</span>
           </div>
         </>}
       </div>
     </main>
   )
 }
+
+// Each hill leans its own way, so the map doesn't look stamped.
+const rotation = (h: Hill) => ([...h.project].reduce((s, c) => s + c.charCodeAt(0), 0) * 37) % 40 - 20
 
 // Find a place: by meaning (the RAG index) and plain text, within the docs on the map, or by title
 // right away while that answer comes. Everything it finds lights up on the map; picking a result flies there.

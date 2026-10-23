@@ -24,7 +24,7 @@ import { place, step, type Place } from './combobox'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
-  TAB, contextOf, inContext, loader, projectOf, scopeVault, startCommand, tabsOf, teachPrompt, unlink,
+  TAB, contextOf, inContext, loader, obsidian, projectOf, scopeVault, startCommand, tabsOf, teachPrompt, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -176,10 +176,12 @@ export default function App() {
     deps: (t) => setGraph({ focus: t.name }),
     write,
   }
-  // A graph node: projects open their overview, teach reports their HTML in a new tab, the rest in the peek.
+  // A graph node: projects open their overview, teach reports their HTML in a new tab, a learning folder
+  // its mission in Obsidian, the rest in the peek.
   const openNode = (n: GraphNode) => {
     if (n.kind === 'project') act.project(n.name)
     else if (n.kind === 'report') window.open(`/api/reports/${n.name}`, '_blank', 'noopener')
+    else if (n.kind === 'lake') location.href = obsidian(`${vault.vault}/${n.id}/MISSION.md`)
     else write(n.id)
   }
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
@@ -275,7 +277,7 @@ export default function App() {
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
-        {page === 'terrain' && <BrainTerrain vault={vault} context={context} scope={scope} open={openNode} fail={fail} />}
+        {page === 'terrain' && <BrainTerrain vault={vault} context={context} scope={scope} agents={agents} open={openNode} fail={fail} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>

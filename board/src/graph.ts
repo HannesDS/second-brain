@@ -1,17 +1,20 @@
 // The Brain Terrain graph: every vault doc a node, wikilinks, `project` fields and similar content the edges.
 // The server builds it (board/graph.ts); the page filters it and draws it as a map, laid out here.
-import { OPEN_WORK, URGENT, hillRings } from './lib'
+import { CONTEXTS, OPEN_WORK, URGENT } from './lib'
 
-export const KINDS = ['project', 'task', 'thought', 'meeting', 'report'] as const
+export const KINDS = ['project', 'task', 'thought', 'meeting', 'report', 'lake'] as const
 export type Kind = (typeof KINDS)[number]
-export type LinkKind = 'link' | 'project' | 'similar'
+// A stream runs from a learning folder (a lake) to the work it fed.
+export type LinkKind = 'link' | 'project' | 'similar' | 'stream'
 
 // `id` is the vault path (tasks/T-0001.md). `project` is the project it belongs to, a project's own name for a project.
-// `contexts`: its project's, or for a doc outside a project those of the docs it links to.
-export type GraphNode = { id: string; kind: Kind; name: string; title: string; project: string; contexts: string[]; status: string; priority: string }
+// `contexts`: its project's, or for a doc outside a project those of the docs it links to. `client`: a client project.
+export type GraphNode = { id: string; kind: Kind; name: string; title: string; project: string; contexts: string[]; status: string; priority: string; client?: boolean }
 // Undirected: `a` sorts before `b`. Similar edges carry their score.
 export type GraphEdge = { a: string; b: string; kind: LinkKind; score?: number }
-export type KnowledgeGraph = { nodes: GraphNode[]; edges: GraphEdge[] }
+// One stop on the walk: a session on its task, a meeting, a thought. `at` is local time, YYYY-MM-DDTHH:MM.
+export type WalkStep = { at: string; id: string; what: 'session' | 'meeting' | 'thought' }
+export type KnowledgeGraph = { nodes: GraphNode[]; edges: GraphEdge[]; walk?: WalkStep[] }
 
 export type Filter = { context: string; kinds: readonly Kind[]; links: readonly LinkKind[] }
 
@@ -19,7 +22,7 @@ export type Filter = { context: string; kinds: readonly Kind[]; links: readonly 
 export function filterGraph(g: KnowledgeGraph, f: Filter): KnowledgeGraph {
   const nodes = g.nodes.filter((n) => f.kinds.includes(n.kind) && (!f.context || n.contexts.includes(f.context)))
   const ids = new Set(nodes.map((n) => n.id))
-  return { nodes, edges: g.edges.filter((e) => f.links.includes(e.kind) && ids.has(e.a) && ids.has(e.b)) }
+  return { nodes, edges: g.edges.filter((e) => f.links.includes(e.kind) && ids.has(e.a) && ids.has(e.b)), walk: g.walk?.filter((w) => ids.has(w.id)) }
 }
 
 export type NodeState = '' | 'hot' | 'near' | 'match' | 'far'
@@ -40,7 +43,7 @@ export function edgeState(e: GraphEdge, hover: string, matches?: Set<string>): '
 export type Point = { x: number; y: number }
 
 // How hard each kind of edge pulls its ends together.
-const PULL: Record<LinkKind, number> = { project: 1, link: 0.8, similar: 0.4 }
+const PULL: Record<LinkKind, number> = { project: 1, link: 0.8, stream: 0.6, similar: 0.4 }
 const GAP = 90
 // Pair work per run is capped, so a much bigger vault gets a rougher layout instead of a frozen page.
 const BUDGET = 4e6
@@ -91,11 +94,16 @@ export function layout(nodes: { id: string }[], edges: GraphEdge[], iterations =
 
 // The map: every project a hill, sized by how many docs it holds. Its docs sit on its slopes by elevation:
 // open work near the summit, to do halfway, done at the foot, thoughts, meetings and reports in the foothills.
-// Docs outside a project settle in the lowlands next to what they link to; the ones linked to nothing are
-// uncharted, in a strip below the map.
-export type Hill = { id: string; project: string; title: string; x: number; y: number; r: number; open: number; docs: number; hot: boolean; rings: string[] }
+// Hills of one context form a region, the contexts side by side. Docs outside a project settle in the lowlands
+// next to what they link to (a lake next to the work it fed); unfiled thoughts wait in the Clearing; docs
+// linked to nothing are uncharted, in a strip below the map.
+export type Hill = { id: string; project: string; title: string; context: string; client: boolean; x: number; y: number; r: number; open: number; docs: number; hot: boolean }
 export type Box = { x: number; y: number; w: number; h: number }
-export type TerrainMap = { hills: Hill[]; at: Map<string, Point>; uncharted?: Box; bounds: Box }
+export type Region = { context: string; outline: Point[]; label: Point }
+export type Clearing = Point & { rx: number; ry: number; count: number }
+// Filed thoughts on one hill grow into a wood.
+export type Wood = Point & { hill: string; r: number; count: number }
+export type TerrainMap = { hills: Hill[]; at: Map<string, Point>; regions: Region[]; woods: Wood[]; clearing?: Clearing; uncharted?: Box; bounds: Box }
 // What a hill takes up on the map, its name above it included.
 export const hillBox = (h: Hill): Box => ({ x: h.x - h.r, y: h.y - h.r - 50, w: 2 * h.r, h: 2 * h.r + 50 })
 
@@ -103,8 +111,11 @@ const GOLDEN = 2.39996
 // Room between hills, also for the name above each one.
 const HILL_GAP = 140
 const PLACE_GAP = 26
+const REGION_PAD = 90
+const WOOD_MIN = 3
 const elevation = (n: GraphNode) => (n.kind !== 'task' ? 0.92 : OPEN_WORK.includes(n.status) ? 0.28 : n.status === 'done' ? 0.74 : 0.5)
 const isOpen = (n: GraphNode) => n.kind === 'task' && n.status !== 'done'
+export const unfiled = (n: GraphNode) => n.kind === 'thought' && n.status === 'inbox'
 
 export function mapOf(g: KnowledgeGraph): TerrainMap {
   const byId = new Map(g.nodes.map((n) => [n.id, n]))
@@ -122,18 +133,30 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
   const hills: Hill[] = tops.map((p) => {
     const mine = members.get(p.id)!
     return {
-      id: p.id, project: p.project, title: p.title, ...start.get(p.id)!, r: 70 + 24 * Math.sqrt(mine.length),
-      open: mine.filter(isOpen).length, docs: mine.length, rings: hillRings(mine.filter(isOpen).map((n) => n.status)),
-      hot: mine.some((n) => isOpen(n) && URGENT.includes(n.priority)),
+      id: p.id, project: p.project, title: p.title, context: p.contexts[0] ?? '', client: !!p.client, ...start.get(p.id)!, r: 70 + 24 * Math.sqrt(mine.length),
+      open: mine.filter(isOpen).length, docs: mine.length, hot: mine.some((n) => isOpen(n) && URGENT.includes(n.priority)),
     }
   })
   // The force layout spreads a few nodes wide: pull them in to about the area the hills need, then part them.
   const spread = Math.max(1, ...hills.map((h) => Math.hypot(h.x, h.y)))
   const need = 1.3 * Math.sqrt(hills.reduce((s, h) => s + (h.r + HILL_GAP) ** 2, 0))
   for (const h of hills) { h.x *= need / spread; h.y *= need / spread }
+  // Each context is a region: its hills keep their shape, the regions sit side by side, in the order of CONTEXTS.
+  const contexts = [...new Set(hills.map((h) => h.context))].sort((a, b) => order(a) - order(b))
+  if (contexts.length > 1) {
+    const groups = contexts.map((c) => hills.filter((h) => h.context === c))
+    const widths = groups.map((gr) => 2 * Math.max(...gr.map((h) => Math.hypot(h.x - mean(gr, 'x'), h.y - mean(gr, 'y')) + h.r)) + 2 * REGION_PAD)
+    let left = -widths.reduce((s, w) => s + w, 0) / 2
+    groups.forEach((gr, i) => {
+      const [cx, cy] = [mean(gr, 'x'), mean(gr, 'y')]
+      for (const h of gr) { h.x += left + widths[i] / 2 - cx; h.y -= cy }
+      left += widths[i]
+    })
+  }
   apart(hills, (h) => h.r + HILL_GAP / 2, 300)
 
   const at = new Map<string, Point>()
+  const woods: Wood[] = []
   for (const h of hills) {
     at.set(h.id, { x: h.x, y: h.y })
     // Each band is a ring of places, every next one a golden angle further, so they never line up.
@@ -145,11 +168,17 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
         at.set(n.id, { x: h.x + r * Math.cos(i * GOLDEN + e * 7), y: h.y + r * Math.sin(i * GOLDEN + e * 7) })
       })
     }
+    const trees = members.get(h.id)!.filter((n) => n.kind === 'thought').map((n) => at.get(n.id)!)
+    if (trees.length >= WOOD_MIN) {
+      const c = { x: mean(trees, 'x'), y: mean(trees, 'y') }
+      woods.push({ hill: h.id, ...c, r: Math.max(...trees.map((p) => Math.hypot(p.x - c.x, p.y - c.y))) + 16, count: trees.length })
+    }
   }
 
   // Lowlands: the middle of what a loose doc links to (projectless docs first linked to placed ones),
-  // just outside any hill it would land on.
-  const loose = g.nodes.filter((n) => !at.has(n.id))
+  // just outside any hill it would land on. Unfiled thoughts skip this: they wait in the Clearing.
+  const loose = g.nodes.filter((n) => !at.has(n.id) && !unfiled(n))
+  const saplings = g.nodes.filter((n) => !at.has(n.id) && unfiled(n))
   const lowland: (Point & { id: string })[] = []
   const lost: GraphNode[] = []
   for (let pass = 0; pass < 2; pass++) {
@@ -175,15 +204,95 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
   }
   for (const p of lowland) at.set(p.id, { x: p.x, y: p.y })
 
-  const charted = boxOf([...hills.map(hillBox), ...lowland.map((p) => ({ x: p.x, y: p.y, w: 0, h: 0 }))])
+  // Regions: a smooth outline around each context's hills, drawn only when more than one context is on the map.
+  const regions: Region[] = contexts.length > 1 ? contexts.filter(Boolean).map((c) => {
+    const outline = hull(hills.filter((h) => h.context === c).flatMap((h) => Array.from({ length: 16 }, (_, i) => ({
+      x: h.x + (h.r + REGION_PAD) * Math.cos((i * Math.PI) / 8), y: h.y + (h.r + REGION_PAD) * Math.sin((i * Math.PI) / 8),
+    }))))
+    return { context: c, outline, label: { x: mean(outline, 'x'), y: Math.min(...outline.map((p) => p.y)) + 40 } }
+  }) : []
+
+  let charted = boxOf([...hills.map(hillBox), ...lowland.map((p) => ({ x: p.x, y: p.y, w: 0, h: 0 })), ...regions.map((r) => boxOf(r.outline.map((p) => ({ ...p, w: 0, h: 0 }))))])
+  let clearing: Clearing | undefined
+  if (saplings.length) {
+    const rx = Math.max(90, 26 * Math.sqrt(saplings.length) * 1.6)
+    const ry = rx * 0.55
+    clearing = { x: charted.x + charted.w / 2, y: charted.y + charted.h + 80 + ry, rx, ry, count: saplings.length }
+    saplings.sort((a, b) => a.id.localeCompare(b.id)).forEach((n, i) => {
+      const f = Math.sqrt((i + 0.5) / saplings.length) * 0.82
+      at.set(n.id, { x: clearing!.x + rx * f * Math.cos(i * GOLDEN), y: clearing!.y + ry * f * Math.sin(i * GOLDEN) })
+    })
+    charted = boxOf([charted, { x: clearing.x - rx, y: clearing.y - ry, w: 2 * rx, h: 2 * ry + 50 }])
+  }
   let uncharted: Box | undefined
   if (lost.length) {
     const cols = Math.max(1, Math.floor(Math.max(charted.w, 400) / 90))
     uncharted = { x: charted.x, y: charted.y + charted.h + 100, w: Math.max(charted.w, 400), h: 20 + Math.ceil(lost.length / cols) * 40 }
     lost.forEach((n, i) => at.set(n.id, { x: uncharted!.x + 45 + (i % cols) * 90, y: uncharted!.y + 30 + Math.floor(i / cols) * 40 }))
   }
-  return { hills, at, uncharted, bounds: boxOf(uncharted ? [charted, uncharted] : [charted]) }
+  return { hills, at, regions, woods, clearing, uncharted, bounds: boxOf(uncharted ? [charted, uncharted] : [charted]) }
 }
+
+const order = (c: string) => (CONTEXTS.includes(c) ? CONTEXTS.indexOf(c) : CONTEXTS.length)
+const mean = <T extends Point>(ps: T[], k: 'x' | 'y') => ps.reduce((s, p) => s + p[k], 0) / (ps.length || 1)
+
+// Convex hull (monotone chain), counter-clockwise from the leftmost point.
+export function hull(points: Point[]): Point[] {
+  const ps = [...points].sort((a, b) => a.x - b.x || a.y - b.y)
+  if (ps.length < 3) return ps
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const half = (list: Point[]) => {
+    const out: Point[] = []
+    for (const p of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop()
+      out.push(p)
+    }
+    return out.slice(0, -1)
+  }
+  return [...half(ps), ...half([...ps].reverse())]
+}
+
+// A closed, smooth path through the points (Catmull-Rom as cubic Béziers).
+export function smoothPath(ps: Point[]) {
+  if (ps.length < 3) return ''
+  const at = (i: number) => ps[(i + ps.length) % ps.length]
+  return ps.map((p, i) => {
+    const [a, b, c] = [at(i - 1), at(i + 1), at(i + 2)]
+    return `${i ? '' : `M${p.x},${p.y}`} C${p.x + (b.x - a.x) / 6},${p.y + (b.y - a.y) / 6} ${b.x - (c.x - p.x) / 6},${b.y - (c.y - p.y) / 6} ${b.x},${b.y}`
+  }).join('') + 'Z'
+}
+
+// The walk on the map. Today: sessions and meetings where they are, in time order, each stop knowing its hill
+// (a jump to another hill is a context switch). Today's thoughts are planted where the walk was at that time.
+// Earlier days are old tracks, one per day.
+export type Stop = Point & { at: string; id: string; what: WalkStep['what']; hill: string }
+export type Walk = { today: Stop[]; planted: Map<string, Point>; earlier: Point[][] }
+
+export function walkOf(steps: WalkStep[], at: Map<string, Point>, byId: Map<string, GraphNode>, today: string): Walk {
+  const stop = (s: WalkStep): Stop | undefined => {
+    const p = at.get(s.id)
+    return p && { ...p, at: s.at, id: s.id, what: s.what, hill: byId.get(s.id)?.project ?? '' }
+  }
+  const days = new Map<string, WalkStep[]>()
+  for (const s of steps) days.set(s.at.slice(0, 10), [...(days.get(s.at.slice(0, 10)) ?? []), s])
+  const visits = (list: WalkStep[]) => list.filter((s) => s.what !== 'thought').flatMap((s) => stop(s) ?? [])
+    // Two sessions in a row on one task are one stop.
+    .filter((s, i, all) => !i || all[i - 1].id !== s.id)
+  const todays = visits(days.get(today) ?? [])
+  const planted = new Map<string, Point>()
+  for (const s of (days.get(today) ?? []).filter((x) => x.what === 'thought')) {
+    const next = todays.findIndex((v) => v.at > s.at)
+    const [a, b] = [todays[next < 0 ? todays.length - 1 : Math.max(0, next - 1)], todays[next < 0 ? todays.length - 1 : next]]
+    if (!a) continue
+    const span = minutes(b.at) - minutes(a.at)
+    const f = span > 0 ? Math.min(1, Math.max(0, (minutes(s.at) - minutes(a.at)) / span)) : 0
+    // Off the line a little, so the tree doesn't sit on the walk.
+    planted.set(s.id, { x: a.x + (b.x - a.x) * f + 10, y: a.y + (b.y - a.y) * f - 10 })
+  }
+  const earlier = [...days.keys()].filter((d) => d < today).sort().map((d) => visits(days.get(d)!).map(({ x, y }) => ({ x, y }))).filter((t) => t.length > 1)
+  return { today: todays, planted, earlier }
+}
+const minutes = (at: string) => Number(at.slice(11, 13)) * 60 + Number(at.slice(14, 16))
 
 // Pushes overlapping circles apart, both halfway, for at most `rounds` rounds (it stops once none overlap).
 function apart<T extends Point>(items: T[], radius: (t: T) => number, rounds: number) {

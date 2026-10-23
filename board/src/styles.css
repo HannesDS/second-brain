@@ -443,39 +443,68 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-map.panning { cursor: grabbing; }
 .bt-map svg { display: block; }
 .bt-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; }
-.bt-graticule { fill: none; stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 6; vector-effect: non-scaling-stroke; }
-.bt-map .ring { fill: none; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-.bt-map .ring.base { stroke: var(--muted); stroke-opacity: .35; fill: var(--surface); fill-opacity: .5; }
-.bt-map .ring.todo { stroke: var(--p3); }
-.bt-map .ring.wip { stroke: var(--ok); }
-.bt-map .ring.review { stroke: var(--p2); }
-.bt-map .ring.blocked { stroke: var(--p0); }
-.bt-map .peak { fill: var(--surface); stroke: var(--text); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-.bt-map .peak.hot { fill: var(--p1); }
+/* The map itself: a survey sheet (docs/MAP-STYLE.md). Hairlines in one ink, colour only where it means something. */
+.bt-paper { fill: var(--map-ground); }
+.bt-graticule { fill: none; stroke: var(--map-grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.bt-region path { fill: none; stroke: var(--map-note); stroke-width: 1; stroke-dasharray: 12 4 2 4; opacity: .5; vector-effect: non-scaling-stroke; }
+.bt-region text { font-family: var(--font-ui, inherit); font-weight: 300; letter-spacing: .7em; fill: var(--map-ink); opacity: .16; pointer-events: none; }
+.bt-shade { fill: var(--map-shade); opacity: .7; }
 .bt-hill { cursor: pointer; outline: none; transition: opacity .2s; }
-.bt-hill:focus-visible .ring.base:first-child { stroke: var(--focus); stroke-width: 2.5; }
-.bt-hill.picked .ring.base:first-child { stroke: var(--text); stroke-width: 2; }
-.bt-hill-name { font-weight: 800; letter-spacing: .14em; text-transform: uppercase; fill: var(--text); paint-order: stroke; stroke: var(--surface-2); stroke-width: 4px; stroke-linejoin: round; }
-.bt-hill-meta { font-family: var(--font-mono, ui-monospace, monospace); fill: var(--muted); paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; }
-.bt-trail { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 5 4; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .6; transition: opacity .2s; }
-.bt-trail.similar { stroke-dasharray: 1 5; opacity: .35; }
-.bt-trail.lit { stroke: var(--focus); stroke-width: 2.2; opacity: 1; }
-.bt-trail.far, .bt-place.far, .bt-hill.far { opacity: .25; }
+.bt-contour { stroke: var(--map-contour); stroke-width: .7; vector-effect: non-scaling-stroke; }
+.bt-contour.index { stroke: var(--map-contour-index); stroke-width: 1.1; }
+.bt-contour.h1 { fill: var(--map-h1); } .bt-contour.h2 { fill: var(--map-h2); } .bt-contour.h3 { fill: var(--map-h3); }
+.bt-contour.h4 { fill: var(--map-h4); } .bt-contour.h5 { fill: var(--map-h5); } .bt-contour.h6 { fill: var(--map-h6); }
+.bt-hill:focus-visible .bt-contour:first-child, .bt-hill.picked .bt-contour:first-child { stroke: var(--map-walk); stroke-width: 2; }
+.bt-enclave { fill: none; stroke: var(--map-note); stroke-width: .9; stroke-dasharray: 1.5 3.5; opacity: .6; vector-effect: non-scaling-stroke; }
+/* Lettering: every label sits on a halo of the ground. */
+.bt-hill-name, .bt-meta, .bt-time, .bt-place-name, .bt-water-name, .bt-uncharted text { paint-order: stroke; stroke: var(--map-ground); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
+.bt-hill-name { font-family: var(--font-ui, inherit); font-weight: 700; letter-spacing: .22em; fill: var(--map-ink); }
+.bt-meta { font-family: var(--font-mono, ui-monospace, monospace); fill: var(--map-note); }
+.bt-meta.enclave { letter-spacing: .18em; }
+.bt-meta.wood { font-style: italic; fill: var(--map-wood); }
+.bt-meta.water { fill: var(--map-water-ink); }
+.bt-meta.traverse { font-style: italic; fill: var(--map-walk); }
+.bt-time { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 500; fill: var(--map-walk); }
+.bt-place-name { font-family: var(--font-mono, ui-monospace, monospace); fill: var(--map-note); }
+.bt-water-name { font-family: var(--font-mono, ui-monospace, monospace); font-style: italic; fill: var(--map-water-ink); }
+.bt-wood circle { fill: url(#bt-wood); pointer-events: none; }
+.bt-wood { transition: opacity .2s; }
+.bt-stipple { fill: var(--map-wood); opacity: .55; }
+.bt-clearing ellipse { fill: none; stroke: var(--map-contour-index); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.bt-lake { fill: var(--map-water); fill-opacity: .18; stroke: var(--map-water); stroke-width: .5; }
+.bt-stream { fill: none; stroke: var(--map-water); stroke-width: 1.2; stroke-linecap: round; opacity: .7; vector-effect: non-scaling-stroke; }
+.bt-trail { fill: none; stroke: var(--map-trail); stroke-width: 1.2; stroke-dasharray: 6 4; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .75; transition: opacity .2s; }
+.bt-trail.similar { stroke: var(--map-faint); stroke-width: 1; stroke-dasharray: 1 4; opacity: 1; }
+.bt-trail.lit { stroke: var(--map-walk); stroke-width: 2; opacity: 1; }
+.bt-stream.far, .bt-trail.far, .bt-place.far, .bt-hill.far, .bt-shade-host.far, .bt-wood.far { opacity: .25; }
+.bt-old-track { fill: none; stroke: var(--map-walk); stroke-width: 1.2; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .55; vector-effect: non-scaling-stroke; }
+.bt-cable path { stroke: var(--map-water); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.bt-pulse, .bt-here-pulse { fill: none; stroke-width: 1.4; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: bt-pulse 2s ease-out infinite; }
+.bt-pulse { stroke: var(--map-water); }
+.bt-here-pulse { stroke: var(--map-walk); animation-duration: 2.4s; }
+@keyframes bt-pulse { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(3); } }
+.bt-walk { pointer-events: none; }
+.bt-walk-casing { fill: none; stroke: var(--map-ground); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s var(--ease, ease-in-out) both; }
+.bt-walk-line.still { stroke-dasharray: none; animation: none; vector-effect: non-scaling-stroke; }
+@keyframes bt-walk { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.bt-stop { fill: var(--map-walk); }
+.bt-hill-name.here { letter-spacing: .16em; }
 .bt-place { cursor: pointer; transition: opacity .2s; }
-.bt-hit { fill: transparent; }
-.bt-place .sym { fill: var(--p3); stroke: var(--surface); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-.bt-place.task.ready .sym { fill: var(--p2); }
-.bt-place.task.wip .sym { fill: var(--ok); }
-.bt-place.task.review .sym { fill: var(--p2); }
-.bt-place.task.blocked .sym { fill: var(--p0); }
-.bt-place.task.done .sym { fill: var(--text); opacity: .45; }
-.bt-place.thought .sym { fill: var(--surface); stroke: var(--p2); stroke-width: 1.8; }
-.bt-place.meeting .sym { fill: var(--surface); stroke: var(--text); stroke-width: 1.5; }
-.bt-place.report .sym { fill: var(--p1); stroke: var(--text); stroke-width: 1.3; }
-.bt-place.picked .sym { stroke: var(--focus); stroke-width: 3; }
-.bt-place-name { fill: var(--text); paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
-.bt-uncharted rect { fill: none; stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 8 6; vector-effect: non-scaling-stroke; }
-.bt-uncharted text { fill: var(--muted); letter-spacing: .12em; font-weight: 700; }
+.bt-hit { fill: transparent; stroke: none; }
+.bt-place.picked .bt-hit, .bt-place.match .bt-hit { stroke: var(--map-walk); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.bt-place.match .bt-place-name { fill: var(--map-ink); }
+/* Symbol parts: hairline, coloured by role. Mirrors board/public/map/symbols.svg. */
+.bt-s { fill: none; stroke: none; stroke-linecap: round; stroke-linejoin: round; }
+.bt-s.ground { fill: var(--map-ground); } .bt-s.ground-line { stroke: var(--map-ground); }
+.bt-s.note { stroke: var(--map-note); } .bt-s.faint { stroke: var(--map-faint); }
+.bt-s.ink { stroke: var(--map-ink); } .bt-s.ink-fill { fill: var(--map-ink); }
+.bt-s.wood { stroke: var(--map-wood); } .bt-s.wood-fill { fill: var(--map-wood); }
+.bt-s.water { stroke: var(--map-water); } .bt-s.water-fill { fill: var(--map-water); }
+.bt-s.water-ink { stroke: var(--map-water-ink); } .bt-s.water-ink-fill { fill: var(--map-water-ink); }
+.bt-s.trail { stroke: var(--map-trail); }
+.bt-s.walk { stroke: var(--map-walk); } .bt-s.walk-fill { fill: var(--map-walk); }
+.bt-uncharted rect { fill: none; stroke: var(--map-contour-index); stroke-width: 1; stroke-dasharray: 8 6; vector-effect: non-scaling-stroke; }
 .bt-overlay { position: absolute; z-index: 2; cursor: default; }
 .bt-overlay.top-left { top: 16px; left: 16px; }
 .bt-overlay.top-right { top: 16px; right: 16px; }
@@ -494,7 +523,6 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-hit-snippet { font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .bt-hits li.bt-hits-more { cursor: default; font-size: 12px; }
 p.bt-hits { margin: 0; padding: 12px 16px; }
-.bt-place.match .sym { stroke: var(--focus); stroke-width: 2.5; }
 .bt-place.match .bt-place-name { font-weight: 700; }
 .bt-zoom { display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
 .bt-card { top: 80px; right: 16px; width: 300px; max-height: calc(100% - 200px); overflow-y: auto; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); }
@@ -518,11 +546,12 @@ button.bt-legend-row.on svg { opacity: 1; }
 button.bt-legend-row:hover { background: var(--surface-2); }
 .bt-legend-row svg { flex: none; width: 18px; height: 18px; overflow: visible; }
 .bt-compass { display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; font: 500 11px var(--font-mono, ui-monospace, monospace); color: var(--muted); }
-.bt-compass svg { width: 44px; height: 50px; }
+.bt-compass svg { width: 48px; height: 60px; }
+.bt-compass circle { fill: none; stroke: var(--border); }
+.bt-compass .rose { fill: none; stroke: var(--muted); stroke-width: 1; }
 .bt-compass .needle { fill: var(--text); }
-.bt-compass .tail { fill: none; stroke: var(--muted); stroke-width: 1.2; }
-.bt-compass text { font: 700 10px var(--font-mono, ui-monospace, monospace); fill: var(--text); }
-@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place { transition: none; } }
+.bt-compass text { font: 700 10px var(--font-ui, inherit); fill: var(--text); }
+@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place, .bt-wood { transition: none; } .bt-walk-line, .bt-pulse, .bt-here-pulse { animation: none; } }
 
 /* Gantt */
 .gantt-host { background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
@@ -680,6 +709,21 @@ h2 { font-weight: 600; }
 /* Context colours: Data Minded purple, personal = beeld-bit red. */
 :root { --ctx-dm: #543edc; --ctx-personal: #e00000; }
 @media (prefers-color-scheme: dark) { :root { --ctx-dm: #8b7cf0; --ctx-personal: #ff4d4d; } }
+/* Brain Terrain map tokens (Classic). Terrain sets them in terrain.css, in the Moss palette. */
+:root {
+  --map-ground: #f6f8fa; --map-grid: #eaeef2; --map-shade: rgb(31 35 40 / 30%);
+  --map-h1: #eef2f5; --map-h2: #e6ebf0; --map-h3: #dde4ea; --map-h4: #d4dce4; --map-h5: #cbd4de; --map-h6: #c2ccd7;
+  --map-contour: #afb8c1; --map-contour-index: #8c959f;
+  --map-ink: #1f2328; --map-note: #59636e; --map-faint: #818b98; --map-trail: #bc4c00;
+  --map-water: #0969da; --map-water-ink: #0969da; --map-wood: #1a7f37; --map-walk: #9a6700;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --map-ground: #0d1117; --map-grid: #151b23; --map-shade: rgb(0 0 0 / 60%);
+  --map-h1: #161b22; --map-h2: #1c2129; --map-h3: #222831; --map-h4: #283039; --map-h5: #2e3742; --map-h6: #353e4a;
+  --map-contour: #3d444d; --map-contour-index: #59636e;
+  --map-ink: #f0f6fc; --map-note: #9198a1; --map-faint: #656c76; --map-trail: #db6d28;
+  --map-water: #4493f8; --map-water-ink: #4493f8; --map-wood: #3fb950; --map-walk: #d29922;
+} }
 .dot.dataminded { background: var(--ctx-dm); }
 .dot.personal { background: var(--ctx-personal); }
 .ctx { font-weight: 600; background: none; border: 1px solid currentColor; padding: 0 8px; }

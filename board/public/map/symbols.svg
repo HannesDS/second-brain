@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- Brain Terrain map symbols. 12x12 grid, hairline strokes, Terrain Moss palette.
+       Use: <svg width="14" height="14"><use href="/map/symbols.svg#todo"/></svg>. Rules: docs/MAP-STYLE.md -->
+  <symbol id="todo" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" fill="#161F19" stroke="#A9B8A6" stroke-width="1.1"/></symbol>
+  <symbol id="wip" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.6" fill="#B8D4A0" stroke="#161F19" stroke-width="1"/></symbol>
+  <symbol id="review" viewBox="0 0 12 12"><path d="M3.4 1.8c2.1 2.2 2.1 6.2 0 8.4M8.6 1.8c-2.1 2.2-2.1 6.2 0 8.4" fill="none" stroke="#7FB7C9" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="blocked" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3 3 9" stroke="#E07A5F" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="done" viewBox="0 0 12 12"><path d="M6 1.2v8.2M3.4 3.8h5.2M3.6 10.8h4.8" stroke="#EEF0E8" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="tree" viewBox="0 0 12 12"><circle cx="6" cy="4.8" r="2.9" fill="#161F19" stroke="#B8D4A0" stroke-width="1.1"/><path d="M6 7.7v3.3" stroke="#B8D4A0" stroke-width="1.1" stroke-linecap="round"/></symbol>
+  <symbol id="sapling" viewBox="0 0 12 12"><path d="M6 10.6V5.2M6 7 3.9 5M6 6 8.1 4" stroke="#8D9B8F" stroke-width="1" stroke-linecap="round"/></symbol>
+  <symbol id="hut" viewBox="0 0 12 12"><path d="M1.6 6.2 6 2.4l4.4 3.8" fill="none" stroke="#EEF0E8" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="3" y="6" width="6" height="4.4" fill="#EEF0E8"/></symbol>
+  <symbol id="viewpoint" viewBox="0 0 12 12"><path d="M6 10 2 4.6M6 10 4.2 3M6 10V2.6M6 10 7.8 3M6 10l4-5.4" stroke="#8CC3D4" stroke-width=".9" stroke-linecap="round"/><circle cx="6" cy="10" r="1.3" fill="#8CC3D4"/></symbol>
+  <symbol id="peak" viewBox="0 0 12 12"><path d="M6 2.5 10.2 9.8H1.8Z" fill="#EEF0E8"/></symbol>
+  <symbol id="peak-hot" viewBox="0 0 12 12"><path d="M6 2.5 10.2 9.8H1.8Z" fill="#E3A44A"/></symbol>
+  <symbol id="agent" viewBox="0 0 12 12"><rect x="3" y="3" width="6" height="6" rx="1.2" fill="#7FB7C9"/></symbol>
+  <symbol id="start" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.4" fill="#161F19" stroke="#E3A44A" stroke-width="1.6"/></symbol>
+  <symbol id="here" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.6" fill="#E3A44A" stroke="#161F19" stroke-width="1.4"/></symbol>
+  <pattern id="wood" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="1.1" fill="#B8D4A0" opacity=".55"/><circle cx="7" cy="7" r="1.1" fill="#B8D4A0" opacity=".55"/></pattern>
+</svg>
