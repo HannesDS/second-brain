@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { daysOf, heading, step } from './calendarView'
+import { daysOf, heading, onDay, step } from './calendarView'
 
 const iso = (d: Date) => d.toLocaleDateString('sv')
 const fri = new Date(2026, 9, 23) // Friday 23 October 2026
@@ -31,4 +31,14 @@ test('names what each view shows', () => {
   expect(heading('month', fri)).toBe('October 2026')
   expect(heading('week', new Date(2026, 9, 29))).toBe('26 Oct – 1 Nov 2026')
   expect(heading('day', fri)).toBe('Friday, 23 October 2026')
+})
+
+test('an event shows on every day it overlaps, not on the day it ends at midnight', () => {
+  const at = (d: number, h = 0) => new Date(2026, 9, d, h).toISOString()
+  const days = daysOf('week', fri)
+  const on = (e: { start: string; end: string }) => days.filter((d) => onDay(e, d)).map(iso)
+  expect(on({ start: at(23, 9), end: at(23, 10) })).toEqual(['2026-10-23'])
+  expect(on({ start: at(21), end: at(24) })).toEqual(['2026-10-21', '2026-10-22', '2026-10-23'])
+  expect(on({ start: at(23, 22), end: at(24, 2) })).toEqual(['2026-10-23', '2026-10-24'])
+  expect(on({ start: at(23, 9), end: at(23, 9) })).toEqual(['2026-10-23'])
 })

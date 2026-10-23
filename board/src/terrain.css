@@ -348,7 +348,8 @@
 /* ---------- Motion ---------- */
 /* Each view settles in when you open it. Hover springs a little. Only agents loop: waiting ones, and running ones in the dependency view. */
 @keyframes tr-settle { from { opacity: 0; transform: translateY(12px); } }
-[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) both; }
+/* backwards, not both: a transform left on the page after the animation traps its fixed popovers inside it. */
+[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) backwards; }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="terrain"] *, [data-theme="terrain"] *::before { animation: none !important; transition: none !important; }
 }

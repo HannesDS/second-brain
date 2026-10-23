@@ -1,8 +1,8 @@
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, NotebookText, Square, X } from 'lucide-react'
 import { IconButton } from './ui'
 import { useEffect, useState } from 'react'
 import { api, unlink, type Doc, type Vault } from './lib'
-import { daysOf, heading, step, VIEWS, type CalView } from './calendarView'
+import { daysOf, heading, onDay, step, VIEWS, type CalView } from './calendarView'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string; calendar: number; label: string }
 type Feed = { index: number; label: string; host: string }
@@ -37,6 +37,21 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
     return () => { live = false }
   }, [iso(days[0]), view, reload]) // the first day and the view fix the range; a new anchor inside it doesn't refetch
 
+  const closeFeeds = () => { setFeedsOpen(false); setReload((n) => n + 1) }
+  // Escape closes the popover on top: the calendars dialog, else the picked day or event.
+  // It listens first (capture) and stops there, so a peek open underneath stays open.
+  useEffect(() => {
+    if (!picked && !feedsOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      if (feedsOpen) closeFeeds()
+      else setPicked(undefined)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [picked, feedsOpen])
+
   const today = iso(new Date())
 
   return (
@@ -58,33 +73,33 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
         {days.slice(0, 7).map((d) => <div key={d.getDay()} className="cal-dow">{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>)}
         {days.map((d) => {
           const key = iso(d)
-          const evs = events.filter((e) => iso(new Date(e.start)) === key)
+          const evs = events.filter((e) => onDay(e, d))
           const notes = vault.meetings.filter((m) => String(m.data.date) === key)
           const due = tasks.filter((t) => t.data.due === key && t.data.status !== 'done')
           return (
-            <div key={key} title="Click an empty spot to add a meeting note or task" onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) setPicked({ title: '', date: key, time: '', free: true }) }} className={`cal-day ${view === 'month' && d.getMonth() !== anchor.getMonth() ? 'other' : ''} ${key === today ? 'is-today' : ''}`}>
+            <div key={key} onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) setPicked({ title: '', date: key, time: '', free: true }) }} className={`cal-day ${view === 'month' && d.getMonth() !== anchor.getMonth() ? 'other' : ''} ${key === today ? 'is-today' : ''}`}>
               <div className="cal-num">{d.getDate()}</div>
               {evs.map((e) => (
                 <button key={e.id} className={`cal-item event cal-${e.calendar % 4}`} title={`${e.title} (${e.label})`}
                   onClick={() => setPicked({ title: e.title, date: key, time: e.allDay ? 'all day' : new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) })}>
-                  {!e.allDay && <span className="time">{new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>} {e.title}
+                  {!e.allDay && iso(new Date(e.start)) === key && <span className="time">{new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>} {e.title}
                 </button>
               ))}
               {notes.map((m) => (
                 <button key={m.name} className="cal-item note" title={m.name} onClick={() => write(`meetings/${m.name}.md`)}>
-                  🗒 {m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}
+                  <NotebookText size={12} strokeWidth={1.8} aria-hidden /> {m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}
                 </button>
               ))}
               {due.map((t) => (
                 <button key={t.name} className={`cal-item task ${t.data.priority}`} title={t.data.title} onClick={() => open(t)}>
-                  ☐ {t.data.title}
+                  <Square size={12} strokeWidth={1.8} aria-hidden /> {t.data.title}
                 </button>
               ))}
             </div>
           )
         })}
       </div>
-      {feedsOpen && <Feeds close={() => { setFeedsOpen(false); setReload((n) => n + 1) }} fail={fail} />}
+      {feedsOpen && <Feeds close={closeFeeds} fail={fail} />}
       {picked && (
         <>
           <div className="scrim" onClick={() => setPicked(undefined)} />
@@ -97,7 +112,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
             {picked.free && <label className="muted">Time <input type="time" value={picked.time} onChange={(e) => setPicked({ ...picked, time: e.target.value })} /></label>}
             {(() => {
               const note = vault.meetings.find((m) => String(m.data.date) === picked.date && m.name.toLowerCase().endsWith(picked.title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
-              return note ? <p><button className="link" onClick={() => { write(`meetings/${note.name}.md`); setPicked(undefined) }}>🗒 Open the notes for this meeting</button></p> : null
+              return note ? <p><button className="link" onClick={() => { write(`meetings/${note.name}.md`); setPicked(undefined) }}><NotebookText size={14} strokeWidth={1.8} aria-hidden /> Open the notes for this meeting</button></p> : null
             })()}
             <div className="row-actions">
               <button disabled={!picked.title.trim()} onClick={() => { prep(picked.title, picked.date, picked.free ? '' : undefined); setPicked(undefined) }}>{picked.free ? '+ Task due this day' : '+ Prep todo'}</button>

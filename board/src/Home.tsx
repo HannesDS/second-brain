@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { PRIORITIES, api, list, prioLabel, unlink, type Doc, type Vault } from './lib'
+import { LABELS, PRIORITIES, api, list, prioLabel, unlink, type Doc, type Vault } from './lib'
 import { MessagesSquare, Play, RotateCcw, X } from 'lucide-react'
 import Split from './Split'
 import { IconButton } from './ui'
@@ -92,7 +92,7 @@ export function TodoList({ tasks, projects, selected, select, open, done, write,
             <span className="todo-title">{t.data.title ?? t.name}</span>
             <span className="todo-meta">
               <span className={`prio ${t.data.priority}`}>{prioLabel(t.data.priority)}</span>
-              <span className={`status ${t.data.status}`}>{t.data.status}</span>
+              <span className={`status ${t.data.status}`}>{LABELS[t.data.status] ?? t.data.status}</span>
               {t.data.type && <span>{t.data.type}</span>}
               {t.data.due && <span>due {t.data.due}</span>}
               {reasons?.[t.name]?.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r)).map((r) => <span key={r} className="reason">{r}</span>)}

@@ -186,6 +186,7 @@ tbody tr:hover { background: var(--surface-2); }
 
 .toast {
   position: fixed;
+  z-index: 60;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
@@ -304,7 +305,7 @@ tbody tr:hover { background: var(--surface-2); }
 .search { position: relative; }
 .search input { width: 100%; }
 .search-hits {
-  position: fixed; z-index: 20; overflow-y: auto; margin: 0; padding: 4px;
+  position: fixed; z-index: 45; overflow-y: auto; margin: 0; padding: 4px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
 }
 .search-hits li { padding: 8px 10px; border-radius: var(--radius); cursor: pointer; }
@@ -387,7 +388,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .cal-grid { flex: 1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: minmax(110px, auto); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .cal-dow { padding: 6px 8px; font-size: 12px; color: var(--muted); text-align: center; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .cal-day { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.cal-day.other { background: var(--surface-2); opacity: 0.6; }
+.cal-day.other { background: var(--surface-2); color: var(--muted); }
 .cal-grid:not(.cal-month-view) { grid-auto-rows: minmax(320px, 1fr); }
 .cal-grid.cal-day-view { grid-template-columns: minmax(0, 1fr); }
 .cal-grid:not(.cal-month-view) .cal-item { white-space: normal; }
@@ -399,7 +400,8 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .cal-item.note { background: var(--surface); font-weight: 600; }
 .cal-item.task { background: none; border-style: dashed; }
 .cal-item.task.p0 { color: var(--p0); }
-.popover { position: fixed; z-index: 30; top: 30%; left: 50%; transform: translateX(-50%); width: min(420px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: 0 12px 40px rgb(0 0 0 / 25%); }
+.cal-item svg, .blocked svg, .popover .link svg { vertical-align: -2px; }
+.popover { position: fixed; z-index: 52; top: 30%; left: 50%; transform: translateX(-50%); width: min(420px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: 0 12px 40px rgb(0 0 0 / 25%); }
 .popover h3 { margin: 0 0 4px; }
 
 /* Dependencies: tickets as a left-to-right graph (React Flow) */
@@ -844,8 +846,12 @@ h2 { font-weight: 600; }
 .peek-bar { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .peek-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .peek-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+/* Layers, bottom to top: peek 35, assistant drawer 40, search results 45, scrim 50, panel 51, popover 52, toast 60. */
 .scrim, .panel { z-index: 50; }
 .panel { z-index: 51; }
+/* With the assistant open, the peek moves aside so the drawer doesn't cover its bar. */
+/* 248px is the sidebar, as in .peek.wide: the peek never covers it. */
+@media (min-width: 1100px) { .app:has(> .drawer) > .peek { right: 460px; max-width: calc(100vw - 460px - 248px); } }
 
 /* Task page */
 .task-page { padding: 14px 28px 40px; display: flex; flex-direction: column; gap: 12px; }
