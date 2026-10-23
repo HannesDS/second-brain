@@ -6,7 +6,7 @@ import path from 'node:path'
 import { ROOT } from '../lib/vault.mjs'
 
 export const AGENTS_DIR = path.join(ROOT, 'state', 'agents')
-const ACCOUNTS: [string, string][] = [['dm', '.claude'], ['personal', '.claude-personal']]
+export const ACCOUNTS: [string, string][] = [['dm', '.claude'], ['personal', '.claude-personal']]
 const RECENT_MS = 3 * 24 * 3600 * 1000
 // An inferred "waiting for you" older than this is more likely a finished session.
 const WAITING_MS = 12 * 3600 * 1000

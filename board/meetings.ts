@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 import { VAULT, readDoc, writeDoc } from '../lib/vault.mjs'
 
 const run = promisify(execFile)
-const MODEL = process.env.WHISPER_MODEL ?? path.join(os.homedir(), '.cache/whisper/ggml-large-v3-turbo-q5_0.bin')
+export const MODEL = process.env.WHISPER_MODEL ?? path.join(os.homedir(), '.cache/whisper/ggml-large-v3-turbo-q5_0.bin')
 
 // Same sections as the Notion "Meeting notes" template. The transcript lives in transcripts/
 // (embedded below) so recording never fights with you typing in the note.

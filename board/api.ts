@@ -9,6 +9,7 @@ import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, write
 import { AGENTS_DIR, listAgents } from './agents'
 import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
+import { integrations } from './integrations'
 import { createMeeting, readTranscript, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import { ownWrites } from './own-writes'
@@ -56,6 +57,7 @@ async function handle(req: IncomingMessage) {
     if (kind === 'sync') return syncStatus
     if (kind === 'terminals') return listTerminals()
     if (kind === 'calendars') return listFeeds()
+    if (kind === 'integrations') return await integrations()
     if (kind === 'transcript') return { text: readTranscript(meetingName(url.searchParams.get('name'))) }
     if (kind === 'calendar') {
       return events(new Date(url.searchParams.get('from') ?? Date.now()), new Date(url.searchParams.get('to') ?? Date.now() + 30 * 864e5))

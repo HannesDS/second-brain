@@ -108,7 +108,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
 }
 
 // Connected calendars: one secret iCal address per Google account.
-function Feeds({ close, fail }: { close: () => void; fail: (e: Error) => void }) {
+export function Feeds({ close, fail }: { close: () => void; fail: (e: Error) => void }) {
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [label, setLabel] = useState('')
   const [url, setUrl] = useState('')

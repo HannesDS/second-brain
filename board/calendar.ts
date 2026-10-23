@@ -5,7 +5,7 @@ import path from 'node:path'
 import ical, { type CalendarResponse, type VEvent } from 'node-ical'
 import { ROOT } from '../lib/vault.mjs'
 
-const FILE = path.join(ROOT, 'state', 'calendars.json')
+export const FILE = path.join(ROOT, 'state', 'calendars.json')
 const TTL_MS = 5 * 60 * 1000
 // Parsed feeds, per URL: downloading and parsing is the slow part (seconds); expanding a date range is fast.
 // Keyed by URL, not by range, so My day (one day) and the Calendar (six weeks) share the same download.
@@ -37,6 +37,12 @@ function saveFeeds(list: Feed[]) {
 
 // The browser only ever sees labels and hosts, never the secret part of a URL.
 export const listFeeds = () => feeds().map((f, i) => ({ index: i, label: f.label, host: new URL(f.url).host }))
+
+// Whether each feed loads, and when it was last downloaded (from the cache, so this is cheap within 5 minutes).
+export const checkFeeds = () => Promise.all(feeds().map(async (f) => {
+  const error = await feedData(f.url).then(() => '', (e: Error) => e.message)
+  return { label: f.label, at: parsed.get(f.url)?.at ?? 0, error }
+}))
 
 export async function addFeed(label: string, url: string) {
   const u = new URL(String(url).trim().replace(/^webcal:/, 'https:'))
