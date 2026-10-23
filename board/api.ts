@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
-import { context as ragContext, refresh as ragRefresh, refreshSoon as ragRefreshSoon, search as ragSearch } from '../lib/rag.mjs'
+import { context as ragContext, refresh as ragRefresh, refreshSoon as ragRefreshSoon } from '../lib/rag.mjs'
 import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
 import { AGENTS_DIR, listAgents } from './agents'
 import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
@@ -12,6 +12,8 @@ import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { createMeeting, readTranscript, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import { asList, expand, workdir } from './repos'
+import { startReady } from './queue'
+import { search } from './search'
 import { onTaskChanged, startSync, status as syncStatus, syncNow } from './sync'
 import { attachTerminals, closeTerminal, listTerminals, openTerminal } from './terminal'
 
@@ -32,37 +34,6 @@ async function readJson(req: IncomingMessage) {
 function file(dir: string, id: string) {
   if (!ID.test(id)) throw new Error(`invalid id: ${id}`)
   return path.join(VAULT, dir, `${id}.md`)
-}
-
-// Semantic hits first (local embeddings), then plain-text matches the embeddings missed.
-// Falls back to plain text when Ollama isn't running.
-async function search(q: string) {
-  const text = textSearch(q)
-  try {
-    const best = new Map<string, any>()
-    for (const h of await ragSearch(q, 30, 1)) {
-      if (h.score < 0.5) continue
-      const [dir, f] = h.path.split('/')
-      best.set(h.path, { path: h.path, dir, name: f.replace(/\.md$/, ''), title: h.text.split('\n')[0].replace(/ \(.*$/, ''), score: h.score, snippet: h.text.split('\n').slice(1).join(' ').slice(0, 200) })
-    }
-    for (const t of text) if (!best.has(t.path)) best.set(t.path, t)
-    return [...best.values()].slice(0, 25)
-  } catch {
-    return text
-  }
-}
-
-function textSearch(q: string) {
-  const terms = q.toLowerCase().split(/\s+/).filter(Boolean)
-  if (!terms.length) return []
-  return ['tasks', 'notes', 'inbox', 'meetings', 'projects'].flatMap((dir) => listDocs(dir).map((d) => {
-    const text = `${d.data.title ?? d.data.name ?? d.name}\n${d.body}`
-    const lower = text.toLowerCase()
-    const score = terms.reduce((s, t) => s + (lower.split(t).length - 1), 0)
-    const at = lower.indexOf(terms[0])
-    return { path: `${dir}/${d.name}.md`, dir, name: d.name, title: d.data.title ?? d.name, score, snippet: at < 0 ? '' : text.slice(Math.max(0, at - 60), at + 140) }
-  })).filter((r) => r.score > 0)
-    .sort((a, b) => b.score - a.score).slice(0, 25)
 }
 
 async function handle(req: IncomingMessage) {
@@ -220,9 +191,8 @@ function worktreeFor(repo: string, name: string) {
   return dir
 }
 
-// The "ready" column is a queue: a ready task whose blockers are all done starts on its own, most urgent
-// first, at most AUTOPILOT_MAX at a time. Runs on every task file change, so it works from the board,
-// Obsidian or a skill alike, and the next task starts when a run moves its task on.
+// Runs on every task file change, so the ready queue works from the board, Obsidian or a skill alike,
+// and the next task starts when a run moves its task on.
 let frontierTimer: NodeJS.Timeout | undefined
 function runFrontierSoon() {
   clearTimeout(frontierTimer)
@@ -234,15 +204,7 @@ function runFrontier() {
   const status = new Map(tasks.map((t) => [t.name, t.data.status]))
   const open = new Set(listTerminals().filter((x) => !x.exited).map((x) => x.id))
   for (const [task, term] of launched) if (!['ready', 'wip'].includes(status.get(task)) || !open.has(term)) launched.delete(task)
-  let free = AUTOPILOT_MAX - launched.size
-  const queue = tasks.filter((t) => t.data.status === 'ready' && !launched.has(t.name))
-    .sort((a, b) => String(a.data.priority).localeCompare(String(b.data.priority)) || (Number(a.data.order) || 0) - (Number(b.data.order) || 0))
-  for (const t of queue) {
-    if (free <= 0) break
-    const blockers = String(t.data.blocked_by ?? '').match(/T-\d{4}/g) ?? []
-    if (blockers.some((b) => status.get(b) !== 'done')) continue
-    try { autopilot(t.name); free-- } catch (e: any) { console.error(`autopilot ${t.name}: ${e.message}`) }
-  }
+  startReady(tasks, new Set(launched.keys()), AUTOPILOT_MAX, autopilot)
 }
 
 // Runs one chat turn as `claude -p` in the project's repo, with the project's account,
