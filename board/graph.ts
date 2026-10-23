@@ -71,7 +71,7 @@ export function knowledgeGraph(now = new Date()): KnowledgeGraph {
     const id = `learning/${dir}`
     nodes.push({
       id, kind: 'lake', name: dir, title: text.match(/^#\s+(?:Mission:\s*)?(.+)$/m)?.[1].replace(/^Mission$/, '').trim() || dir.replace(/-/g, ' '),
-      project: '', contexts: [], status: '', priority: '',
+      project: '', contexts: [], status: fs.existsSync(mission) ? 'mission' : '', priority: '',
     })
     for (const name of new Set([...wikilinks(text), ...(text.match(/\bT-\d{4}\b/g) ?? [])])) {
       const to = byName.get(name)

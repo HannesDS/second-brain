@@ -476,7 +476,8 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-trail { fill: none; stroke: var(--map-trail); stroke-width: 1.2; stroke-dasharray: 6 4; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .75; transition: opacity .2s; }
 .bt-trail.similar { stroke: var(--map-faint); stroke-width: 1; stroke-dasharray: 1 4; opacity: 1; }
 .bt-trail.lit { stroke: var(--map-walk); stroke-width: 2; opacity: 1; }
-.bt-stream.far, .bt-trail.far, .bt-place.far, .bt-hill.far, .bt-shade-host.far, .bt-wood.far { opacity: .25; }
+.bt-stream.far, .bt-trail.far, .bt-place.far, .bt-hill.far, .bt-wood.far { opacity: .25; }
+.bt-shade.far { opacity: .18; }
 .bt-old-track { fill: none; stroke: var(--map-walk); stroke-width: 1.2; stroke-dasharray: 1 5; stroke-linecap: round; opacity: .55; vector-effect: non-scaling-stroke; }
 .bt-cable path { stroke: var(--map-water); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 .bt-pulse, .bt-here-pulse { fill: none; stroke-width: 1.4; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; animation: bt-pulse 2s ease-out infinite; }
@@ -485,8 +486,9 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 @keyframes bt-pulse { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(3); } }
 .bt-walk { pointer-events: none; }
 .bt-walk-casing { fill: none; stroke: var(--map-ground); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s var(--ease, ease-in-out) both; }
-.bt-walk-line.still { stroke-dasharray: none; animation: none; vector-effect: non-scaling-stroke; }
+/* Its width is set in the drawing, per zoom: the dash that draws it in needs a scaling stroke. */
+.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s var(--ease, ease-in-out) both; }
+.bt-walk-line.still { stroke-width: 2.4; stroke-dasharray: none; animation: none; vector-effect: non-scaling-stroke; }
 @keyframes bt-walk { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .bt-stop { fill: var(--map-walk); }
 .bt-hill-name.here { letter-spacing: .16em; }

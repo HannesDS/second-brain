@@ -9,6 +9,7 @@ export type LinkKind = 'link' | 'project' | 'similar' | 'stream'
 
 // `id` is the vault path (tasks/T-0001.md). `project` is the project it belongs to, a project's own name for a project.
 // `contexts`: its project's, or for a doc outside a project those of the docs it links to. `client`: a client project.
+// A lake's `status` is 'mission' when its folder has a MISSION.md.
 export type GraphNode = { id: string; kind: Kind; name: string; title: string; project: string; contexts: string[]; status: string; priority: string; client?: boolean }
 // Undirected: `a` sorts before `b`. Similar edges carry their score.
 export type GraphEdge = { a: string; b: string; kind: LinkKind; score?: number }
@@ -122,7 +123,8 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
   const tops = g.nodes.filter((n) => n.kind === 'project')
   const hillOf = new Map(tops.map((p) => [p.project, p.id]))
   const home = (id: string) => hillOf.get(byId.get(id)?.project ?? '')
-  const members = new Map(tops.map((p) => [p.id, g.nodes.filter((n) => n.kind !== 'project' && home(n.id) === p.id)]))
+  // Unfiled thoughts wait in the Clearing, also when they already name a project.
+  const members = new Map(tops.map((p) => [p.id, g.nodes.filter((n) => n.kind !== 'project' && !unfiled(n) && home(n.id) === p.id)]))
 
   // Hills whose docs link or read alike pull together; then they are pushed apart until none overlap.
   const ties = g.edges.flatMap((e) => {
@@ -142,7 +144,8 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
   const need = 1.3 * Math.sqrt(hills.reduce((s, h) => s + (h.r + HILL_GAP) ** 2, 0))
   for (const h of hills) { h.x *= need / spread; h.y *= need / spread }
   // Each context is a region: its hills keep their shape, the regions sit side by side, in the order of CONTEXTS.
-  const contexts = [...new Set(hills.map((h) => h.context))].sort((a, b) => order(a) - order(b))
+  // Hills without a context stay where the layout put them.
+  const contexts = [...new Set(hills.map((h) => h.context))].filter(Boolean).sort((a, b) => order(a) - order(b))
   if (contexts.length > 1) {
     const groups = contexts.map((c) => hills.filter((h) => h.context === c))
     const widths = groups.map((gr) => 2 * Math.max(...gr.map((h) => Math.hypot(h.x - mean(gr, 'x'), h.y - mean(gr, 'y')) + h.r)) + 2 * REGION_PAD)
@@ -205,7 +208,7 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
   for (const p of lowland) at.set(p.id, { x: p.x, y: p.y })
 
   // Regions: a smooth outline around each context's hills, drawn only when more than one context is on the map.
-  const regions: Region[] = contexts.length > 1 ? contexts.filter(Boolean).map((c) => {
+  const regions: Region[] = contexts.length > 1 ? contexts.map((c) => {
     const outline = hull(hills.filter((h) => h.context === c).flatMap((h) => Array.from({ length: 16 }, (_, i) => ({
       x: h.x + (h.r + REGION_PAD) * Math.cos((i * Math.PI) / 8), y: h.y + (h.r + REGION_PAD) * Math.sin((i * Math.PI) / 8),
     }))))

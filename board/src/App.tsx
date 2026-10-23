@@ -132,8 +132,8 @@ export default function App() {
   const view: Vault = scopeProject ? { ...scoped, tasks: scoped.tasks.filter(inScope), meetings: scoped.meetings.filter(inScope) } : scoped
   const { page, arg } = route
   // A "needs you" that was marked seen shows as idle until the session changes again.
-  const shown = agents.filter((a) => inContext(context, contextOf(a, vault)) && (!scope || projectOf(a, vault)?.name === scope))
-    .map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
+  const unseen = agents.map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
+  const shown = unseen.filter((a) => inContext(context, contextOf(a, vault)) && (!scope || projectOf(a, vault)?.name === scope))
   const markSeen = (a: Agent) => { const next = { ...seen, [a.id]: a.updated }; setSeen(next); saveLocal('sb.seen', next) }
   const peek = (p: PeekItem) => (inPane(p, page) ? go(page, p.id)
     : setPeeks((st) => (st.at(-1)?.kind === p.kind && st.at(-1)?.id === p.id ? st : [...st.slice(-9), p])))
@@ -181,7 +181,7 @@ export default function App() {
   const openNode = (n: GraphNode) => {
     if (n.kind === 'project') act.project(n.name)
     else if (n.kind === 'report') window.open(`/api/reports/${n.name}`, '_blank', 'noopener')
-    else if (n.kind === 'lake') location.href = obsidian(`${vault.vault}/${n.id}/MISSION.md`)
+    else if (n.kind === 'lake') { if (n.status === 'mission') location.href = obsidian(`${vault.vault}/${n.id}/MISSION.md`); else flash(`${n.title} has no MISSION.md yet`) }
     else write(n.id)
   }
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
@@ -277,7 +277,7 @@ export default function App() {
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
-        {page === 'terrain' && <BrainTerrain vault={vault} context={context} scope={scope} agents={agents} open={openNode} fail={fail} />}
+        {page === 'terrain' && <BrainTerrain vault={vault} context={context} scope={scope} agents={unseen} open={openNode} fail={fail} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>

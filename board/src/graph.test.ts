@@ -181,3 +181,10 @@ test('hull and smooth outline', () => {
   expect(smoothPath(hull(square))).toMatch(/^M.*Z$/)
   expect(smoothPath([{ x: 0, y: 0 }])).toBe('')
 })
+
+test('an unfiled thought waits in the Clearing even when it names a project; hills without a context make no region', () => {
+  const m = mapOf({ nodes: [node('projects/a.md', 'project', 'a', 'dataminded'), node('projects/b.md', 'project', 'b'), { ...node('inbox/u.md', 'thought', 'a'), status: 'inbox' }], edges: [] })
+  expect(m.clearing?.count).toBe(1)
+  expect(m.hills.find((h) => h.project === 'a')?.docs).toBe(0)
+  expect(m.regions).toEqual([])
+})

@@ -103,7 +103,10 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
   const shown = useMemo(() => graph && filterGraph(graph, { context, kinds: KINDS, links: ['link', 'project', 'similar', 'stream'] }), [graph, context])
   const map = useMemo(() => shown && mapOf(shown), [shown])
   const byId = useMemo(() => new Map(shown?.nodes.map((n) => [n.id, n])), [shown])
-  const walk = useMemo(() => map && shown && walkOf(shown.walk ?? [], map.at, byId, todayISO()), [map, shown, byId])
+  const visible = useCallback((id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }, [byId, kinds])
+  // The walk only goes where the key shows places. Read every render, so it moves on at midnight.
+  const today = todayISO()
+  const walk = useMemo(() => map && shown && walkOf((shown.walk ?? []).filter((w) => visible(w.id)), map.at, byId, today), [map, shown, byId, visible, today])
   // Where a place is drawn: today's thoughts stand on the walk, everything else where the map put it.
   const where = useCallback((id: string) => walk?.planted.get(id) ?? map?.at.get(id), [walk, map])
 
@@ -222,7 +225,6 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
   const faded = (n: GraphNode) => { const st = stateOf(n.id); return st === 'far' || (!st && !!home && n.project !== home) }
   const matchedHills = new Set([...(matches ?? [])].map((id) => byId.get(id)).filter((n) => n?.project).map((n) => `projects/${n!.project}.md`))
   const places = useMemo(() => shown?.nodes.filter((n) => n.kind !== 'project' && kinds.includes(n.kind)) ?? [], [shown, kinds])
-  const visible = useCallback((id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }, [byId, kinds])
   // Trails inside one hill, and the faint similar ones, show only up close or from the place you point at:
   // from afar the map keeps the trails between hills and the lowlands.
   const trails = useMemo(() => {
@@ -300,11 +302,12 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
                   <text className="bt-meta" x={map.uncharted.x + 12 + px(96)} y={map.uncharted.y - px(8)} fontSize={px(10.5)}>linked to nothing yet</text>
                 </g>
               )}
-              {map.hills.map((h) => (
-                <g key={`shade:${h.id}`} className={`bt-shade-host ${fadeHill(h) ? 'far' : ''}`} filter="url(#bt-soft)">
-                  <use href="#bt-blob" className="bt-shade" transform={`translate(${h.x + 16} ${h.y + 20}) rotate(${rotation(h)}) scale(${h.r / 100})`} />
-                </g>
-              ))}
+              {/* One blur for all hillshades, not one per hill. */}
+              <g filter="url(#bt-soft)">
+                {map.hills.map((h) => (
+                  <use key={h.id} href="#bt-blob" className={`bt-shade ${fadeHill(h) ? 'far' : ''}`} transform={`translate(${h.x + 16} ${h.y + 20}) rotate(${rotation(h)}) scale(${h.r / 100})`} />
+                ))}
+              </g>
               {map.hills.map((h) => {
                 const n = 1 + Math.min(h.open, MAX_CONTOURS - 1)
                 return (
@@ -383,8 +386,8 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
                     const prev = stops[i - 1]
                     const last = i === stops.length - 1
                     const arrival = !prev || prev.hill !== s.hill
-                    // A leg to another hill is a context switch: labelled when it's long enough on screen to carry it.
-                    const leg = prev && prev.hill !== s.hill && Math.hypot(s.x - prev.x, s.y - prev.y) * view.k > 220
+                    // A leg from one hill to another is a context switch: labelled when it's long enough on screen to carry it.
+                    const leg = prev && prev.hill && s.hill && prev.hill !== s.hill && Math.hypot(s.x - prev.x, s.y - prev.y) * view.k > 220
                     const angle = prev ? (Math.atan2(s.y - prev.y, s.x - prev.x) * 180) / Math.PI : 0
                     const upright = angle > 90 || angle < -90 ? angle + 180 : angle
                     return (
