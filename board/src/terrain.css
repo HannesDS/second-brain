@@ -285,6 +285,9 @@
 [data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .term-tab.on { border-color: var(--text); }
+/* Calendar and dependency view switches: the buttons above drop .tab's background, so the chosen one needs its own mark. */
+[data-theme="terrain"] .view-switch .tab { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .view-switch .tab.on { background: var(--surface); border-color: var(--text); }
 [data-theme="terrain"] .gantt-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-flow { --xy-background-pattern-dots-color: var(--contour); }

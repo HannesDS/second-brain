@@ -35,7 +35,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
       .then((r) => { if (live) { setEvents(r.events); setError(r.error) } }, fail)
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [iso(days[0]), view, reload])
+  }, [iso(days[0]), view, reload]) // the first day and the view fix the range; a new anchor inside it doesn't refetch
 
   const today = iso(new Date())
 
