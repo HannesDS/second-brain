@@ -1,13 +1,12 @@
-import { columnOf, unlink, type Doc } from './lib'
+import { URGENT, columnOf, hillRings, unlink, type Doc } from './lib'
 
 // Terrain's signature view: every project is a hill. More open tasks, more contour lines.
 // Ring colours run from the peak outwards: blocked, in progress, review, to do.
 // An ochre peak means there is urgent or high priority work. Click a hill to open the project.
-const BLOB = 'M0,-100 C58,-102 106,-58 100,2 C95,64 48,98 -4,100 C-62,102 -108,54 -100,-4 C-93,-60 -54,-98 0,-100Z'
+export const BLOB = 'M0,-100 C58,-102 106,-58 100,2 C95,64 48,98 -4,100 C-62,102 -108,54 -100,-4 C-93,-60 -54,-98 0,-100Z'
 const W = 1060
 const H = 240
 const MAX_HILLS = 7
-const RING_ORDER = ['blocked', 'wip', 'review', 'todo'] as const
 
 type Hill = { id: string; name: string; open: number; rings: string[]; hot: boolean }
 
@@ -16,15 +15,7 @@ export default function Landscape({ projects, tasks, open }: { projects: Doc[]; 
     .filter((p) => (p.data.status ?? 'active') === 'active')
     .map((p) => {
       const mine = tasks.filter((t) => unlink(t.data.project) === p.name && columnOf(t) !== 'done')
-      const counts = Object.fromEntries(RING_ORDER.map((s) => [s, mine.filter((t) => columnOf(t) === s).length]))
-      const n = Math.min(7, mine.length)
-      // Share the rings out by status, at least one ring for every status that has work.
-      const rings: string[] = []
-      for (const s of RING_ORDER) {
-        const k = counts[s] ? Math.max(1, Math.round((counts[s] / Math.max(1, mine.length)) * n)) : 0
-        for (let i = 0; i < k; i++) rings.push(s)
-      }
-      return { id: p.name, name: p.data.name ?? p.name, open: mine.length, rings: rings.slice(0, 7), hot: mine.some((t) => ['p0', 'p1'].includes(t.data.priority)) }
+      return { id: p.name, name: p.data.name ?? p.name, open: mine.length, rings: hillRings(mine.map(columnOf)), hot: mine.some((t) => URGENT.includes(t.data.priority)) }
     })
     .filter((h) => h.open > 0)
     .sort((a, b) => b.open - a.open)

@@ -269,7 +269,7 @@ export default function App() {
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
-        {page === 'terrain' && <BrainTerrain vault={vault} projects={vault.projects} context={context} scope={scope} open={openNode} fail={fail} />}
+        {page === 'terrain' && <BrainTerrain vault={vault} context={context} scope={scope} open={openNode} fail={fail} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>

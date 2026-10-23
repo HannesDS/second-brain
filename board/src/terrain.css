@@ -302,26 +302,32 @@
 [data-theme="terrain"] .dep-node.running .dep-marker { animation: none; }
 [data-theme="terrain"] .dep-node.running { animation: tr-run 2s var(--ease) infinite; }
 
-/* Brain Terrain: projects are summits with a contour ring, edges are contour lines, ochre marks what you point at. */
-[data-theme="terrain"] .kg-host { border-radius: var(--radius-lg); }
-[data-theme="terrain"] .kg-chip { border-radius: var(--radius-pill); }
-[data-theme="terrain"] .kg-hits { border-radius: var(--radius-lg); }
-[data-theme="terrain"] .kg-hit { border-radius: 12px; }
-[data-theme="terrain"] .kg-search { border-radius: var(--radius-pill); padding-left: 14px; }
-[data-theme="terrain"] .kg-node, [data-theme="terrain"] .kg-chip .kg-dot, [data-theme="terrain"] .kg-kind { --kg: var(--p3); }
-[data-theme="terrain"] .kg-node.project, [data-theme="terrain"] .kg-chip.project .kg-dot, [data-theme="terrain"] .kg-kind.project { --kg: var(--st-done); }
-[data-theme="terrain"] .kg-node.task, [data-theme="terrain"] .kg-chip.task .kg-dot, [data-theme="terrain"] .kg-kind.task { --kg: var(--st-wip-ink); }
-[data-theme="terrain"] .kg-node.thought, [data-theme="terrain"] .kg-chip.thought .kg-dot, [data-theme="terrain"] .kg-kind.thought { --kg: var(--st-review); }
-[data-theme="terrain"] .kg-node.meeting, [data-theme="terrain"] .kg-chip.meeting .kg-dot, [data-theme="terrain"] .kg-kind.meeting { --kg: var(--st-review-ink); }
-[data-theme="terrain"] .kg-node.report, [data-theme="terrain"] .kg-chip.report .kg-dot, [data-theme="terrain"] .kg-kind.report { --kg: var(--st-blocked); }
-[data-theme="terrain"] .kg-node.project::before { content: ''; position: absolute; inset: -7px; border: 1.5px dashed var(--contour); border-radius: 50%; }
-[data-theme="terrain"] .kg-node .kg-dot { transition: transform .35s var(--spring); }
-[data-theme="terrain"] .kg-node:hover .kg-dot { transform: scale(1.25); }
-[data-theme="terrain"] :is(.kg-node.hot, .kg-node.match) .kg-dot { outline-color: var(--highlight); }
-[data-theme="terrain"] .kg-flow .react-flow__edge path { stroke: var(--contour); }
-[data-theme="terrain"] .kg-flow .react-flow__edge.link path { stroke: var(--muted); stroke-opacity: .55; }
-[data-theme="terrain"] .kg-flow .react-flow__edge.hot path { stroke: var(--highlight); stroke-opacity: 1; }
-[data-theme="terrain"] .kg-line { border-top-color: var(--contour); }
+/* Brain Terrain: a contour map on fog. The rings are the landscape's, the only ochre is a hot peak or what you picked. */
+[data-theme="terrain"] .bt-map { background: var(--bg); }
+[data-theme="terrain"] .bt-graticule { stroke: var(--contour); }
+[data-theme="terrain"] .bt-map .ring.base { stroke: var(--st-wip-ink); stroke-opacity: .35; fill: var(--st-wip); fill-opacity: .16; }
+[data-theme="terrain"] .bt-map .ring.todo { stroke: var(--st-todo); }
+[data-theme="terrain"] .bt-map .ring.wip { stroke: var(--st-wip-ink); }
+[data-theme="terrain"] .bt-map .ring.review { stroke: var(--st-review); }
+[data-theme="terrain"] .bt-map .ring.blocked { stroke: var(--st-blocked); }
+[data-theme="terrain"] .bt-map .peak { fill: var(--surface-2); }
+[data-theme="terrain"] .bt-map .peak.hot { fill: var(--ochre); }
+[data-theme="terrain"] .bt-hill-name, [data-theme="terrain"] .bt-place-name { stroke: var(--bg); }
+[data-theme="terrain"] .bt-hill-meta { stroke: var(--bg); }
+[data-theme="terrain"] .bt-hill.picked .ring.base:first-child { stroke: var(--highlight); stroke-width: 2.5; }
+[data-theme="terrain"] .bt-trail.lit { stroke: var(--highlight); }
+[data-theme="terrain"] .bt-place.task.wip .sym { fill: var(--st-wip-ink); }
+[data-theme="terrain"] .bt-place.task.review .sym { fill: var(--st-review-ink); }
+[data-theme="terrain"] .bt-place.task.blocked .sym { fill: var(--st-blocked); }
+[data-theme="terrain"] .bt-place.thought .sym { stroke: var(--st-review-ink); }
+[data-theme="terrain"] .bt-place.report .sym { fill: var(--st-review); }
+[data-theme="terrain"] :is(.bt-place.picked, .bt-place.match) .sym { stroke: var(--highlight); }
+[data-theme="terrain"] .bt-uncharted rect { stroke: var(--contour); }
+[data-theme="terrain"] .bt-find { border-radius: var(--radius-pill); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .bt-find:focus-within { border-color: var(--highlight); box-shadow: 0 0 0 4px var(--highlight-soft), var(--shadow-lift); }
+[data-theme="terrain"] .bt-hits, [data-theme="terrain"] .bt-legend, [data-theme="terrain"] .bt-zoom { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .bt-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-float); animation: tr-peek .5s var(--spring) both; }
+[data-theme="terrain"] .bt-card h3 { font-weight: 800; letter-spacing: -0.02em; }
 @keyframes tr-run { 0% { box-shadow: 0 0 0 0 var(--st-wip); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 [data-theme="terrain"] .dep-lane { border-color: var(--contour); border-radius: var(--radius-lg); }
 [data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }
