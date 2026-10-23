@@ -496,7 +496,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-hit { fill: transparent; stroke: none; }
 .bt-place.picked .bt-hit, .bt-place.match .bt-hit { stroke: var(--map-walk); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 .bt-place.match .bt-place-name { fill: var(--map-ink); }
-/* Symbol parts: hairline, coloured by role. Mirrors board/public/map/symbols.svg. */
+/* Symbol parts (Symbols() in BrainTerrain.tsx): hairline, coloured by role. */
 .bt-s { fill: none; stroke: none; stroke-linecap: round; stroke-linejoin: round; }
 .bt-s.ground { fill: var(--map-ground); } .bt-s.ground-line { stroke: var(--map-ground); }
 .bt-s.note { stroke: var(--map-note); } .bt-s.faint { stroke: var(--map-faint); }

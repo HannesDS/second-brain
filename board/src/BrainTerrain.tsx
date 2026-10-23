@@ -37,7 +37,7 @@ const LEGEND: [PlaceKind, string, string][] = [
 const symbolOf = (n: GraphNode) => (n.kind === 'task' ? (['wip', 'review', 'blocked', 'done'].includes(n.status) ? n.status : 'todo')
   : n.kind === 'thought' ? (unfiled(n) ? 'sapling' : 'tree') : n.kind === 'meeting' ? 'hut' : n.kind === 'report' ? 'view' : 'lake')
 
-// The map's symbols on a 12x12 grid, hairline, coloured by the map tokens. Mirrors board/public/map/symbols.svg.
+// The map's symbols on a 12x12 grid, hairline, coloured by the map tokens. The only copy: docs/MAP-STYLE.md points here.
 function Symbols() {
   return <>
     <symbol id="s-todo" viewBox="0 0 12 12"><circle className="bt-s ground note" cx="6" cy="6" r="3" strokeWidth="1.1" /></symbol>
