@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { aim, dragOver, dragScroll, dropMoves, rebase, type Layout } from './drag'
+import { aim, dragOver, dropMoves, leftPickup, rebase, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -186,15 +186,8 @@ test('a card dragged into Done previews where Done sorts it', () => {
   expect(dragOver({ ...layout, done: ['F', 'G', 'H'] }, 'A', 'col:done', 2, undefined, () => 3).done).toEqual(['F', 'A', 'G', 'H'])
 })
 
-test('the board may scroll only once the card moved off the spot it was picked up', () => {
-  const scroll = dragScroll({ x: 150, y: 680 })
-  // A twitch at pickup, near the edge of a long column: nothing scrolls.
-  scroll.move({ x: 151, y: 690 })
-  expect(scroll.may()).toBe(false)
-  // A short push on to the edge, also when the screen ends there: it may.
-  scroll.move({ x: 151, y: 694 })
-  expect(scroll.may()).toBe(true)
-  // And keeps on, also back near the start.
-  scroll.move({ x: 150, y: 681 })
-  expect(scroll.may()).toBe(true)
+test('a card has left its pickup spot once it moved more than a twitch', () => {
+  expect(leftPickup({ x: 1, y: 10 })).toBe(false)
+  expect(leftPickup({ x: 0, y: 13 })).toBe(true)
+  expect(leftPickup({ x: -9, y: -9 })).toBe(true)
 })

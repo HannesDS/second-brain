@@ -65,19 +65,12 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
   return same(next) ? now : next
 }
 
-// Whether the board may scroll yet while a card is dragged: only once the card moved PICKUP_PX from where
-// it was picked up. dnd-kit scrolls an area as soon as the pointer is near its edge and twitches that way,
-// so picking up a card low in a long column set the cards moving under the pointer. After that it's
-// dnd-kit's own auto-scroll; a short push still works next to the screen edge.
+// Whether a dragged card has left the spot it was picked up, so the board may auto-scroll. dnd-kit scrolls
+// an area as soon as the pointer is near its edge and twitches that way, so picking up a card low in a long
+// column set the cards moving under the pointer. Until then auto-scroll is off, which also makes dnd-kit
+// forget a twitch's direction; after it, it's dnd-kit's own auto-scroll.
 export const PICKUP_PX = 12
-type Point = { x: number; y: number }
-export function dragScroll(start: Point) {
-  let moved = false
-  return {
-    move(p: Point) { moved ||= Math.hypot(p.x - start.x, p.y - start.y) > PICKUP_PX },
-    may: () => moved,
-  }
-}
+export const leftPickup = (delta: { x: number; y: number }) => Math.hypot(delta.x, delta.y) > PICKUP_PX
 
 // Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
 const STEP = 10

@@ -5,10 +5,10 @@ import {
   useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS, getEventCoordinates } from '@dnd-kit/utilities'
+import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, dragOver, dragScroll, dropMoves, rebase, type Layout, type Sticky } from './drag'
+import { aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -51,14 +51,10 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     if (next !== live.current) setPreview(next)
   }, [layout])
 
-  // When the board may scroll (see dragScroll), from the pointer carrying the card.
-  const scroll = useRef<ReturnType<typeof dragScroll>>(undefined)
-  // Only the pointer carrying the card: on touch, another finger (or the mouse) can move too.
-  const carrying = useRef<number>(undefined)
-  const follow = useCallback((e: PointerEvent) => { if (e.pointerId === carrying.current) scroll.current?.move({ x: e.clientX, y: e.clientY }) }, [])
-  const stopFollowing = () => { removeEventListener('pointermove', follow); scroll.current = undefined }
-  useEffect(() => () => removeEventListener('pointermove', follow), [follow])
-  const autoScroll = useMemo(() => ({ canScroll: () => scroll.current?.may() ?? false }), [])
+  // Auto-scroll waits until the card left the spot it was picked up (see leftPickup).
+  const [scrolling, setScrolling] = useState(false)
+  // The card in hand looks hovered only when a mouse picked it up; a finger never hovered it.
+  const [byMouse, setByMouse] = useState(false)
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -91,7 +87,6 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   function onDragEnd({ active: a, over }: DragEndEvent) {
-    stopFollowing()
     const moves = over ? dropMoves(layout, live.current ?? layout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit, isStarred) : []
     setActive(undefined)
     setPreview(undefined)
@@ -104,9 +99,10 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={autoScroll}
-      onDragStart={(e) => { const start = getEventCoordinates(e.activatorEvent); if (start) { scroll.current = dragScroll(start); carrying.current = (e.activatorEvent as PointerEvent).pointerId; addEventListener('pointermove', follow) } setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
-      onDragCancel={() => { stopFollowing(); setActive(undefined); setPreview(undefined) }}>
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={scrolling}
+      onDragMove={({ delta }) => { if (!scrolling && leftPickup(delta)) setScrolling(true) }}
+      onDragStart={(e) => { setScrolling(false); setByMouse((e.activatorEvent as PointerEvent).pointerType === 'mouse'); setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+      onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
           // A task can vanish mid-drag when the vault reloads; the preview may still name it.
@@ -124,7 +120,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
       </div>
       {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer.
           It lives on <body>: dnd-kit places it in window coordinates, which a transformed view would offset. */}
-      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} lifted />}</DragOverlay>, document.body)}
+      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} inHand={byMouse ? 'lifted' : 'held'} />}</DragOverlay>, document.body)}
     </DndContext>
   )
 }
@@ -150,11 +146,11 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: 
 }
 
 // Memoised: while you drag, the board re-renders on every move, but a card only when its task changes.
-const Card = memo(function Card({ task, project, act, chained, lifted }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean; lifted?: boolean }) {
+const Card = memo(function Card({ task, project, act, chained, inHand }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean; inHand?: 'lifted' | 'held' }) {
   const d = task.data
   const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
   return (
-    <article className={`card ${isFocus(task) ? 'focus' : ''} ${lifted ? 'lifted' : ''}`}>
+    <article className={`card ${isFocus(task) ? 'focus' : ''} ${inHand ? `in-hand ${inHand}` : ''}`}>
       <div className="card-top">
         <button className="link-plain project" title="Open project overview" {...stop(() => act?.project(unlink(d.project)))}>
           <span className={`dot ${project?.data.context ?? ''}`} />{project?.data.name ?? (unlink(d.project) || 'No project')}
