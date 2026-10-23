@@ -179,7 +179,7 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="brand">Second Brain</div>
+        <div className="brand">Brain Terrain</div>
         <Search vault={vault} openTask={openTask} write={write} />
         <div className="side-actions">
           <IconButton icon={Plus} label="Task" showLabel primary onClick={() => openTask()} />

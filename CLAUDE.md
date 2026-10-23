@@ -1,4 +1,4 @@
-# second-brain
+# Brain Terrain
 
 Before you commit, run `npm run check` (TypeScript) and `npm test` (Vitest). Logic you add or change gets a test next to its module (`*.test.ts`, or `*.test.mjs` in `lib/` and `scripts/`); point tests at a scratch vault with `SECOND_BRAIN_VAULT`, never the real one.
 
