@@ -19,8 +19,8 @@ export const columnOf = (t: Doc) => (STATUSES.includes(t.data.status) ? t.data.s
 export const obsidian = (p: string) => `obsidian://open?path=${encodeURIComponent(p)}`
 // A PR's teach report is saved as reports/<date>-<task id>-pr.html and linked from the task body.
 export const prReport = (t: Doc) => t.body.match(new RegExp(`reports/([\\w.-]*${t.name}-pr\\.html)`, 'i'))?.[1]
-export const teachPR = (t: Doc) => `Teach me the pull request of this task (${t.data.pr}) with the teach skill: what it changes, why, and the concepts I might not know, with diagrams. `
-  + `Save the report as reports/${todayISO()}-${t.name.toLowerCase()}-pr.html and link it from the task under "## Reports".`
+export const teachPrompt = (t: Doc, vault: string) => `Teach me the pull request of this task (${t.data.pr}) with the teach skill: what it changes, why, and the concepts I might not know, with diagrams. `
+  + `Save the report as ${vault}/reports/${todayISO()}-${t.name.toLowerCase()}-pr.html (this exact name, not a concept slug) and link it from the task under "## Reports".`
 export const byOrder = (a: Doc, b: Doc) => (Number(a.data.order) || 0) - (Number(b.data.order) || 0) || a.name.localeCompare(b.name)
 // Latest finished first. Tasks done before `completed` was stamped fall back to their last update.
 const finished = (t: Doc) => String(t.data.completed ?? t.data.updated ?? '')

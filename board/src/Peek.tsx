@@ -81,6 +81,7 @@ export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, 
         <IconButton icon={Play} label="Start agent" showLabel primary onClick={() => act.start(task)} />
         <IconButton icon={Rocket} label="Autopilot" showLabel onClick={() => act.autopilot(task)} />
         <IconButton icon={MessagesSquare} label="Grill me" showLabel onClick={() => grill(task)} />
+        {/* Absolute URL so IconLink opens the report in a new tab. */}
         {d.pr && (report
           ? <IconLink icon={GraduationCap} label="Teach me" showLabel href={`${location.origin}/api/reports/${report}`} />
           : <IconButton icon={GraduationCap} label="Teach me" showLabel onClick={() => teach(task)} />)}

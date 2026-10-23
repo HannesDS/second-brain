@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { prReport, teachPR, todayISO, type Doc } from './lib'
+import { prReport, teachPrompt, todayISO, type Doc } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -13,6 +13,6 @@ test('ignores other reports and other tasks', () => {
 
 test('the prompt names the file prReport looks for', () => {
   const file = `${todayISO()}-t-0081-pr.html`
-  expect(teachPR(task(''))).toContain(`reports/${file}`)
+  expect(teachPrompt(task(''), '/vault')).toContain(`/vault/reports/${file}`)
   expect(prReport(task(`- [PR](../reports/${file})`))).toBe(file)
 })
