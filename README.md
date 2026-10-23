@@ -1,6 +1,6 @@
-# second-brain
+# Brain Terrain
 
-A local, Notion-like workbench on top of a markdown vault, wired into Claude Code.
+Brain Terrain is a local, Notion-like workbench on top of a markdown vault, wired into Claude Code.
 
 - **Vault:** plain markdown with YAML frontmatter (projects, tasks, meetings, notes). It's a normal Obsidian vault and lives in its own (private) repo, cloned into `vault/`.
 - **Workbench:** Vite + React. My day, notes with an agent that proposes where they belong, a calendar (Google via private iCal feeds) with meeting notes, local Whisper transcription and meeting processing, board, timeline, project cards, an overview of every Claude Code session, terminals, and semantic search (local Ollama embeddings).
