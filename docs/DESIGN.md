@@ -45,6 +45,7 @@ styled with them works in every theme.
 - Priority: `--p0` to `--p3`
 - Status fills: `--st-todo`, `--st-wip`, `--st-review`, `--st-blocked`, `--st-done`, plus `--st-wip-ink`, `--st-review-ink` for text
 - Context: `--ctx-dm`, `--ctx-personal`
+- Map (Brain Terrain only): `--map-*`, the survey palette in docs/MAP-STYLE.md. Terrain sets them on `.bt-page`, Moss in light and dark mode.
 - Shape: `--radius` (14), `--radius-lg` (22), `--radius-pill`
 - Depth: `--shadow`, `--shadow-lift` (hover, selected), `--shadow-float` (peek, drawer)
 - Type: `--font-ui` (Bricolage Grotesque), `--font-mono` (DM Mono)

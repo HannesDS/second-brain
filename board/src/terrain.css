@@ -303,27 +303,19 @@
 [data-theme="terrain"] .dep-node.running .dep-marker { animation: none; }
 [data-theme="terrain"] .dep-node.running { animation: tr-run 2s var(--ease) infinite; }
 
-/* Brain Terrain: a contour map on fog. The rings are the landscape's, the only ochre is a hot peak or what you picked. */
-[data-theme="terrain"] .bt-map { background: var(--bg); }
-[data-theme="terrain"] .bt-graticule { stroke: var(--contour); }
-[data-theme="terrain"] .bt-map .ring.base { stroke: var(--st-wip-ink); stroke-opacity: .35; fill: var(--st-wip); fill-opacity: .16; }
-[data-theme="terrain"] .bt-map .ring.todo { stroke: var(--st-todo); }
-[data-theme="terrain"] .bt-map .ring.wip { stroke: var(--st-wip-ink); }
-[data-theme="terrain"] .bt-map .ring.review { stroke: var(--st-review); }
-[data-theme="terrain"] .bt-map .ring.blocked { stroke: var(--st-blocked); }
-[data-theme="terrain"] .bt-map .peak { fill: var(--surface-2); }
-[data-theme="terrain"] .bt-map .peak.hot { fill: var(--ochre); }
-[data-theme="terrain"] .bt-hill-name, [data-theme="terrain"] .bt-place-name { stroke: var(--bg); }
-[data-theme="terrain"] .bt-hill-meta { stroke: var(--bg); }
-[data-theme="terrain"] .bt-hill.picked .ring.base:first-child { stroke: var(--highlight); stroke-width: 2.5; }
-[data-theme="terrain"] .bt-trail.lit { stroke: var(--highlight); }
-[data-theme="terrain"] .bt-place.task.wip .sym { fill: var(--st-wip-ink); }
-[data-theme="terrain"] .bt-place.task.review .sym { fill: var(--st-review-ink); }
-[data-theme="terrain"] .bt-place.task.blocked .sym { fill: var(--st-blocked); }
-[data-theme="terrain"] .bt-place.thought .sym { stroke: var(--st-review-ink); }
-[data-theme="terrain"] .bt-place.report .sym { fill: var(--st-review); }
-[data-theme="terrain"] :is(.bt-place.picked, .bt-place.match) .sym { stroke: var(--highlight); }
-[data-theme="terrain"] .bt-uncharted rect { stroke: var(--contour); }
+/* Brain Terrain: a survey sheet in the Moss palette, in light and dark mode alike (docs/MAP-STYLE.md).
+   The page takes Moss's role tokens too, so the search, key and card sit on the map like printed margins. */
+[data-theme="terrain"] .bt-page {
+  --map-ground: #161F19; --map-grid: #223027; --map-shade: #0E140F;
+  --map-h1: #1C2820; --map-h2: #202E25; --map-h3: #25352B; --map-h4: #2B3D31; --map-h5: #314537; --map-h6: #384E3F;
+  --map-contour: #3E5245; --map-contour-index: #58705F;
+  --map-ink: #EEF0E8; --map-note: #A9B8A6; --map-faint: #8D9B8F; --map-trail: #E07A5F;
+  --map-water: #7FB7C9; --map-water-ink: #8CC3D4; --map-wood: #B8D4A0; --map-walk: #E3A44A;
+  --bg: #161F19; --surface: #1E2A22; --surface-2: #233128; --border: #34463A; --text: #EEF0E8; --muted: #A9B8A6;
+  --accent: #E3A44A; --accent-text: #1E2A22; --focus: #E3A44A; --contour: #2A3A2F;
+  --shadow-lift: 0 14px 32px -18px rgb(0 0 0 / 70%); --shadow-float: -18px 0 48px -12px rgb(0 0 0 / 60%);
+  color-scheme: dark; color: var(--text);
+}
 [data-theme="terrain"] .bt-find { border-radius: var(--radius-pill); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .bt-find:focus-within { border-color: var(--highlight); box-shadow: 0 0 0 4px var(--highlight-soft), var(--shadow-lift); }
 [data-theme="terrain"] .bt-hits, [data-theme="terrain"] .bt-legend, [data-theme="terrain"] .bt-zoom { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); }
