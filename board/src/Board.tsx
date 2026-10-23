@@ -46,11 +46,11 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   // columns as they are. The layout is also rebuilt on renders that changed nothing; then nothing moves.
   useEffect(() => {
     if (!live.current) return
-    const next = rebase(live.current, layout, sticky.current.active)
+    const next = rebase(live.current, layout, sticky.current.active, sticky.current.home)
     if (next !== live.current) setPreview(next)
   }, [layout])
 
-  const sticky = useRef<Sticky>({ justMoved: false, active: '' })
+  const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
   const collision = useCallback<CollisionDetection>((args) => {
     const hits = pointerWithin(args)
@@ -63,10 +63,18 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     return target === undefined ? [] : [{ id: target }]
   }, [layout, isStarred])
 
+  // Where a card dropped into Done lands: Done sorts by when a task was finished, and it's finished today.
+  const doneAt = (target: string[], id: string) => {
+    const t = byName[id]
+    const finished = t && { ...t, data: { ...t.data, completed: todayISO() } }
+    const i = finished ? target.findIndex((x) => byName[x] && byFinished(finished, byName[x]) < 0) : 0
+    return i < 0 ? target.length : i
+  }
+
   function onDragOver({ active: a, over }: DragOverEvent) {
     if (!over) return
     const now = live.current ?? layout
-    const next = dragOver(now, String(a.id), String(over.id), limit, isStarred)
+    const next = dragOver(now, String(a.id), String(over.id), limit, isStarred, doneAt)
     if (next === now) return
     sticky.current.justMoved = true
     setPreview(next)
@@ -86,7 +94,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver}
-      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id) } }}
+      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {

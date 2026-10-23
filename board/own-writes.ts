@@ -1,8 +1,9 @@
 // Files the board wrote itself, remembered by modification time with the tab that wrote them, so the file
 // watcher can tell that tab's own echo from a change made elsewhere (Obsidian, an agent, another tab).
-// A later write elsewhere changes the time. A write elsewhere just before (RECENT_MS) would echo together
-// with the board's, so then the board's write isn't claimed and the tab reloads. The watcher echoes within
-// a moment, so after FORGET_MS a file is forgotten, which keeps the list short on a long-running server.
+// A later write elsewhere changes the time. A write elsewhere (another tab too) just before, within
+// RECENT_MS, would echo together with the board's, so then the board's write isn't claimed and the tab
+// reloads. The watcher echoes within a moment, so after FORGET_MS a file is forgotten, which keeps the
+// list short on a long-running server.
 import fs from 'node:fs'
 
 const FORGET_MS = 60_000
@@ -19,7 +20,7 @@ export function ownWrites() {
       const out = write()
       const now = Date.now()
       for (const [f, w] of seen) if (now - w.at > FORGET_MS) seen.delete(f)
-      const elsewhere = before !== undefined && before !== own?.mtime && now - before < RECENT_MS
+      const elsewhere = before !== undefined && (before !== own?.mtime || own.tab !== tab) && now - before < RECENT_MS
       if (tab && !elsewhere) seen.set(file, { mtime: mtime(file) ?? -1, tab, at: now })
       else seen.delete(file)
       return out

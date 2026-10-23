@@ -71,3 +71,12 @@ test('a file is forgotten a minute after it was written, once the board writes a
     expect(writes.writer(b)).toBe('tab-1')
   } finally { vi.useRealTimers() }
 })
+
+test('another tab\'s write just before is not taken over by this tab\'s', () => {
+  const file = oldFile()
+  const writes = ownWrites()
+  writes.write(file, 'tab-1', board(file))
+  writes.write(file, 'tab-2', () => fs.writeFileSync(file, 'tab 2'))
+  expect(writes.writer(file)).toBeUndefined()
+})
+

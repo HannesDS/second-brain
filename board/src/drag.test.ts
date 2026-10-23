@@ -153,15 +153,34 @@ test('a renumber leaves alone a card that left the column during the drag', () =
 
 test('a reload that changed nothing leaves the preview as it is', () => {
   const now = dragOver(layout, 'A', 'E')
-  expect(rebase(now, { ...layout, todo: [...layout.todo] }, 'A')).toBe(now)
+  expect(rebase(now, { ...layout, todo: [...layout.todo] }, 'A', 'todo')).toBe(now)
 })
 
 test('a reload mid-drag keeps the card where the preview had it, in the columns as they are now', () => {
   // A is previewed in wip after D; meanwhile G was added to wip and B left todo.
   const now = dragOver(layout, 'A', 'E')
   const fresh = { todo: ['A', 'C'], wip: ['D', 'G', 'E'], done: ['F'] }
-  expect(rebase(now, fresh, 'A')).toEqual({ todo: ['C'], wip: ['D', 'A', 'G', 'E'], done: ['F'] })
+  expect(rebase(now, fresh, 'A', 'todo')).toEqual({ todo: ['C'], wip: ['D', 'A', 'G', 'E'], done: ['F'] })
   // The card before it left: it goes first.
-  expect(rebase(now, { todo: ['A', 'C'], wip: ['E'], done: ['F'] }, 'A').wip).toEqual(['A', 'E'])
+  expect(rebase(now, { todo: ['A', 'C'], wip: ['E'], done: ['F'] }, 'A', 'todo').wip).toEqual(['A', 'E'])
+})
+
+test('a card still in its own column takes its place in the reload, so a status changed meanwhile stays', () => {
+  // X was picked up in todo; an agent moved it to wip during the drag.
+  const now = { ...layout, todo: ['A', 'X', 'B', 'C'] }
+  const fresh = { ...layout, wip: ['X', 'D', 'E'] }
+  expect(rebase(now, fresh, 'X', 'todo')).toBe(fresh)
+  expect(dropMoves(fresh, fresh, 'X', 'X', () => ({ status: 'wip', order: 0 }))).toEqual([])
+})
+
+test('a card deleted during the drag stays gone, and its drop writes nothing', () => {
+  const now = dragOver(layout, 'A', 'E')
+  const fresh = { ...layout, todo: ['B', 'C'] }
+  expect(rebase(now, fresh, 'A', 'todo')).toBe(fresh)
+  expect(dropMoves(fresh, fresh, 'A', 'E', () => ({}))).toEqual([])
+})
+
+test('a card dragged into Done previews where Done sorts it', () => {
+  expect(dragOver({ ...layout, done: ['F', 'G'] }, 'A', 'G', undefined, undefined, (target) => target.indexOf('G')).done).toEqual(['F', 'A', 'G'])
 })
 

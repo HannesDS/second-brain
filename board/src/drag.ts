@@ -30,9 +30,10 @@ export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Se
 // Dragging over another column moves the card into it, before the card it's over, or last of the cards
 // shown when it's over the column itself. From there the sortable list moves it within the column. It
 // doesn't go past the cards shown, or it would vanish mid-drag on My day, but staying with the cards
-// starred like it (starred ones sit on top) comes first, as that's where the drop puts it. Done lists the latest finished first, so there it goes on top.
+// starred like it (starred ones sit on top) comes first, as that's where the drop puts it. Done sorts by when a task was finished, so there it goes where `doneAt` says.
 // Same layout back when nothing changes, or for the unknown-status column, which a drop can't move to.
-export function dragOver(layout: Layout, id: string, over: string, limit?: number, starred: (id: string) => boolean = () => false): Layout {
+export function dragOver(layout: Layout, id: string, over: string, limit?: number, starred: (id: string) => boolean = () => false,
+  doneAt: (target: string[], id: string) => number = () => 0): Layout {
   const from = columnFor(layout, id)
   const to = columnFor(layout, over)
   if (!from || !to || from === to || to === '?') return layout
@@ -41,24 +42,26 @@ export function dragOver(layout: Layout, id: string, over: string, limit?: numbe
   const stars = target.filter(starred).length
   const [lo, hi] = starred(id) ? [0, stars] : [stars, target.length]
   const shown = Math.min(i >= 0 ? i : Infinity, lastShown(target.length + 1, limit))
-  const at = to === 'done' ? 0 : Math.min(Math.max(shown, lo), hi)
+  const at = to === 'done' ? doneAt(target, id) : Math.min(Math.max(shown, lo), hi)
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
 // The preview `now` carried over onto a reloaded layout `fresh`: the columns as they are now, with the
 // dragged card where the preview had it, after the same card as before (or first, if that card left).
+// A card still in its `home` column (where the drag began) takes its place in `fresh`, so a status
+// changed elsewhere meanwhile isn't undone; a card gone from `fresh` stays gone, so the drop does nothing.
 // Same `now` back when nothing it shows changed, so a reload that changed nothing moves nothing.
-export function rebase(now: Layout, fresh: Layout, id: string): Layout {
+export function rebase(now: Layout, fresh: Layout, id: string, home: string): Layout {
   const col = columnFor(now, id)
-  if (!col || !fresh[col]) return fresh
+  const same = (l: Layout) => Object.keys(l).length === Object.keys(now).length && Object.keys(l).every((c) => l[c].join() === now[c]?.join())
+  if (!col || col === home || !fresh[col] || !columnFor(fresh, id)) return same(fresh) ? now : fresh
   const rest = (c: string) => fresh[c].filter((x) => x !== id)
   const shown = now[col]
   const after = shown.slice(0, shown.indexOf(id)).reverse().find((x) => rest(col).includes(x))
   const target = rest(col)
   const at = after === undefined ? 0 : target.indexOf(after) + 1
   const next: Layout = Object.fromEntries(Object.keys(fresh).map((c) => [c, c === col ? [...target.slice(0, at), id, ...target.slice(at)] : rest(c)]))
-  const same = Object.keys(next).length === Object.keys(now).length && Object.keys(next).every((c) => next[c].join() === now[c]?.join())
-  return same ? now : next
+  return same(next) ? now : next
 }
 
 // Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
