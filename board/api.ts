@@ -116,10 +116,10 @@ async function handle(req: IncomingMessage) {
     }
     if (method === 'PUT') { updateDoc(file('projects', id), body.data, body.body); return { id } }
   }
-  if (kind === 'notes' && method === 'POST') return { path: createNote(String(body.title ?? '')) }
+  if (kind === 'notes' && method === 'POST') return { path: createNote(String(body.title ?? ''), String(body.body ?? '')) }
   if (kind === 'doc' && method === 'PUT') { saveDoc(String(body.path), body.body === undefined ? undefined : String(body.body), body.data ?? {}); return { ok: true } }
   if (kind === 'meetings' && method === 'POST') return createMeeting(body)
-  if (kind === 'file' && method === 'POST') return id === 'apply' ? { done: applyFiling(body.path, body.actions) } : proposeFiling(body.path)
+  if (kind === 'file' && method === 'POST') return id === 'apply' ? { done: applyFiling(body.path, body.actions) } : proposeFiling(body.path, String(body.answers ?? ''))
   throw new Error(`no route: ${method} ${req.url}`)
 }
 
