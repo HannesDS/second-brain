@@ -30,24 +30,15 @@ export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished
 export const TAB = crypto.randomUUID()
 
 // Loads the vault without undoing a drop the files don't have yet. A load waits for the drops still being
-// written (up to WRITE_WAIT_MS, so a hung one can't block it for good, and then loads again once they
-// are); one already on its way when a drop comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands back
-// that reload, so its own failure can be shown too.
-const WRITE_WAIT_MS = 10_000
+// written (each gives up after MOVE_TIMEOUT_MS, so none blocks it for good); one already on its way when a
+// drop comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands
+// back that reload, so its own failure can be shown too.
 export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
   const writing = new Set<Promise<void>>()
   let drops = 0
   const load = (): Promise<void> => {
     const at = drops
-    const pending = [...writing]
-    let late = false
-    const waited = pending.length ? Promise.race([Promise.all(pending), new Promise((r) => setTimeout(() => { late = true; r(0) }, WRITE_WAIT_MS))]) : Promise.resolve()
-    return waited.then(fetch).then((v) => {
-      if (at !== drops) return load()
-      set(v)
-      // Gave up waiting: what it shows may lack those drops, so load again once they're written.
-      if (late) void Promise.all(pending).then(load)
-    })
+    return Promise.all(writing).then(fetch).then((v) => { if (at === drops) set(v); else return load() })
   }
   return {
     load,
@@ -61,8 +52,11 @@ export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
   }
 }
 
-export async function api(url: string, method = 'GET', body?: unknown) {
-  const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
+export const MOVE_TIMEOUT_MS = 30_000
+
+export async function api(url: string, method = 'GET', body?: unknown, timeoutMs?: number) {
+  const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
+  const res = await fetch(`/api/${url}`, { method, signal, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
   const out = await res.json()
   if (!res.ok) throw new Error(out.error)
   return out

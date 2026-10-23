@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import { loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
+import { api, loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -69,33 +69,14 @@ test('a failed drop reloads what the files say', async () => {
   expect(set.mock.calls).toEqual([['dropped'], ['files']])
 })
 
-test('a hung drop holds a load back for ten seconds, not for good', async () => {
-  vi.useFakeTimers()
+test('a request with a timeout gives up, so a hung drop settles and loads go on', async () => {
+  const seen: (AbortSignal | null | undefined)[] = []
+  vi.stubGlobal('fetch', async (_: string, init: RequestInit) => { seen.push(init.signal); return new Response('{}') })
   try {
-    const fetch = vi.fn(async () => 'files')
-    const vault = loader(fetch, () => {})
-    vault.dropped('dropped', new Promise(() => {}))
-    const loading = vault.load()
-    await vi.advanceTimersByTimeAsync(9999)
-    expect(fetch).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(1)
-    await loading
-    expect(fetch).toHaveBeenCalledOnce()
-  } finally { vi.useRealTimers() }
+    await api('move', 'POST', [], 30_000)
+    await api('data')
+    expect(seen[0]).toBeInstanceOf(AbortSignal)
+    expect(seen[1]).toBeUndefined()
+  } finally { vi.unstubAllGlobals() }
 })
 
-test('a load that gave up waiting loads again once the drop is written', async () => {
-  vi.useFakeTimers()
-  try {
-    const fetch = vi.fn(async () => 'files')
-    const vault = loader(fetch, () => {})
-    const write = later<void>()
-    vault.dropped('dropped', write.promise)
-    const loading = vault.load()
-    await vi.advanceTimersByTimeAsync(10_000)
-    await loading
-    expect(fetch).toHaveBeenCalledOnce()
-    write.settle()
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
-  } finally { vi.useRealTimers() }
-})

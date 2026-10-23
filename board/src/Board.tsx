@@ -10,7 +10,7 @@ import type { Actions } from './Today'
 import { aim, dragOver, dropMoves, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
-import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
+import { LABELS, MOVE_TIMEOUT_MS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
@@ -20,8 +20,10 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
   const byName = useMemo(() => Object.fromEntries(tasks.map((t) => [t.name, t])), [tasks])
-  // Where a card goes in a column that isn't Done, which ignores stars.
-  const isStarred = useCallback((id: string) => starred(byName[id]?.data ?? {}), [byName])
+  // Where a card goes in a column that isn't Done, which ignores stars. Made anew only when the vault
+  // changes, so the groups cached while aiming last the whole drag.
+  const stars = useMemo(() => new Set(vault.tasks.filter((t) => starred(t.data)).map((t) => t.name)), [vault.tasks])
+  const isStarred = useCallback((id: string) => stars.has(id), [stars])
   const chained = useMemo(() => linked(vault.tasks), [vault.tasks])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [active, setActive] = useState<Doc>()
@@ -70,7 +72,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     if (!moves.length) return
     const from = byName[a.id]?.data.status
     const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
-    const write = api('move', 'POST', moves)
+    const write = api('move', 'POST', moves, MOVE_TIMEOUT_MS)
     write.catch(fail)
     drop({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) }, write).catch(fail)
   }
