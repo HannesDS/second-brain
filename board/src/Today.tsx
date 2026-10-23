@@ -13,6 +13,7 @@ export type Actions = {
   autopilot: (d: Doc) => void
   focus: (d: Doc) => void
   done: (d: Doc) => void
+  deps: (d: Doc) => void
   write: (p: string) => void
 }
 

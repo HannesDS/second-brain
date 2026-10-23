@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { marked } from 'marked'
 import {
   Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Mountain, Sparkles, Sun, X, type LucideIcon,
+  Mountain, Sparkles, Sun, Workflow, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
@@ -10,6 +10,7 @@ import { Editor } from './Notes'
 import { IconButton } from './ui'
 import { THEME_LABEL, useTheme } from './theme'
 import Calendar, { guessProject } from './Calendar'
+import Deps from './Deps'
 import Gantt from './Gantt'
 import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
 import Notes from './Notes'
@@ -23,11 +24,11 @@ import {
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
-type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'agents' | 'projects' | 'guide'
+type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'deps' | 'agents' | 'projects' | 'guide'
 // The views in the side menu. Projects (overview) and Guide live elsewhere in the menu.
 const VIEWS: [Page, string, LucideIcon][] = [
   ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
-  ['gantt', 'Timeline', GanttChart], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
+  ['gantt', 'Timeline', GanttChart], ['deps', 'Dependencies', Workflow], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
 ]
 // Pages with their own pane for a kind of item: opening one there shows it in the page, not in the peek.
 // Notes only lists notes and meeting notes; other docs (a project file from search) still peek.
@@ -157,6 +158,7 @@ export default function App() {
     autopilot: (t) => terminal({ kind: 'autopilot', task: t.name }),
     focus: toggleFocus,
     done: (t) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail),
+    deps: (t) => go('deps', t.name),
     write,
   }
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
@@ -246,6 +248,7 @@ export default function App() {
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
+        {page === 'deps' && <Deps tasks={view.tasks} all={vault.tasks} focus={arg || undefined} agents={agents} open={openTask} showAll={() => go('deps')} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>

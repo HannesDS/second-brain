@@ -19,7 +19,7 @@ Three rules carry the whole look:
 
 1. **Contours, not boxes.** Lines are soft and rounded. Separators can be dashed, like contour lines.
 2. **One warm highlight.** Ochre means "now" or "important". It's the only loud colour.
-3. **Spring, not flash.** Things settle in with a little overshoot. Only waiting agents loop.
+3. **Spring, not flash.** Things settle in with a little overshoot. Only agents loop: waiting ones, and running ones in the dependency view.
 
 ## Palette
 
@@ -110,7 +110,8 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
 | Settle | Every view on open | 0.45s, `--spring`, from 12px below |
 | Spring | Buttons, project cards, hills | 0.35 to 0.5s, `--spring` |
 | Peek | Side peek | 0.5s, `--spring`, from 48px right |
-| Breathe | Waiting agents | 2s ring, infinite. The only loop |
+| Breathe | Waiting agents | 2s ring, infinite |
+| Run | Dependency view: tickets an agent works on | 2s lichen ring on the status marker, infinite |
 
 `prefers-reduced-motion` turns all of it off.
 

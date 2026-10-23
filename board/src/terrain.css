@@ -284,6 +284,24 @@
 [data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .term-tab.on { border-color: var(--text); }
 [data-theme="terrain"] .gantt-host { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .deps-host { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .deps-flow { --xy-background-pattern-dots-color: var(--contour); }
+[data-theme="terrain"] .dep-node { border-radius: 18px; }
+[data-theme="terrain"] .dep-node:hover { border-color: var(--muted); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .dep-node.focus { border: 1px solid var(--highlight); background: linear-gradient(var(--highlight-soft), var(--highlight-soft)), var(--surface); }
+[data-theme="terrain"] .dep-title { font-size: 15px; font-weight: 650; }
+/* Same elevation markers as the board columns. The run ring sits on the node: clip-path would cut it off. */
+[data-theme="terrain"] .dep-node .dep-marker { width: 12px; height: 12px; border-radius: 0; background: var(--muted); clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
+[data-theme="terrain"] .dep-node.todo .dep-marker { clip-path: circle(30% at 50% 60%); }
+[data-theme="terrain"] .dep-node.ready .dep-marker { background: var(--p2); }
+[data-theme="terrain"] .dep-node.wip .dep-marker { background: var(--st-wip-ink); }
+[data-theme="terrain"] .dep-node.review .dep-marker { background: var(--st-review-ink); }
+[data-theme="terrain"] .dep-node.blocked .dep-marker { background: var(--p0); }
+[data-theme="terrain"] .dep-node.done .dep-marker { background: var(--text); }
+[data-theme="terrain"] .dep-node.running .dep-marker { animation: none; }
+[data-theme="terrain"] .dep-node.running { animation: tr-run 2s var(--ease) infinite; }
+@keyframes tr-run { 0% { box-shadow: 0 0 0 0 var(--st-wip); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+[data-theme="terrain"] .dep-lane { border-color: var(--contour); border-radius: var(--radius-lg); }
 [data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }
 [data-theme="terrain"] .guide :is(code, pre) { font-family: var(--font-mono); border-radius: 10px; }
 [data-theme="terrain"] .milkdown {
@@ -298,7 +316,7 @@
 [data-theme="terrain"] .mono { border-radius: 8px; }
 
 /* ---------- Motion ---------- */
-/* Each view settles in when you open it. Hover springs a little. Nothing loops except waiting agents. */
+/* Each view settles in when you open it. Hover springs a little. Only agents loop: waiting ones, and running ones in the dependency view. */
 @keyframes tr-settle { from { opacity: 0; transform: translateY(12px); } }
 [data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) both; }
 @media (prefers-reduced-motion: reduce) {
