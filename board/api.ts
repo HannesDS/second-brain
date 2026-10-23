@@ -78,6 +78,8 @@ async function handle(req: IncomingMessage) {
     }
     return { ok: true }
   }
+  // POST, because the Brain Terrain sends the paths it shows (too many for a URL).
+  if (method === 'POST' && kind === 'search') return await search(String(body.q ?? ''), Array.isArray(body.within) ? body.within.map(String) : undefined)
   if (method === 'POST' && kind === 'sync') { await syncNow(); return syncStatus }
   if (kind === 'calendars' && method === 'POST') { await addFeed(body.label, body.url); return listFeeds() }
   if (kind === 'calendars' && method === 'DELETE') { removeFeed(Number(id)); return listFeeds() }

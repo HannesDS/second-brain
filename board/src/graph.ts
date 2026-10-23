@@ -24,6 +24,21 @@ export function filterGraph(g: KnowledgeGraph, f: Filter): KnowledgeGraph {
   return { nodes, edges: g.edges.filter((e) => f.links.includes(e.kind) && ids.has(e.a) && ids.has(e.b)) }
 }
 
+export type NodeState = '' | 'hot' | 'near' | 'match' | 'far'
+
+// Hovering a node lights it and its neighbours; otherwise a search (`matches`) lights its hits. The rest fades.
+export function nodeState(id: string, hover: string, near: Set<string>, matches?: Set<string>): NodeState {
+  if (hover) return id === hover ? 'hot' : near.has(id) ? 'near' : 'far'
+  if (matches) return matches.has(id) ? 'match' : 'far'
+  return ''
+}
+
+// An edge lights up with a hovered end, and stays lit in a search only between two matches.
+export function edgeState(e: GraphEdge, hover: string, matches?: Set<string>): '' | 'hot' | 'far' {
+  if (hover) return e.a === hover || e.b === hover ? 'hot' : 'far'
+  return matches && !(matches.has(e.a) && matches.has(e.b)) ? 'far' : ''
+}
+
 export type Point = { x: number; y: number }
 
 // How hard each kind of edge pulls its ends together.

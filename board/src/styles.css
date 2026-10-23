@@ -440,23 +440,35 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 /* Brain Terrain: the vault as one graph (React Flow, laid out by graph.ts) */
 .kg-page { display: flex; flex-direction: column; padding: 12px 20px 16px; min-height: 0; flex: 1; }
 .kg-page .filter-bar select { width: auto; }
+.kg-body { flex: 1; display: flex; gap: 12px; min-height: 0; }
 .kg-host { flex: 1; height: auto; min-height: 420px; }
+.kg-search { width: 220px; }
+.kg-hits { width: 300px; flex: none; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.kg-hits ul { list-style: none; margin: 0; padding: 0 4px 4px; }
+.kg-hits ul.stale { opacity: 0.55; }
+.kg-hit { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; width: 100%; text-align: left; padding: 6px 8px; border: none; background: none; font-size: 13px; }
+.kg-hit:hover { background: var(--surface-2); }
+.kg-hit .muted { grid-column: 2; font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.kg-kind { display: block; width: 10px; height: 10px; margin-top: 5px; }
+.kg-kind .kg-dot { border: none; box-shadow: none; }
 .kg-chips { display: flex; gap: 4px; flex-wrap: wrap; }
 .kg-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; font-size: 12px; color: var(--muted); opacity: 0.6; }
 .kg-chip.on { opacity: 1; color: var(--text); }
 .kg-node { position: relative; width: 14px; height: 14px; cursor: pointer; }
 .kg-node.project { width: 26px; height: 26px; }
-.kg-node, .kg-chip .kg-dot { --kg: var(--p3); }
-.kg-node.project, .kg-chip.project .kg-dot { --kg: var(--text); }
-.kg-node.task, .kg-chip.task .kg-dot { --kg: var(--p2); }
-.kg-node.thought, .kg-chip.thought .kg-dot { --kg: var(--p1); }
-.kg-node.meeting, .kg-chip.meeting .kg-dot { --kg: var(--ok); }
-.kg-node.report, .kg-chip.report .kg-dot { --kg: var(--p0); }
+.kg-node, .kg-chip .kg-dot, .kg-kind { --kg: var(--p3); }
+.kg-node.project, .kg-chip.project .kg-dot, .kg-kind.project { --kg: var(--text); }
+.kg-node.task, .kg-chip.task .kg-dot, .kg-kind.task { --kg: var(--p2); }
+.kg-node.thought, .kg-chip.thought .kg-dot, .kg-kind.thought { --kg: var(--p1); }
+.kg-node.meeting, .kg-chip.meeting .kg-dot, .kg-kind.meeting { --kg: var(--ok); }
+.kg-node.report, .kg-chip.report .kg-dot, .kg-kind.report { --kg: var(--p0); }
 .kg-dot { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--kg); border: 2px solid var(--surface); box-shadow: var(--shadow); }
 .kg-chip .kg-dot { width: 10px; height: 10px; border: none; }
 .kg-node.done .kg-dot { opacity: 0.45; }
 .kg-node.far { opacity: 0.25; }
 .kg-node.hot .kg-dot { outline: 3px solid var(--focus); outline-offset: 1px; }
+.kg-node.match .kg-dot { outline: 3px solid var(--p1); outline-offset: 1px; }
+.kg-node.match .kg-label { color: var(--text); font-weight: 600; }
 .kg-node:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 50%; }
 .kg-label { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 3px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); pointer-events: none; }
 .kg-node.project .kg-label { font-size: 13px; font-weight: 700; color: var(--text); }
@@ -495,6 +507,8 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
   .app { flex-direction: column; height: auto; min-height: 100vh; }
   .sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--border); }
   .side-projects, .side-nav { flex-direction: row; flex-wrap: wrap; }
+  .kg-body { flex-direction: column; }
+  .kg-hits { width: auto; max-height: 40vh; }
   .main { overflow: visible; }
   .home, .today, .notes { grid-template-columns: 1fr; }
   .cal-grid { grid-auto-rows: minmax(70px, auto); }
