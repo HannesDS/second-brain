@@ -18,10 +18,10 @@ export type Actions = {
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
-// My day: who needs you, today's meetings, what's due, and your board (the real one, so you can drag).
+// My day: today's meetings, what's due, and your board (the real one, so you can drag).
 // Every row and card opens what it shows; secondary actions appear on hover.
-export default function Today({ vault, tasks, agents, act, openAgent, seen, fail, prep, meetingNote, board }: {
-  vault: Vault; tasks: Doc[]; agents: Agent[]; act: Actions; openAgent: (a: Agent) => void; seen: (a: Agent) => void
+export default function Today({ vault, tasks, act, fail, prep, meetingNote, board }: {
+  vault: Vault; tasks: Doc[]; act: Actions
   fail: (e: Error) => void; prep: (title: string, date: string) => void; meetingNote: (title: string, date: string, time?: string) => void
   board: React.ReactNode
 }) {
@@ -35,7 +35,6 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
 
   // Overdue and due in the next two days, most urgent first.
   const due = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.reasons.some((r) => /overdue|due/.test(r))).sort((x, y) => y.score - x.score)
-  const waiting = agents.filter((a) => a.state === 'needs-input')
   const notesToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
   const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
   return (
@@ -43,13 +42,6 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
       <p className="today-date">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
 
       <Landscape projects={vault.projects} tasks={tasks} open={act.project} />
-
-      {waiting.length > 0 && (
-        <section>
-          <h3>Agents waiting for you <span className="count">{waiting.length}</span></h3>
-          <AgentList agents={waiting} vault={vault} open={openAgent} seen={seen} act={act} />
-        </section>
-      )}
 
       <section>
         <h3>Meetings today</h3>

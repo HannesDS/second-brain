@@ -7,7 +7,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star } from 'lucide-react'
 import type { Actions } from './Today'
 import { IconButton, IconLink } from './ui'
-import { LABELS, STATUSES, api, byOrder, columnOf, isFocus, prioLabel, unlink, type Doc, type Vault } from './lib'
+import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, todayISO, unlink, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
@@ -21,8 +21,8 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
   const columns = useMemo(() => {
     const cols: Record<string, Doc[]> = Object.fromEntries(statuses.map((s) => [s, []]))
     for (const t of tasks) cols[columnOf(t)]?.push(t)
-    // Starred tasks sit at the top of their column.
-    for (const c of Object.values(cols)) c.sort((a, b) => Number(isFocus(b)) - Number(isFocus(a)) || byOrder(a, b))
+    // Starred tasks sit at the top of their column; Done shows the latest finished first.
+    for (const [s, c] of Object.entries(cols)) c.sort(s === 'done' ? byFinished : (a, b) => Number(isFocus(b)) - Number(isFocus(a)) || byOrder(a, b))
     return cols
   }, [tasks, statuses])
 
@@ -33,7 +33,8 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
     const from = columnOf(task)
     const overId = String(over.id)
     const to = overId.startsWith('col:') ? overId.slice(4) : columnOf(tasks.find((t) => t.name === overId)!)
-    if (!columns[to]) return
+    // Done sorts by when it was finished, so there is no order to change in it.
+    if (!columns[to] || (from === to && to === 'done')) return
     // Reorder the whole column, not only the cards shown, so hidden cards keep their place.
     let target: Doc[]
     if (from === to) {
@@ -49,7 +50,7 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
       .map((t, order) => ({ id: t.name, status: to, order }))
       .filter((m, i) => target[i].data.status !== m.status || Number(target[i].data.order) !== m.order)
     if (!moves.length) return
-    const patch = Object.fromEntries(moves.map((m) => [m.id, m]))
+    const patch = Object.fromEntries(moves.map((m) => [m.id, to === 'done' && m.id === task.name && from !== to ? { ...m, completed: todayISO() } : m]))
     setVault({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) })
     api('move', 'POST', moves).catch(fail)
   }

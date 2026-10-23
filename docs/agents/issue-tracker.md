@@ -11,6 +11,7 @@ Issues are tasks in the vault: one markdown file per task at `~/Projects/second-
 - Triage state is the task's `status` (see `triage-labels.md`).
 - Comments and conversation history append to the bottom of the body under `## Comments`.
 - Set `updated:` to today on every edit; keep fields you don't touch.
+- When you set `status: done`, also set `completed:` to today (the board lists the latest done first).
 
 ## When a skill says "publish to the issue tracker"
 

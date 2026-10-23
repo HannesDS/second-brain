@@ -18,6 +18,9 @@ export const list = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) 
 export const columnOf = (t: Doc) => (STATUSES.includes(t.data.status) ? t.data.status : '?')
 export const obsidian = (p: string) => `obsidian://open?path=${encodeURIComponent(p)}`
 export const byOrder = (a: Doc, b: Doc) => (Number(a.data.order) || 0) - (Number(b.data.order) || 0) || a.name.localeCompare(b.name)
+// Latest finished first. Tasks done before `completed` was stamped fall back to their last update.
+const finished = (t: Doc) => String(t.data.completed ?? t.data.updated ?? '')
+export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished(a)) || b.name.localeCompare(a.name)
 
 export async function api(url: string, method = 'GET', body?: unknown) {
   const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json' } })

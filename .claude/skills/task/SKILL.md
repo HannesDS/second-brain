@@ -41,6 +41,7 @@ Body: description, `## Acceptance criteria`, notes. Later skills add `## Decisio
 
 - Resolve the project from the user's words against `vault/projects/*.md` (`id` or `name`). If ambiguous, ask.
 - On every edit set `updated` to today. Keep fields you don't touch, including unknown ones.
+- Moving to `done`: also set `completed` to today.
 - Moving to `blocked`: ask for the reason if not given and put it in `blocked_by`.
 - Linking a meeting: add `"[[<meeting>]]"` to the task's `meetings` and `"[[T-NNNN]]"` to the meeting's `tasks`.
 - After a change, reply with one line: id, title, status, priority.
