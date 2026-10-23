@@ -83,3 +83,19 @@ test('a hung drop holds a load back for ten seconds, not for good', async () => 
     expect(fetch).toHaveBeenCalledOnce()
   } finally { vi.useRealTimers() }
 })
+
+test('a load that gave up waiting loads again once the drop is written', async () => {
+  vi.useFakeTimers()
+  try {
+    const fetch = vi.fn(async () => 'files')
+    const vault = loader(fetch, () => {})
+    const write = later<void>()
+    vault.dropped('dropped', write.promise)
+    const loading = vault.load()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await loading
+    expect(fetch).toHaveBeenCalledOnce()
+    write.settle()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+  } finally { vi.useRealTimers() }
+})

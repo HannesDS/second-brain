@@ -27,11 +27,14 @@ export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Se
   return (cards?.size ? nearest(cards) : undefined) ?? `${COL}${col}`
 }
 
-// Collision detection runs on every pointer move; a column's groups are built once per layout.
-const groups = new WeakMap<string[], Map<boolean, Set<string>>>()
+// Collision detection runs on every pointer move; a column's groups are built once per layout and per
+// `starred`, which the board makes anew when stars change.
+const groups = new WeakMap<(id: string) => boolean, WeakMap<string[], Map<boolean, Set<string>>>>()
 function group(cards: string[], mine: boolean, starred: (id: string) => boolean) {
-  if (!groups.has(cards)) groups.set(cards, new Map())
-  const byStar = groups.get(cards)!
+  if (!groups.has(starred)) groups.set(starred, new WeakMap())
+  const byCards = groups.get(starred)!
+  if (!byCards.has(cards)) byCards.set(cards, new Map())
+  const byStar = byCards.get(cards)!
   if (!byStar.has(mine)) byStar.set(mine, new Set(cards.filter((x) => starred(x) === mine)))
   return byStar.get(mine)!
 }

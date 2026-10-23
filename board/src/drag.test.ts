@@ -135,3 +135,12 @@ test('a card entering a column stays with the cards starred like it', () => {
   // When starred cards fill every place shown, the unstarred card goes below them, out of sight, as the drop will.
   expect(dragOver(withStars, 'A', 'col:wip', 2, starred).wip).toEqual(['S1', 'S2', 'A', 'D', 'E'])
 })
+
+test('the drag sees a star changed mid-drag', () => {
+  const nearest = (cards: Set<string>) => [...cards][0]
+  const sticky = { justMoved: false, active: 'A' }
+  expect(aim('col:wip', layout, nearest, sticky, () => false)).toBe('D')
+  // D got starred elsewhere: the board hands in a new `starred`, and the same layout is grouped anew.
+  expect(aim('col:wip', layout, nearest, sticky, (id) => id === 'D')).toBe('E')
+})
+
