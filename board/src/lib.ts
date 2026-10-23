@@ -29,6 +29,22 @@ export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished
 // Names this browser tab to the server, so the tab can skip the reload for a drop it already shows.
 export const TAB = crypto.randomUUID()
 
+// Whether a vault change needs a reload in this tab. The tab skips the echo of its own drop, which it
+// already shows, unless the drop landed while a reload was on its way: that reload brings the old state.
+export function echoes(tab: string = TAB) {
+  let loading = 0
+  let stale = false
+  return {
+    loading<T>(p: Promise<T>) { loading++; return p.finally(() => { loading-- }) },
+    dropped() { if (loading) stale = true },
+    needsReload(from?: string) {
+      if (from === tab && !stale) return false
+      stale = false
+      return true
+    },
+  }
+}
+
 export async function api(url: string, method = 'GET', body?: unknown) {
   const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
   const out = await res.json()

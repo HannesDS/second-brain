@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { aim, below, dragOver, dropMoves, type Layout } from './drag'
+import { aim, dragOver, dropMoves, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -52,9 +52,10 @@ test('a move to another column writes only the card', () => {
   expect(drop(dragOver(layout, 'A', 'E'), 'A', 'A')).toEqual([{ id: 'A', status: 'wip', order: 15 }])
 })
 
-test('a card below the middle of the card it is over previews after it', () => {
-  expect(dragOver(layout, 'A', 'E', undefined, true).wip).toEqual(['D', 'E', 'A'])
-  expect(drop(dragOver(layout, 'A', 'E', undefined, true), 'A', 'A')).toEqual([{ id: 'A', status: 'wip', order: 30 }])
+test('a card entering a column never goes past the cards shown', () => {
+  // My day shows 2 cards: over the 2nd it goes before it, and over the column it goes last of the 2.
+  expect(dragOver(layout, 'D', 'C', 2).todo).toEqual(['A', 'D', 'B', 'C'])
+  expect(dragOver({ ...layout, wip: ['D', 'E', 'G'] }, 'A', 'col:wip', 2).wip).toEqual(['D', 'A', 'E', 'G'])
 })
 
 test('a drop onto the column moves the card last of the cards shown', () => {
@@ -89,13 +90,8 @@ test('a card dropped under a starred card is placed among the unstarred cards on
   const withStar = { ...layout, todo: ['X', 'A', 'B', 'C'] }
   const get = (id: string) => (id === 'X' ? { status: 'todo', order: 90, focus: true } : data[id])
   expect(dropMoves(withStar, withStar, 'C', 'A', get)).toEqual([{ id: 'C', status: 'todo', order: 5 }])
-})
-
-test('a card counts as below once its middle is past the middle of the card it is over', () => {
-  const over = { top: 100, height: 40 }
-  expect(below({ top: 101, height: 40 }, over)).toBe(true)
-  expect(below({ top: 99, height: 40 }, over)).toBe(false)
-  expect(below(null, over)).toBe(false)
+  // Moved above the starred card only: it still shows below it, so nothing changes.
+  expect(dropMoves(withStar, withStar, 'A', 'X', get)).toEqual([])
 })
 
 test('over a column the drag aims at its nearest card, an empty column at the column', () => {

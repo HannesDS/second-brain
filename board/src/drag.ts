@@ -12,10 +12,6 @@ const lastShown = (length: number, limit?: number) => Math.min(length, limit ?? 
 const columnFor = (layout: Layout, id: string) =>
   id.startsWith(COL) ? id.slice(COL.length) : Object.keys(layout).find((s) => layout[s].includes(id))
 
-// After the card it's over once the dragged card's middle is past that card's middle.
-type Rect = { top: number; height: number }
-export const below = (dragged: Rect | null, over: Rect) => !!dragged && dragged.top + dragged.height / 2 > over.top + over.height / 2
-
 // Where a drag aims, given what the pointer hit. Over a column, at its nearest card. Over nothing right
 // after the card changed column, at the card itself until the layout has caught up; otherwise at the last
 // target. Without this the card flips between two columns at their edge (dnd-kit's multiple-containers recipe).
@@ -30,16 +26,17 @@ export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Se
   return sticky.last
 }
 
-// Dragging over another column moves the card into it, next to the card it's over (after it when the
-// dragged card is `below` its middle), or last of the cards shown when it's over the column itself. Done lists the latest finished first, so there it goes on top.
+// Dragging over another column moves the card into it, before the card it's over, or last of the cards
+// shown when it's over the column itself. From there the sortable list moves it within the column. It
+// never goes past the cards shown, or it would vanish mid-drag on My day. Done lists the latest finished first, so there it goes on top.
 // Same layout back when nothing changes, or for the unknown-status column, which a drop can't move to.
-export function dragOver(layout: Layout, id: string, over: string, limit?: number, below = false): Layout {
+export function dragOver(layout: Layout, id: string, over: string, limit?: number): Layout {
   const from = columnFor(layout, id)
   const to = columnFor(layout, over)
   if (!from || !to || from === to || to === '?') return layout
   const target = layout[to]
   const i = target.indexOf(over)
-  const at = to === 'done' ? 0 : i >= 0 ? i + Number(below) : lastShown(target.length + 1, limit)
+  const at = to === 'done' ? 0 : Math.min(i >= 0 ? i : Infinity, lastShown(target.length + 1, limit))
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
@@ -67,6 +64,8 @@ export function dropMoves(before: Layout, now: Layout, id: string, over: string,
   const fits = (o: number) => Number.isInteger(o) && o > (prev ?? 0) && (next === undefined || o < next)
   const own = order(id)!
   const fit = [own, next === undefined ? (prev ?? 0) + STEP : Math.floor(((prev ?? 0) + next) / 2)].find(fits)
+  // Moved only across starred cards, which sort on their own: nothing to write.
+  if (fit === own && current(id).status === to) return []
   if (fit !== undefined) return [{ id, status: to, order: fit }]
   return ids.map((x, n) => ({ id: x, status: to, order: (n + 1) * STEP }))
     .filter((m) => current(m.id).status !== m.status || Number(current(m.id).order) !== m.order)

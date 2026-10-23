@@ -7,7 +7,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, below, dragOver, dropMoves, type Layout, type Sticky } from './drag'
+import { aim, dragOver, dropMoves, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -55,9 +55,10 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
   function onDragOver({ active: a, over }: DragOverEvent) {
     if (!over) return
     const now = live.current ?? layout
-    const next = dragOver(now, String(a.id), String(over.id), limit, below(a.rect.current.translated, over.rect))
+    const next = dragOver(now, String(a.id), String(over.id), limit)
     if (next === now) return
-    sticky.current.justMoved = true
+    // The card now stands where the target was, which may have been pushed out of sight: aim at the card.
+    sticky.current = { ...sticky.current, last: String(a.id), justMoved: true }
     setPreview(next)
   }
 
