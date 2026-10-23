@@ -1,4 +1,4 @@
-import { columnOf, hillRings, unlink, type Doc } from './lib'
+import { URGENT, columnOf, hillRings, unlink, type Doc } from './lib'
 
 // Terrain's signature view: every project is a hill. More open tasks, more contour lines.
 // Ring colours run from the peak outwards: blocked, in progress, review, to do.
@@ -15,7 +15,7 @@ export default function Landscape({ projects, tasks, open }: { projects: Doc[]; 
     .filter((p) => (p.data.status ?? 'active') === 'active')
     .map((p) => {
       const mine = tasks.filter((t) => unlink(t.data.project) === p.name && columnOf(t) !== 'done')
-      return { id: p.name, name: p.data.name ?? p.name, open: mine.length, rings: hillRings(mine.map(columnOf)), hot: mine.some((t) => ['p0', 'p1'].includes(t.data.priority)) }
+      return { id: p.name, name: p.data.name ?? p.name, open: mine.length, rings: hillRings(mine.map(columnOf)), hot: mine.some((t) => URGENT.includes(t.data.priority)) }
     })
     .filter((h) => h.open > 0)
     .sort((a, b) => b.open - a.open)

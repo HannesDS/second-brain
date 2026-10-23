@@ -505,8 +505,10 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-trail-mark.similar { border-top-style: dotted; }
 .bt-legend { display: flex; flex-direction: column; gap: 2px; padding: 8px; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); font-size: 12px; }
 .bt-legend-row { display: flex; align-items: center; gap: 10px; padding: 3px 6px; border: none; background: none; text-align: left; color: var(--muted); border-radius: 8px; }
-button.bt-legend-row { opacity: .5; }
-button.bt-legend-row.on { opacity: 1; color: var(--text); }
+button.bt-legend-row { text-decoration: line-through; }
+button.bt-legend-row svg { opacity: .35; }
+button.bt-legend-row.on { text-decoration: none; color: var(--text); }
+button.bt-legend-row.on svg { opacity: 1; }
 button.bt-legend-row:hover { background: var(--surface-2); }
 .bt-legend-row svg { flex: none; width: 18px; height: 18px; overflow: visible; }
 .bt-compass { display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; font: 500 11px var(--font-mono, ui-monospace, monospace); color: var(--muted); }

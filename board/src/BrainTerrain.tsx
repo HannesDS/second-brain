@@ -2,9 +2,9 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Maximize, Minus, Plus, Search, X } from 'lucide-react'
 import { BLOB } from './Landscape'
 import { step } from './combobox'
-import { KINDS, filterGraph, mapOf, type Box, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind } from './graph'
+import { KINDS, filterGraph, hillBox, mapOf, type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind } from './graph'
 import { IconButton } from './ui'
-import { LABELS, api, type Vault } from './lib'
+import { LABELS, OPEN_WORK, api, type Vault } from './lib'
 
 type View = { x: number; y: number; k: number }
 type PlaceKind = Exclude<Kind, 'project'>
@@ -14,18 +14,19 @@ const MAX_K = 4
 const NAMES_AT = 1.3
 const short = (t: string) => (t.length > 34 ? `${t.slice(0, 32)}…` : t)
 // Which names win when they would overlap: what you look at, then open work, then notes, then done work.
-const rank = (n: GraphNode) => (n.kind !== 'task' ? 2 : n.status === 'done' ? 3 : ['wip', 'blocked', 'review'].includes(n.status) ? 0 : 1)
+const rank = (n: GraphNode) => (n.kind !== 'task' ? 2 : n.status === 'done' ? 3 : OPEN_WORK.includes(n.status) ? 0 : 1)
 const clampK = (k: number) => Math.min(MAX_K, Math.max(MIN_K, k))
-const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches
-const stop = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => e.stopPropagation() }
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+// Overlays sit on the map: a press or click on them must not pan the map or clear what you picked.
+const stopMap = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => e.stopPropagation() }
 
 const PLACE_LABEL: Record<PlaceKind, string> = { task: 'Task', thought: 'Thought', meeting: 'Meeting', report: 'Report' }
 const LEGEND: [PlaceKind, string][] = [
   ['task', 'Tasks: in progress near the summit, done at the foot'], ['thought', 'Thoughts'], ['meeting', 'Meetings'], ['report', 'Teach reports'],
 ]
 
-// A place's map symbol, in world units around (0, 0). Tasks use the design system's status markers.
-function Symbol({ kind, status, s }: { kind: PlaceKind; status: string; s: number }) {
+// A place's map marker, `s` world units across, around (0, 0). Tasks use the design system's status markers.
+function Marker({ kind, status, s }: { kind: PlaceKind; status: string; s: number }) {
   if (kind === 'thought') return <circle className="sym" r={s * 0.5} />
   if (kind === 'meeting') return <path className="sym" d={`M${-s * 0.5},${s * 0.45} V${-s * 0.1} L0,${-s * 0.55} L${s * 0.5},${-s * 0.1} V${s * 0.45} Z`} />
   if (kind === 'report') return <path className="sym" d={`M${-s * 0.35},${s * 0.6} V${-s * 0.6} L${s * 0.5},${-s * 0.35} L${-s * 0.35},${-s * 0.1}`} />
@@ -35,12 +36,11 @@ function Symbol({ kind, status, s }: { kind: PlaceKind; status: string; s: numbe
 }
 
 // A trail between two places: a gentle curve, always bending the same way, never far off the straight line.
-const trail = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+const trailPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
   const [dx, dy] = [b.x - a.x, b.y - a.y]
   const bend = Math.min(0.18, 40 / (Math.hypot(dx, dy) || 1))
   return `M${a.x},${a.y} Q${(a.x + b.x) / 2 - dy * bend},${(a.y + b.y) / 2 + dx * bend} ${b.x},${b.y}`
 }
-const hillBox = (h: Hill): Box => ({ x: h.x - h.r, y: h.y - h.r - 40, w: 2 * h.r, h: 2 * h.r + 50 })
 
 // Brain Terrain: the vault as a map. Projects are hills, their docs sit on the slopes, links are trails.
 // It follows the global context; the global project is where the map flies to.
@@ -77,7 +77,7 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
 
   const flyTo = useCallback((to: View) => {
     cancelAnimationFrame(flight.current)
-    if (still()) return setView(to)
+    if (reducedMotion()) return setView(to)
     const from = viewRef.current
     const t0 = performance.now()
     const frame = (t: number) => {
@@ -90,7 +90,7 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   }, [])
   // Leaves room for the search on top and the legend below, so nothing you framed hides behind them.
   const frameBox = useCallback((b: Box, max: number): View => {
-    const k = clampK(Math.min(max, (size.w - 120) / b.w, (size.h - 200) / b.h))
+    const k = clampK(Math.min(max, (size.w - 120) / (b.w || 1), (size.h - 200) / (b.h || 1)))
     return { k, x: size.w / 2 - (b.x + b.w / 2) * k, y: size.h / 2 + 10 - (b.y + b.h / 2) * k }
   }, [size])
 
@@ -143,6 +143,8 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
   }
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current
+    // The button was let go somewhere we never heard about (outside the window, a system dialog).
+    if (d && !e.buttons) return onPointerUp()
     if (!d || (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4)) return
     if (!d.moved) { d.moved = true; setPanning(true); host.current?.setPointerCapture(e.pointerId) }
     setView((v) => ({ ...v, x: d.vx + e.clientX - d.x, y: d.vy + e.clientY - d.y }))
@@ -168,38 +170,60 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
 
   const ready = map && shown
   const focus = hover || picked
-  const nearFocus = new Set(focus && shown ? [focus, ...shown.edges.flatMap((e) => (e.a === focus ? [e.b] : e.b === focus ? [e.a] : []))] : [])
-  const visible = (id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }
+  // The project you're in: everything off its hill fades, unless you point at it.
+  const home = scope && map?.hills.some((h) => h.project === scope) ? scope : ''
+  // Who is next to whom: over any edge (a hill and its docs too), and over trails only.
+  const [neighbours, trailEnds] = useMemo(() => {
+    const all = new Map<string, Set<string>>()
+    const trail = new Map<string, Set<string>>()
+    for (const e of shown?.edges ?? []) {
+      for (const [x, y] of [[e.a, e.b], [e.b, e.a]]) {
+        all.set(x, (all.get(x) ?? new Set()).add(y))
+        if (e.kind !== 'project') trail.set(x, (trail.get(x) ?? new Set()).add(y))
+      }
+    }
+    return [all, trail]
+  }, [shown])
+  const nearFocus = useMemo(() => new Set(focus ? [focus, ...(neighbours.get(focus) ?? [])] : []), [focus, neighbours])
+  const faded = (n: GraphNode) => (focus ? !nearFocus.has(n.id) : !!home && n.project !== home)
+  const places = useMemo(() => shown?.nodes.filter((n) => n.kind !== 'project' && kinds.includes(n.kind)) ?? [], [shown, kinds])
   // Trails inside one hill, and the faint similar ones, show only up close or from the place you point at:
   // from afar the map keeps the trails between hills and the lowlands.
-  const local = (e: KnowledgeGraph['edges'][number]) => e.kind === 'similar' || (!!byId.get(e.a)?.project && byId.get(e.a)?.project === byId.get(e.b)?.project)
-  const trails = shown?.edges.filter((e) => e.kind !== 'project' && links.includes(e.kind) && visible(e.a) && visible(e.b)
-    && (!local(e) || view.k >= NAMES_AT || e.a === focus || e.b === focus)) ?? []
-  const places = shown?.nodes.filter((n) => n.kind !== 'project' && kinds.includes(n.kind)) ?? []
-  // Symbols shrink slower than the map, names keep their size on screen.
-  const s = 9 / Math.sqrt(view.k)
-  const label = 12 / view.k
+  const trails = useMemo(() => {
+    const visible = (id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }
+    const local = (e: GraphEdge) => e.kind === 'similar' || (!!byId.get(e.a)?.project && byId.get(e.a)?.project === byId.get(e.b)?.project)
+    return shown?.edges.filter((e) => e.kind !== 'project' && links.includes(e.kind) && visible(e.a) && visible(e.b)
+      && (!local(e) || view.k >= NAMES_AT || e.a === focus || e.b === focus)) ?? []
+  }, [shown, byId, kinds, links, view.k >= NAMES_AT, focus])
+  // Markers shrink slower than the map; names keep their size on screen.
+  const markerSize = 9 / Math.sqrt(view.k)
+  const nameSize = 12 / view.k
   const pickedNode = byId.get(picked)
   // Names are placed like on a printed map: most important first, and one that would cover another is left out.
-  const named = new Set<string>()
-  if (map) {
+  // Only the zoom changes their boxes, so panning reuses the last placement.
+  const named = useMemo(() => {
+    const out = new Set<string>()
+    if (!map) return out
+    // From afar only what you point at and the places its trails lead to get a name (pointing at a hill names none).
+    const linked = new Set(focus ? [focus, ...(trailEnds.get(focus) ?? [])] : [])
     const taken: Box[] = []
-    const candidates = places.filter((n) => view.k >= NAMES_AT || nearFocus.has(n.id))
-      .sort((a, b) => Number(b.id === focus) - Number(a.id === focus) || Number(nearFocus.has(b.id)) - Number(nearFocus.has(a.id)) || rank(a) - rank(b) || a.id.localeCompare(b.id))
+    const candidates = places.filter((n) => view.k >= NAMES_AT || linked.has(n.id))
+      .sort((a, b) => Number(b.id === focus) - Number(a.id === focus) || Number(linked.has(b.id)) - Number(linked.has(a.id)) || rank(a) - rank(b) || a.id.localeCompare(b.id))
     for (const n of candidates) {
       const p = map.at.get(n.id)!
       const w = (short(n.title).length * 6.3 + 6) / view.k
-      const box = { x: p.x - w / 2, y: p.y + s, w, h: label * 1.3 }
+      const box = { x: p.x - w / 2, y: p.y + markerSize, w, h: nameSize * 1.3 }
       if (n.id !== focus && taken.some((t) => box.x < t.x + t.w && t.x < box.x + box.w && box.y < t.y + t.h && t.y < box.y + box.h)) continue
       taken.push(box)
-      named.add(n.id)
+      out.add(n.id)
     }
-  }
+    return out
+  }, [map, places, focus, trailEnds, view.k])
   const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
 
   return (
     <main className="bt-page">
-      <div className={`bt-map ${panning ? 'panning' : ''}`} ref={host} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+      <div className={`bt-map ${panning ? 'panning' : ''}`} ref={host} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onClick={() => !dragged() && setPicked('')}>
         {!ready && <p className="bt-empty muted">Charting the terrain…</p>}
         {ready && size.w > 0 && (
@@ -213,16 +237,16 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
               {map.uncharted && (
                 <g className="bt-uncharted">
                   <rect x={map.uncharted.x} y={map.uncharted.y} width={map.uncharted.w} height={map.uncharted.h} rx={22} />
-                  <text x={map.uncharted.x + 12} y={map.uncharted.y - label * 0.6} fontSize={label}>UNCHARTED · linked to nothing yet</text>
+                  <text x={map.uncharted.x + 12} y={map.uncharted.y - nameSize * 0.6} fontSize={nameSize}>UNCHARTED · linked to nothing yet</text>
                 </g>
               )}
               {map.hills.map((h, i) => {
                 const rings = [...h.rings].reverse()
                 return (
-                  <g key={h.id} className={`bt-hill ${focus && !nearFocus.has(h.id) ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
+                  <g key={h.id} className={`bt-hill ${focus ? (nearFocus.has(h.id) ? '' : 'far') : home && h.project !== home ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
                     role="button" tabIndex={0} aria-label={`${h.title}: ${h.open} open, ${h.docs} docs`}
                     onClick={(e) => { e.stopPropagation(); if (!dragged()) goTo(h.id) }} onDoubleClick={() => open(byId.get(h.id)!)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') goTo(h.id) }} onPointerEnter={() => setHover(h.id)} onPointerLeave={() => setHover('')}>
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(h.id) } }} onPointerEnter={() => setHover(h.id)} onPointerLeave={() => setHover('')}>
                     <g transform={`rotate(${((i * 37) % 40) - 20})`}>
                       {[0, 1, 2, 3].map((k) => <use key={`b${k}`} href="#bt-blob" className="ring base" transform={`scale(${(h.r / 100) * (1 - k * 0.1)})`} />)}
                       {rings.map((st, k) => <use key={k} href="#bt-blob" className={`ring ${st}`} transform={`scale(${(h.r / 100) * 0.6 * (1 - (k + 1) / (rings.length + 1.5))})`} />)}
@@ -237,18 +261,18 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
                 const [a, b] = [map.at.get(e.a), map.at.get(e.b)]
                 if (!a || !b) return null
                 const lit = focus && (e.a === focus || e.b === focus)
-                return <path key={`${e.a}\n${e.b}`} className={`bt-trail ${e.kind} ${lit ? 'lit' : focus ? 'far' : ''}`} d={trail(a, b)} />
+                return <path key={`${e.a}\n${e.b}\n${e.kind}`} className={`bt-trail ${e.kind} ${lit ? 'lit' : focus || home ? 'far' : ''}`} d={trailPath(a, b)} />
               })}
               {places.map((n) => {
                 const p = map.at.get(n.id)!
                 return (
-                  <g key={n.id} className={`bt-place ${n.kind} ${n.status} ${picked === n.id ? 'picked' : ''} ${focus && !nearFocus.has(n.id) ? 'far' : ''}`}
-                    transform={`translate(${p.x} ${p.y})`} onClick={(e) => { e.stopPropagation(); if (!dragged()) setPicked(n.id) }} onDoubleClick={() => open(n)}
+                  <g key={n.id} className={`bt-place ${n.kind} ${n.status} ${picked === n.id ? 'picked' : ''} ${faded(n) ? 'far' : ''}`}
+                    transform={`translate(${p.x} ${p.y})`} onClick={(e) => { e.stopPropagation(); if (!dragged()) (picked === n.id ? open(n) : setPicked(n.id)) }} onDoubleClick={() => open(n)}
                     onPointerEnter={() => setHover(n.id)} onPointerLeave={() => setHover('')}>
                     <title>{n.title}</title>
-                    <circle className="bt-hit" r={s} />
-                    <Symbol kind={n.kind as PlaceKind} status={n.status} s={s} />
-                    {named.has(n.id) && <text className="bt-place-name" y={s + label} fontSize={label} textAnchor="middle">{short(n.title)}</text>}
+                    <circle className="bt-hit" r={markerSize} />
+                    <Marker kind={n.kind as PlaceKind} status={n.status} s={markerSize} />
+                    {named.has(n.id) && <text className="bt-place-name" y={markerSize + nameSize} fontSize={nameSize} textAnchor="middle">{short(n.title)}</text>}
                   </g>
                 )
               })}
@@ -257,21 +281,21 @@ export default function BrainTerrain({ vault, context, scope, open, fail }: {
         )}
 
         {ready && <>
-          <div className="bt-overlay top-left" {...stop}><Finder nodes={shown.nodes} go={goTo} /></div>
-          <div className="bt-overlay top-right bt-zoom" {...stop}>
+          <div className="bt-overlay top-left" {...stopMap}><Finder nodes={shown.nodes} go={goTo} /></div>
+          <div className="bt-overlay top-right bt-zoom" {...stopMap}>
             <IconButton icon={Plus} label="Zoom in" onClick={() => zoomBy(1.5)} />
             <IconButton icon={Minus} label="Zoom out" onClick={() => zoomBy(1 / 1.5)} />
             <IconButton icon={Maximize} label="Show the whole map" onClick={() => { setPicked(''); flyTo(frameBox(map.bounds, 1)) }} />
           </div>
-          {pickedNode && <Card node={pickedNode} hill={map.hills.find((h) => h.id === picked)} edges={shown.edges} byId={byId} open={open} go={goTo} close={() => setPicked('')} />}
-          <div className="bt-overlay bottom-left bt-legend" {...stop}>
+          {pickedNode && <Card node={pickedNode} hills={map.hills} edges={shown.edges} byId={byId} open={open} go={goTo} close={() => setPicked('')} />}
+          <div className="bt-overlay bottom-left bt-legend" {...stopMap}>
             <div className="bt-legend-row">
               <svg viewBox="-12 -12 24 24" aria-hidden><use href="#bt-blob" className="ring base" transform="scale(.1)" /><use href="#bt-blob" className="peak hot" transform="scale(.035)" /></svg>
               Hills are projects; an ochre peak has urgent work
             </div>
             {LEGEND.map(([k, text]) => (
               <button key={k} className={`bt-legend-row ${kinds.includes(k) ? 'on' : ''}`} aria-pressed={kinds.includes(k)} onClick={() => toggle(kinds, setKinds, k)}>
-                <svg viewBox="-8 -8 16 16" aria-hidden><g className={`bt-place ${k} ${k === 'task' ? 'wip' : ''}`}><Symbol kind={k} status={k === 'task' ? 'wip' : ''} s={11} /></g></svg>
+                <svg viewBox="-8 -8 16 16" aria-hidden><g className={`bt-place ${k} ${k === 'task' ? 'wip' : ''}`}><Marker kind={k} status={k === 'task' ? 'wip' : ''} s={11} /></g></svg>
                 {text}
               </button>
             ))}
@@ -314,9 +338,9 @@ function Finder({ nodes, go }: { nodes: GraphNode[]; go: (id: string) => void })
           else if (e.key === 'Enter' && hits.length) { e.preventDefault(); pick(hits[Math.max(0, active)]) }
           else if (e.key === 'Escape') setQ('')
         }} />
-      {terms.length >= 2 && (
+      {terms.length >= 2 && !hits.length && <p className="bt-hits muted">Nothing on the map called “{q.trim()}”</p>}
+      {hits.length > 0 && (
         <ul id={`${id}-hits`} role="listbox" aria-label="Places" className="bt-hits">
-          {!hits.length && <li className="muted">Nothing on the map called “{q.trim()}”</li>}
           {hits.map((n, i) => (
             <li key={n.id} id={`${id}-${i}`} role="option" aria-selected={i === active} onMouseMove={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(n)}>
               <span className="bt-hit-kind">{n.kind === 'project' ? 'hill' : n.kind}</span>
@@ -331,16 +355,24 @@ function Finder({ nodes, go }: { nodes: GraphNode[]; go: (id: string) => void })
 }
 
 // What you picked: what it is, where it is, and the trails that leave it.
-function Card({ node, hill, edges, byId, open, go, close }: {
-  node: GraphNode; hill?: Hill; edges: KnowledgeGraph['edges']; byId: Map<string, GraphNode>
+function Card({ node, hills, edges, byId, open, go, close }: {
+  node: GraphNode; hills: Hill[]; edges: GraphEdge[]; byId: Map<string, GraphNode>
   open: (n: GraphNode) => void; go: (id: string) => void; close: () => void
 }) {
+  // One line per neighbour, links before docs that only read alike.
+  const seen = new Set<string>()
   const near = edges.filter((e) => e.kind !== 'project' && (e.a === node.id || e.b === node.id))
-    .flatMap((e) => { const n = byId.get(e.a === node.id ? e.b : e.a); return n ? [{ n, kind: e.kind }] : [] })
     .sort((a, b) => Number(a.kind === 'similar') - Number(b.kind === 'similar'))
-  const project = node.kind !== 'project' && node.project ? byId.get(`projects/${node.project}.md`) : undefined
+    .flatMap((e) => {
+      const n = byId.get(e.a === node.id ? e.b : e.a)
+      if (!n || seen.has(n.id)) return []
+      seen.add(n.id)
+      return [{ n, kind: e.kind }]
+    })
+  const hill = node.kind === 'project' ? hills.find((h) => h.id === node.id) : undefined
+  const project = node.kind !== 'project' ? hills.find((h) => h.project === node.project) : undefined
   return (
-    <aside className="bt-overlay bt-card" aria-label="Picked place" {...stop}>
+    <aside className="bt-overlay bt-card" aria-label="Picked place" {...stopMap}>
       <div className="bt-card-head">
         <span className="bt-card-kind">{node.kind === 'project' ? 'Hill' : PLACE_LABEL[node.kind]}{node.kind === 'task' ? ` · ${node.name}` : ''}</span>
         <span className="spacer" />

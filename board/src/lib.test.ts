@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import { loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
+import { hillRings, loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -67,4 +67,13 @@ test('a failed drop reloads what the files say', async () => {
   write.fail(new Error('invalid frontmatter'))
   await reload
   expect(set.mock.calls).toEqual([['dropped'], ['files']])
+})
+
+test('hill rings share out open work by status, from the peak outwards, ready counting as to do', () => {
+  expect(hillRings([])).toEqual([])
+  expect(hillRings(['todo', 'wip', 'blocked'])).toEqual(['blocked', 'wip', 'todo'])
+  expect(hillRings(['ready', 'ready'])).toEqual(['todo', 'todo'])
+  const many = hillRings([...Array(20).fill('todo'), 'review'])
+  expect(many).toHaveLength(7)
+  expect(many[0]).toBe('review')
 })

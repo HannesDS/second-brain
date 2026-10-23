@@ -82,3 +82,24 @@ test('the map: hills never overlap, a project\'s docs sit on its hill, loose doc
   expect(lost.y).toBeGreaterThan(m.uncharted!.y)
   expect(m.bounds.y + m.bounds.h).toBeGreaterThanOrEqual(lost.y)
 })
+
+test('many loose docs around one hill all end up off it', () => {
+  const nodes: GraphNode[] = [node('projects/a.md', 'project', 'a'), node('tasks/a1.md', 'task', 'a')]
+  const edges: KnowledgeGraph['edges'] = [{ a: 'projects/a.md', b: 'tasks/a1.md', kind: 'project' }]
+  for (let i = 0; i < 40; i++) {
+    nodes.push(node(`inbox/t${i}.md`, 'thought'))
+    edges.push({ a: `inbox/t${i}.md`, b: 'tasks/a1.md', kind: 'link' })
+  }
+  const m = mapOf({ nodes, edges })
+  const [h] = m.hills
+  for (let i = 0; i < 40; i++) {
+    const p = m.at.get(`inbox/t${i}.md`)!
+    expect(Math.hypot(p.x - h.x, p.y - h.y)).toBeGreaterThan(h.r)
+  }
+})
+
+test('an empty map has no hills and a finite frame', () => {
+  const m = mapOf({ nodes: [], edges: [] })
+  expect(m.hills).toEqual([])
+  expect(Object.values(m.bounds).every(Number.isFinite)).toBe(true)
+})

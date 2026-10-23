@@ -315,9 +315,7 @@
 [data-theme="terrain"] .bt-hill-name, [data-theme="terrain"] .bt-place-name { stroke: var(--bg); }
 [data-theme="terrain"] .bt-hill-meta { stroke: var(--bg); }
 [data-theme="terrain"] .bt-hill.picked .ring.base:first-child { stroke: var(--highlight); stroke-width: 2.5; }
-[data-theme="terrain"] .bt-trail { stroke: var(--muted); }
 [data-theme="terrain"] .bt-trail.lit { stroke: var(--highlight); }
-[data-theme="terrain"] .bt-place.task.ready .sym { fill: var(--p2); }
 [data-theme="terrain"] .bt-place.task.wip .sym { fill: var(--st-wip-ink); }
 [data-theme="terrain"] .bt-place.task.review .sym { fill: var(--st-review-ink); }
 [data-theme="terrain"] .bt-place.task.blocked .sym { fill: var(--st-blocked); }

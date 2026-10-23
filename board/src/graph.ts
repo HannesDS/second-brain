@@ -1,13 +1,10 @@
 // The Brain Terrain graph: every vault doc a node, wikilinks, `project` fields and similar content the edges.
 // The server builds it (board/graph.ts); the page filters it and draws it as a map, laid out here.
-import { hillRings } from './lib'
+import { OPEN_WORK, URGENT, hillRings } from './lib'
 
 export const KINDS = ['project', 'task', 'thought', 'meeting', 'report'] as const
 export type Kind = (typeof KINDS)[number]
-export const KIND_LABEL: Record<Kind, string> = { project: 'Projects', task: 'Tasks', thought: 'Thoughts', meeting: 'Meetings', report: 'Reports' }
-export const LINKS = ['link', 'project', 'similar'] as const
-export type LinkKind = (typeof LINKS)[number]
-export const LINK_LABEL: Record<LinkKind, string> = { link: 'Links', project: 'Project', similar: 'Similar' }
+export type LinkKind = 'link' | 'project' | 'similar'
 
 // `id` is the vault path (tasks/T-0001.md). `project` is the project it belongs to, a project's own name for a project.
 // `contexts`: its project's, or for a doc outside a project those of the docs it links to.
@@ -84,12 +81,14 @@ export function layout(nodes: { id: string }[], edges: GraphEdge[], iterations =
 export type Hill = { id: string; project: string; title: string; x: number; y: number; r: number; open: number; docs: number; hot: boolean; rings: string[] }
 export type Box = { x: number; y: number; w: number; h: number }
 export type TerrainMap = { hills: Hill[]; at: Map<string, Point>; uncharted?: Box; bounds: Box }
+// What a hill takes up on the map, its name above it included.
+export const hillBox = (h: Hill): Box => ({ x: h.x - h.r, y: h.y - h.r - 50, w: 2 * h.r, h: 2 * h.r + 50 })
 
 const GOLDEN = 2.39996
 // Room between hills, also for the name above each one.
 const HILL_GAP = 140
 const PLACE_GAP = 26
-const elevation = (n: GraphNode) => (n.kind !== 'task' ? 0.92 : ['wip', 'blocked', 'review'].includes(n.status) ? 0.28 : n.status === 'done' ? 0.74 : 0.5)
+const elevation = (n: GraphNode) => (n.kind !== 'task' ? 0.92 : OPEN_WORK.includes(n.status) ? 0.28 : n.status === 'done' ? 0.74 : 0.5)
 const isOpen = (n: GraphNode) => n.kind === 'task' && n.status !== 'done'
 
 export function mapOf(g: KnowledgeGraph): TerrainMap {
@@ -110,7 +109,7 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
     return {
       id: p.id, project: p.project, title: p.title, ...start.get(p.id)!, r: 70 + 24 * Math.sqrt(mine.length),
       open: mine.filter(isOpen).length, docs: mine.length, rings: hillRings(mine.filter(isOpen).map((n) => n.status)),
-      hot: mine.some((n) => isOpen(n) && ['p0', 'p1'].includes(n.priority)),
+      hot: mine.some((n) => isOpen(n) && URGENT.includes(n.priority)),
     }
   })
   // The force layout spreads a few nodes wide: pull them in to about the area the hills need, then part them.
@@ -149,18 +148,19 @@ export function mapOf(g: KnowledgeGraph): TerrainMap {
       at.set(n.id, p)
     }
   }
+  // Parting the lowland docs can push one back onto a hill, so every round ends by lifting them off.
   for (let round = 0; round < 40; round++) {
+    apart(lowland, () => PLACE_GAP / 2, 1)
     for (const p of lowland) {
       for (const h of hills) {
         const d = Math.hypot(p.x - h.x, p.y - h.y) || 1
         if (d < h.r + PLACE_GAP) { p.x = h.x + ((p.x - h.x) / d) * (h.r + PLACE_GAP); p.y = h.y + ((p.y - h.y) / d) * (h.r + PLACE_GAP) }
       }
     }
-    apart(lowland, () => PLACE_GAP / 2, 1)
   }
   for (const p of lowland) at.set(p.id, { x: p.x, y: p.y })
 
-  const charted = boxOf([...hills.map((h) => ({ x: h.x - h.r, y: h.y - h.r - 40, w: 2 * h.r, h: 2 * h.r + 40 })), ...lowland.map((p) => ({ x: p.x, y: p.y, w: 0, h: 0 }))])
+  const charted = boxOf([...hills.map(hillBox), ...lowland.map((p) => ({ x: p.x, y: p.y, w: 0, h: 0 }))])
   let uncharted: Box | undefined
   if (lost.length) {
     const cols = Math.max(1, Math.floor(Math.max(charted.w, 400) / 90))
