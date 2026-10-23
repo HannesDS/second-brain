@@ -6,6 +6,7 @@ import {
   KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, unfiled, walkOf,
   type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind, type Point,
 } from './graph'
+import { load as loadLocal, save as saveLocal } from './Home'
 import { IconButton } from './ui'
 import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, todayISO, type Agent, type Vault } from './lib'
 
@@ -27,6 +28,9 @@ const stopMap = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
 const time = (at: string) => at.slice(11, 16)
 
 const PLACE_LABEL: Record<PlaceKind, string> = { task: 'Task', thought: 'Thought', meeting: 'Meeting', report: 'Report', lake: 'Lake' }
+// What the key can hide or show, each on its own: hills, every kind of place, trails, your day and agents.
+const LAYERS = ['hills', 'task', 'thought', 'meeting', 'report', 'lake', 'link', 'similar', 'walk', 'agents'] as const
+type Layer = (typeof LAYERS)[number]
 // The map key (docs/MAP-STYLE.md). Each row hides or shows that kind of place.
 const LEGEND: [PlaceKind, string, string][] = [
   ['task', 'wip', 'Tasks: waypoint, camp, pass, closed, summit'], ['thought', 'tree', 'Thoughts: trees, unfiled ones saplings'],
@@ -76,8 +80,12 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
   vault: Vault; context: string; scope: string; agents: Agent[]; open: (n: GraphNode) => void; fail: (e: Error) => void
 }) {
   const [graph, setGraph] = useState<KnowledgeGraph>()
-  const [kinds, setKinds] = useState<Kind[]>([...KINDS])
-  const [links, setLinks] = useState<LinkKind[]>(['link', 'similar'])
+  // Remembered in this browser, so a layer you hid stays hidden.
+  const [layers, setLayersState] = useState<Layer[]>(() => loadLocal<string[]>('sb.terrainLayers', [...LAYERS]).filter((l): l is Layer => LAYERS.includes(l as Layer)))
+  const setLayers = (l: Layer[]) => { setLayersState(l); saveLocal('sb.terrainLayers', l) }
+  const kinds = useMemo(() => KINDS.filter((k) => k === 'project' || layers.includes(k)), [layers])
+  const links = useMemo(() => (['link', 'similar'] as const).filter((l) => layers.includes(l)), [layers])
+  const showing = (l: Layer) => layers.includes(l)
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 })
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [picked, setPicked] = useState('')
@@ -106,7 +114,7 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
   const visible = useCallback((id: string) => { const n = byId.get(id); return !!n && (n.kind === 'project' || kinds.includes(n.kind)) }, [byId, kinds])
   // The walk only goes where the key shows places. Read every render, so it moves on at midnight.
   const today = todayISO()
-  const walk = useMemo(() => map && shown && walkOf((shown.walk ?? []).filter((w) => visible(w.id)), map.at, byId, today), [map, shown, byId, visible, today])
+  const walk = useMemo(() => map && shown && walkOf(layers.includes('walk') ? (shown.walk ?? []).filter((w) => visible(w.id)) : [], map.at, byId, today), [map, shown, byId, visible, today, layers])
   // Where a place is drawn: today's thoughts stand on the walk, everything else where the map put it.
   const where = useCallback((id: string) => walk?.planted.get(id) ?? map?.at.get(id), [walk, map])
 
@@ -258,10 +266,14 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
     }
     return out
   }, [map, places, focus, trailEnds, matches, view.k, where])
-  const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
+  const toggle = (l: Layer) => setLayers(showing(l) ? layers.filter((x) => x !== l) : [...layers, l])
+  const allOn = LAYERS.every(showing)
+  const row = (l: Layer, mark: React.ReactNode, text: string) => (
+    <button key={l} className={`bt-legend-row ${showing(l) ? 'on' : ''}`} aria-pressed={showing(l)} onClick={() => toggle(l)}>{mark}{text}</button>
+  )
   const fadeHill = (h: Hill) => (focus ? !nearFocus.has(h.id) : matches ? !(matches.has(h.id) || matchedHills.has(h.id)) : !!home && h.project !== home)
   // Agents on the map: a cable line from the foot of the task's hill up to the task. Waiting ones pulse.
-  const cables = map ? agents.filter((a) => a.task && ['working', 'needs-input'].includes(a.state)).flatMap((a) => {
+  const cables = map && showing('agents') ? agents.filter((a) => a.task && ['working', 'needs-input'].includes(a.state)).flatMap((a) => {
     const id = `tasks/${a.task}.md`
     const [to, hill] = [where(id), map.hills.find((h) => h.project === byId.get(id)?.project)]
     if (!to || !hill || !visible(id)) return []
@@ -303,12 +315,12 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
                 </g>
               )}
               {/* One blur for all hillshades, not one per hill. */}
-              <g filter="url(#bt-soft)">
+              {showing('hills') && <g filter="url(#bt-soft)">
                 {map.hills.map((h) => (
                   <use key={h.id} href="#bt-blob" className={`bt-shade ${fadeHill(h) ? 'far' : ''}`} transform={`translate(${h.x + 16} ${h.y + 20}) rotate(${rotation(h)}) scale(${h.r / 100})`} />
                 ))}
-              </g>
-              {map.hills.map((h) => {
+              </g>}
+              {showing('hills') && map.hills.map((h) => {
                 const n = 1 + Math.min(h.open, MAX_CONTOURS - 1)
                 return (
                   <g key={h.id} className={`bt-hill ${fadeHill(h) ? 'far' : ''} ${picked === h.id ? 'picked' : ''}`} transform={`translate(${h.x} ${h.y})`}
@@ -419,33 +431,20 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
           </div>
           {pickedNode && <Card node={pickedNode} hills={map.hills} edges={shown.edges} byId={byId} open={open} go={goTo} close={() => setPicked('')} />}
           <div className="bt-overlay bottom-left bt-legend" {...stopMap}>
-            <div className="bt-legend-row">
-              <svg viewBox="-12 -12 24 24" aria-hidden>
-                <use href="#bt-blob" className="bt-contour h1 index" transform="scale(.1)" /><use href="#bt-blob" className="bt-contour h3" transform="scale(.06)" />
-                <Sym id="peak-hot" s={9} />
-              </svg>
-              Hills are projects, a contour per open task; an ochre summit has urgent work
+            <div className="bt-legend-head">
+              <span className="bt-card-label">Key</span>
+              <button className="link" onClick={() => setLayers(allOn ? [] : [...LAYERS])}>{allOn ? 'Hide all' : 'Show all'}</button>
             </div>
-            {LEGEND.map(([k, sym, text]) => (
-              <button key={k} className={`bt-legend-row ${kinds.includes(k) ? 'on' : ''}`} aria-pressed={kinds.includes(k)} onClick={() => toggle(kinds, setKinds, k)}>
-                <svg viewBox="-9 -9 18 18" aria-hidden><Sym id={sym} s={k === 'lake' ? 18 : 14} /></svg>
-                {text}
-              </button>
-            ))}
-            {(['link', 'similar'] as const).map((l) => (
-              <button key={l} className={`bt-legend-row ${links.includes(l) ? 'on' : ''}`} aria-pressed={links.includes(l)} onClick={() => toggle(links, setLinks, l)}>
-                <svg viewBox="0 -4 16 8" aria-hidden><path className={`bt-trail ${l}`} d="M0,0 H16" /></svg>
-                {l === 'link' ? 'Marked trails: links between docs' : 'Faint paths: docs that read alike'}
-              </button>
-            ))}
-            <div className="bt-legend-row">
-              <svg viewBox="0 -4 16 8" aria-hidden><path className="bt-walk-casing" d="M1,0 H15" /><path className="bt-walk-line still" d="M1,0 H15" /></svg>
-              Today's walk; old tracks for earlier days
-            </div>
-            <div className="bt-legend-row">
-              <svg viewBox="-9 -9 18 18" aria-hidden><Sym id="agent" s={14} /></svg>
-              Agents: cable lines, waiting ones pulse
-            </div>
+            {row('hills', <svg viewBox="-12 -12 24 24" aria-hidden>
+              <use href="#bt-blob" className="bt-contour h1 index" transform="scale(.1)" /><use href="#bt-blob" className="bt-contour h3" transform="scale(.06)" />
+              <Sym id="peak-hot" s={9} />
+            </svg>, 'Hills are projects, a contour per open task; an ochre summit has urgent work')}
+            {LEGEND.map(([k, sym, text]) => row(k, <svg viewBox="-9 -9 18 18" aria-hidden><Sym id={sym} s={k === 'lake' ? 18 : 14} /></svg>, text))}
+            {(['link', 'similar'] as const).map((l) => row(l, <svg viewBox="0 -4 16 8" aria-hidden><path className={`bt-trail ${l}`} d="M0,0 H16" /></svg>,
+              l === 'link' ? 'Marked trails: links between docs' : 'Faint paths: docs that read alike'))}
+            {row('walk', <svg viewBox="0 -4 16 8" aria-hidden><path className="bt-walk-casing" d="M1,0 H15" /><path className="bt-walk-line still" d="M1,0 H15" /></svg>,
+              "My day: today's walk, old tracks for earlier days")}
+            {row('agents', <svg viewBox="-9 -9 18 18" aria-hidden><Sym id="agent" s={14} /></svg>, 'Agents: cable lines, waiting ones pulse')}
           </div>
           <div className="bt-overlay bottom-right bt-compass" aria-hidden>
             <svg viewBox="-28 -40 56 70"><circle r="26" /><path className="rose" d="M0 -22 L5 0 L0 22 L-5 0Z" /><path className="needle" d="M0 -22 L5 0 L-5 0Z" /><text y={-30} textAnchor="middle">N</text></svg>
