@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import { hillRings, loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
+import { agentLabel, byProject, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -76,4 +76,47 @@ test('hill rings share out open work by status, from the peak outwards, ready co
   const many = hillRings([...Array(20).fill('todo'), 'review'])
   expect(many).toHaveLength(7)
   expect(many[0]).toBe('review')
+})
+
+const agent = (id: string, updated: string, more: Partial<Agent> = {}): Agent => ({ id, cwd: '/x/other', account: 'dm', state: 'idle', updated, ...more })
+const agentVault: Vault = {
+  root: '', vault: '', meetings: [],
+  projects: [{ name: 'workbench', data: { repos: ['/x/brain'] }, body: '' }, { name: 'portal', data: { repos: ['/x/portal'] }, body: '' }],
+  tasks: [{ name: 'T-0001', data: { title: 'Fix it', project: '[[portal]]' }, body: '' }],
+}
+
+test('an agent reads as its task, else its first prompt', () => {
+  expect(agentLabel(agent('a', '', { task: 'T-0001', title: 'Autopilot: solve…' }), agentVault.tasks)).toBe('T-0001 Fix it')
+  expect(agentLabel(agent('a', '', { title: 'Look at the logs' }), agentVault.tasks)).toBe('Look at the logs')
+  expect(agentLabel(agent('a', ''), agentVault.tasks)).toBe('other')
+})
+
+test('agents group by project, the most recently active project and agent first', () => {
+  const groups = byProject([
+    agent('old', '2026-10-20', { cwd: '/x/brain' }),
+    agent('task', '2026-10-21', { cwd: '/x/brain/.claude/worktrees/t', task: 'T-0001' }),
+    agent('new', '2026-10-22', { cwd: '/x/brain/sub' }),
+    agent('loose', '2026-10-19'),
+  ], agentVault)
+  expect(groups.map((g) => [g.project?.name, g.agents.map((a) => a.id)])).toEqual([
+    ['workbench', ['new', 'old']], ['portal', ['task']], [undefined, ['loose']],
+  ])
+})
+
+test('a session finds the tab that resumed it, else its task tab, never a tab it shares', () => {
+  const tabs = tabsOf([
+    agent('a', '2026-10-20', { task: 'T-0001' }),
+    agent('b', '2026-10-22', { task: 'T-0001' }),
+    agent('c', '2026-10-21'),
+  ], [
+    { id: 't1', task: 'T-0001', exited: false },
+    { id: 't2', agent: 'c', exited: false },
+    { id: 't3', agent: 'a', exited: true },
+  ])
+  expect(Object.fromEntries(tabs)).toEqual({ b: 't1', c: 't2' })
+})
+
+test('a task tab never claims a session that started before it', () => {
+  const tabs = tabsOf([agent('a', '2026-10-22', { task: 'T-0001', started: '2026-10-20' })], [{ id: 't1', task: 'T-0001', exited: false, started: '2026-10-21' }])
+  expect(tabs.size).toBe(0)
 })

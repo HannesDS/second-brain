@@ -14,6 +14,7 @@ import { knowledgeGraph } from './graph'
 import { createMeeting, readTranscript, transcribe as whisper, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import type { Move } from './src/drag'
+import { agentLabel, type Agent } from './src/lib'
 import { ownWrites } from './own-writes'
 import { asList, expand, workdir } from './repos'
 import { startReady } from './queue'
@@ -143,7 +144,8 @@ function terminalFor(body: { kind: string; agent?: string; project?: string; tas
     const a = listAgents().find((x) => x.id === body.agent)
     if (!a || !ID.test(a.id)) throw new Error('unknown agent session')
     const cwd = fs.existsSync(a.cwd) ? a.cwd : ROOT
-    return openTerminal({ title: `↻ ${path.basename(cwd)}`, cwd, account: a.account || 'dm', run: `claude --resume ${a.id}`, taskId: a.task || undefined, agent: a.id })
+    // Named like its row in the agent list, so you can tell which tab is which.
+    return openTerminal({ title: `↻ ${agentLabel(a as Agent, listDocs('tasks'))}`, cwd, account: a.account || 'dm', run: `claude --resume ${a.id}`, taskId: a.task || undefined, agent: a.id })
   }
   const t = body.task ? listDocs('tasks').find((d) => d.name === body.task) : undefined
   const p = listDocs('projects').find((d) => d.name === (body.project || String(t?.data.project ?? '').replace(/\[|\]/g, '')))

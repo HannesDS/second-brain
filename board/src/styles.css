@@ -322,12 +322,12 @@ tbody tr:hover { background: var(--surface-2); }
 .event-list, .agent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .event-list li { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; }
 .time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); min-width: 44px; }
-.agent { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--p3); border-radius: var(--radius); padding: 8px 12px; }
+.agent { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--p3); border-radius: var(--radius); padding: 8px 12px; }
 .agent.needs-input { border-left-color: var(--p0); }
 .agent.working { border-left-color: var(--ok); }
-.agent-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.agent-title { font-weight: 600; margin-top: 4px; }
-.agent-msg { white-space: pre-wrap; font-size: 13px; color: var(--muted); margin-top: 4px; max-height: 6.5em; overflow: hidden; }
+.agent.on { outline: 2px solid var(--accent); outline-offset: -1px; }
+.agent-title { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-ago { font-size: 12px; white-space: nowrap; }
 .state { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; border-radius: 4px; padding: 1px 6px; background: var(--surface-2); }
 .state.needs-input { background: var(--p0); color: #fff; }
 .state.working { background: var(--ok); color: #fff; }
@@ -716,7 +716,6 @@ h2 { font-weight: 600; }
 /* Agents + terminals on one page */
 .split .agents-page { max-width: none; padding: 12px; overflow-y: auto; }
 .split .terminals { height: 100%; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.split .agent-msg { max-height: 4.5em; }
 
 /* Declutter pass: one context switch, assistant in a drawer, whole cards clickable, actions on hover. */
 .topbar { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
@@ -751,7 +750,6 @@ h2 { font-weight: 600; }
 .mini-card.focus, .card.focus { border-left: 3px solid #e3a008; }
 .note-mark { font-size: 12px; }
 .more { font-size: 12px; color: var(--muted); padding: 2px 4px; }
-.agent .chip { font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .new-agent { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius, 10px); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .new-agent h3 { margin: 0; }

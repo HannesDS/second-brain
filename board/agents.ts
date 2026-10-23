@@ -13,25 +13,29 @@ const WAITING_MS = 12 * 3600 * 1000
 
 type Agent = Record<string, any>
 
-function tail(file: string, bytes = 128 * 1024) {
+// The events in the last (or first) bytes of a transcript; the cut-off line is skipped.
+function read(file: string, { bytes = 128 * 1024, head = false } = {}) {
   const fd = fs.openSync(file, 'r')
   const size = fs.fstatSync(fd).size
   const len = Math.min(size, bytes)
   const buf = Buffer.alloc(len)
-  fs.readSync(fd, buf, 0, len, size - len)
+  fs.readSync(fd, buf, 0, len, head ? 0 : size - len)
   fs.closeSync(fd)
   return buf.toString('utf8').split('\n').flatMap((l) => { try { return [JSON.parse(l)] } catch { return [] } })
 }
 
 // Infers state from the end of a transcript: a final assistant text means it waits for you.
 function fromTranscript(file: string, account: string): Agent | undefined {
-  const events = tail(file).filter((e) => e.type === 'user' || e.type === 'assistant')
+  const talk = (e: any) => e.type === 'user' || e.type === 'assistant'
+  const events = read(file).filter(talk)
   const last = events.at(-1)
   // Headless runs (claude -p, SDK) never wait for a person.
   if (!last || String(last.entrypoint ?? '').startsWith('sdk')) return
   const text = (c: any) => (Array.isArray(c) ? c.filter((x: any) => x.type === 'text').map((x: any) => x.text).join('\n') : String(c ?? ''))
-  // First thing the person typed, skipping injected reminders and command wrappers.
-  const firstPrompt = events.map((e) => (e.type === 'user' ? text(e.message?.content).trim() : '')).find((t) => t && !t.startsWith('<')) ?? ''
+  // First thing the person typed, skipping injected reminders and command wrappers. Read from the start,
+  // so the title doesn't change as the transcript grows.
+  const prompt = (evs: any[]) => evs.map((e) => (e.type === 'user' ? text(e.message?.content).trim() : '')).find((t) => t && !t.startsWith('<'))
+  const firstPrompt = prompt(read(file, { bytes: 64 * 1024, head: true }).filter(talk)) ?? prompt(events) ?? ''
   const lastText = [...events].reverse().find((e) => e.type === 'assistant' && text(e.message?.content).trim())
   const pendingTool = last.type === 'assistant' && last.message?.content?.some?.((c: any) => c.type === 'tool_use')
   // File times are unreliable (the desktop app rewrites transcripts); use the last message's time.
@@ -74,5 +78,11 @@ export function listAgents(): Agent[] {
   }
   return [...byId.values()]
     .filter((a) => a.source !== 'board-chat' && !(a.state === 'ended' && Date.now() - Date.parse(a.updated) > 24 * 3600 * 1000))
+    .map((a) => settle(a))
     .sort((a, b) => b.updated.localeCompare(a.updated))
+}
+
+// A session killed without its SessionEnd hook keeps its last state: after WAITING_MS it is idle.
+export function settle(a: Agent, now = Date.now()): Agent {
+  return ['working', 'needs-input'].includes(a.state) && now - Date.parse(a.updated) > WAITING_MS ? { ...a, state: 'idle' } : a
 }

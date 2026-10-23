@@ -1,9 +1,9 @@
-import { EyeOff, ListPlus, NotebookText } from 'lucide-react'
+import { EyeOff, ListPlus, NotebookText, TerminalSquare } from 'lucide-react'
 import { IconButton } from './ui'
 import Landscape from './Landscape'
 import { useEffect, useState } from 'react'
 import { ProjectSelect } from './Home'
-import { ago, api, projectForPath, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
+import { agentLabel, ago, api, byProject, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
 export type Actions = {
@@ -96,35 +96,27 @@ export default function Today({ vault, tasks, act, fail, prep, meetingNote, boar
 }
 
 const STATE_LABEL: Record<string, string> = { 'needs-input': 'needs you', working: 'working', idle: 'idle', ended: 'ended', unknown: '?' }
-const ORDER = ['needs-input', 'working', 'idle', 'unknown', 'ended']
 
-// One row per Claude session. Click the row to open it in a workbench terminal.
-export function AgentList({ agents, vault, open, seen, act }: {
-  agents: Agent[]; vault: Vault; open: (a: Agent) => void; seen?: (a: Agent) => void; act: Actions
+// One line per Claude session: its state, what it works on, and how long ago. The row opens its tab,
+// or resumes the session in a new one; the row of the tab you're looking at is marked.
+export function AgentList({ agents, vault, tabs, active, open, seen }: {
+  agents: Agent[]; vault: Vault; tabs: Map<string, string>; active?: string; open: (a: Agent) => void; seen?: (a: Agent) => void
 }) {
   return (
     <ul className="agent-list">
       {agents.map((a) => {
-        const p = projectForPath(a.cwd, vault.projects)
-        const task = a.task ? vault.tasks.find((t) => t.name === a.task) : undefined
-        const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn() }
+        const label = agentLabel(a, vault.tasks)
+        const tab = tabs.get(a.id)
         return (
-          <li key={a.id} className={`agent clickable ${a.state}`} role="button" tabIndex={0} title="Open this session here"
-            onClick={() => open(a)} onKeyDown={(e) => e.key === 'Enter' && open(a)}>
-            <div className="agent-top">
-              <span className={`state ${a.state}`}>{STATE_LABEL[a.state] ?? a.state}</span>
-              {p
-                ? <button className="link-plain strong" onClick={stop(() => act.project(p.name))}>{p.data.name ?? p.name}</button>
-                : <strong>{a.cwd.split('/').pop()}</strong>}
-              {task && <button className="chip" onClick={stop(() => act.open(task))}>{task.name} {task.data.title}</button>}
-              <span className="muted">{a.account} · {ago(a.updated)}</span>
-              <span className="spacer" />
-              {seen && a.state === 'needs-input' && (
-                <span className="hover-actions"><IconButton icon={EyeOff} label="Seen: hide until this session changes" stop onClick={() => seen(a)} /></span>
-              )}
-            </div>
-            {a.title && <div className="agent-title">{a.title}</div>}
-            {a.message && <div className="agent-msg">{a.message}</div>}
+          <li key={a.id} className={`agent clickable ${a.state} ${tab && tab === active ? 'on' : ''}`} role="button" tabIndex={0}
+            title={`${label}\n${tab ? 'Show its tab' : 'Open this session here'}`} onClick={() => open(a)} onKeyDown={(e) => e.key === 'Enter' && open(a)}>
+            <span className={`state ${a.state}`}>{STATE_LABEL[a.state] ?? a.state}</span>
+            <span className="agent-title">{label}</span>
+            {tab && <TerminalSquare size={14} className="muted" aria-label="Has an open tab" />}
+            <span className="muted agent-ago">{ago(a.updated)}</span>
+            {seen && a.state === 'needs-input' && (
+              <span className="hover-actions"><IconButton icon={EyeOff} label="Seen: hide until this session changes" stop onClick={() => seen(a)} /></span>
+            )}
           </li>
         )
       })}
@@ -162,21 +154,22 @@ function NewAgent({ vault, start }: { vault: Vault; start: (body: Record<string,
   )
 }
 
-export function Agents({ agents, vault, open, seen, act, start }: {
-  agents: Agent[]; vault: Vault; open: (a: Agent) => void; seen: (a: Agent) => void; act: Actions; start: (body: Record<string, string>) => void
+export function Agents({ agents, vault, tabs, active, open, seen, act, start }: {
+  agents: Agent[]; vault: Vault; tabs: Map<string, string>; active?: string
+  open: (a: Agent) => void; seen: (a: Agent) => void; act: Actions; start: (body: Record<string, string>) => void
 }) {
   return (
     <section className="pane agents-page">
       <NewAgent vault={vault} start={start} />
-      {ORDER.map((s) => {
-        const group = agents.filter((a) => (ORDER.includes(a.state) ? a.state : 'unknown') === s)
-        return group.length ? (
-          <section key={s}>
-            <h3>{STATE_LABEL[s]} <span className="count">{group.length}</span></h3>
-            <AgentList agents={group} vault={vault} open={open} seen={seen} act={act} />
-          </section>
-        ) : null
-      })}
+      {byProject(agents, vault).map(({ project, agents: group }) => (
+        <section key={project?.name ?? ''}>
+          <h3>
+            {project ? <button className="link-plain" onClick={() => act.project(project.name)}>{project.data.name ?? project.name}</button> : 'No project'}
+            <span className="count">{group.length}</span>
+          </h3>
+          <AgentList agents={group} vault={vault} tabs={tabs} active={active} open={open} seen={seen} />
+        </section>
+      ))}
       {!agents.length && <p className="muted">No recent sessions.</p>}
     </section>
   )
