@@ -11,6 +11,7 @@ import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calenda
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { createMeeting, readTranscript, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
+import { ownWrites } from './own-writes'
 import { asList, expand, workdir } from './repos'
 import { startReady } from './queue'
 import { search } from './search'
@@ -24,6 +25,11 @@ const TASK_DEFAULTS = {
   status: 'todo', priority: 'p2', order: 0, type: 'code', blocked_by: '', repo: '', branch: '', pr: '',
   sessions: [], meetings: [], sources: [], due: '',
 }
+
+// Cards the board moved on a drop. It already shows them, so the browser gets no reload for them, and
+// RAG and the Notion push wait until you are done dragging.
+const moved = ownWrites()
+const SETTLE_MS = 10_000
 
 async function readJson(req: IncomingMessage) {
   let raw = ''
@@ -59,7 +65,9 @@ async function handle(req: IncomingMessage) {
 
   if (method === 'POST' && kind === 'move') {
     for (const m of body as { id: string; status: string; order: number }[]) {
-      updateDoc(file('tasks', m.id), { status: m.status, order: m.order })
+      const f = file('tasks', m.id)
+      updateDoc(f, { status: m.status, order: m.order })
+      moved.mark(f)
     }
     return { ok: true }
   }
@@ -254,9 +262,13 @@ export function vaultApi(): Plugin {
       fs.mkdirSync(AGENTS_DIR, { recursive: true })
       server.watcher.add([VAULT, AGENTS_DIR])
       const notify = (f: string) => {
-        if (f.startsWith(VAULT) && f.endsWith('.md')) { server.ws.send({ type: 'custom', event: 'vault-change' }); ragRefreshSoon() }
+        const own = moved.isOwn(f)
+        if (f.startsWith(VAULT) && f.endsWith('.md')) {
+          if (!own) server.ws.send({ type: 'custom', event: 'vault-change' })
+          ragRefreshSoon(own ? SETTLE_MS : undefined)
+        }
         if (f.startsWith(AGENTS_DIR)) server.ws.send({ type: 'custom', event: 'agents-change' })
-        if (f.startsWith(path.join(VAULT, 'tasks'))) { onTaskChanged(f); runFrontierSoon() }
+        if (f.startsWith(path.join(VAULT, 'tasks'))) { onTaskChanged(f, own ? SETTLE_MS : 0); runFrontierSoon() }
       }
       server.watcher.on('add', notify).on('change', notify).on('unlink', notify)
       startSync()

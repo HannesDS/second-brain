@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star } from 'lucide-react'
 import type { Actions } from './Today'
+import { dragOver, dropMoves, type Layout } from './drag'
 import { IconButton, IconLink } from './ui'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, todayISO, unlink, type Doc, type Vault } from './lib'
 
@@ -16,52 +17,42 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
   statuses?: string[]; limit?: number; more?: () => void
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
+  const byName = useMemo(() => Object.fromEntries(tasks.map((t) => [t.name, t])), [tasks])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [active, setActive] = useState<Doc>()
-  const columns = useMemo(() => {
-    const cols: Record<string, Doc[]> = Object.fromEntries(statuses.map((s) => [s, []]))
-    for (const t of tasks) cols[columnOf(t)]?.push(t)
+  const hasUnknown = statuses === STATUSES && tasks.some((t) => columnOf(t) === '?')
+  const cols = useMemo(() => (hasUnknown ? [...statuses, '?'] : statuses), [statuses, hasUnknown])
+  const layout = useMemo(() => {
+    const docs: Record<string, Doc[]> = Object.fromEntries(cols.map((s) => [s, []]))
+    for (const t of tasks) docs[columnOf(t)]?.push(t)
     // Starred tasks sit at the top of their column; Done shows the latest finished first.
-    for (const [s, c] of Object.entries(cols)) c.sort(s === 'done' ? byFinished : (a, b) => Number(isFocus(b)) - Number(isFocus(a)) || byOrder(a, b))
-    return cols
-  }, [tasks, statuses])
+    for (const [s, c] of Object.entries(docs)) c.sort(s === 'done' ? byFinished : (a, b) => Number(isFocus(b)) - Number(isFocus(a)) || byOrder(a, b))
+    return Object.fromEntries(Object.entries(docs).map(([s, c]) => [s, c.map((t) => t.name)])) as Layout
+  }, [tasks, cols])
+  // While dragging, the board shows where the card would land; the drop clears it.
+  const [preview, setPreview] = useState<Layout>()
+  const shownLayout = preview ?? layout
 
   function onDragEnd({ active: a, over }: DragEndEvent) {
+    const moves = over ? dropMoves(shownLayout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
     setActive(undefined)
-    if (!over) return
-    const task = tasks.find((t) => t.name === a.id)!
-    const from = columnOf(task)
-    const overId = String(over.id)
-    const to = overId.startsWith('col:') ? overId.slice(4) : columnOf(tasks.find((t) => t.name === overId)!)
-    // Done sorts by when it was finished, so there is no order to change in it.
-    if (!columns[to] || (from === to && to === 'done')) return
-    // Reorder the whole column, not only the cards shown, so hidden cards keep their place.
-    let target: Doc[]
-    if (from === to) {
-      const col = columns[to]
-      const newIndex = overId.startsWith('col:') ? col.length - 1 : col.findIndex((t) => t.name === overId)
-      target = arrayMove(col, col.indexOf(task), newIndex)
-    } else {
-      target = [...columns[to]]
-      const i = target.findIndex((t) => t.name === overId)
-      target.splice(i < 0 ? target.length : i, 0, task)
-    }
-    const moves = target
-      .map((t, order) => ({ id: t.name, status: to, order }))
-      .filter((m, i) => target[i].data.status !== m.status || Number(target[i].data.order) !== m.order)
+    setPreview(undefined)
     if (!moves.length) return
-    const patch = Object.fromEntries(moves.map((m) => [m.id, to === 'done' && m.id === task.name && from !== to ? { ...m, completed: todayISO() } : m]))
+    const from = byName[a.id]?.data.status
+    const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
     setVault({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) })
     api('move', 'POST', moves).catch(fail)
   }
 
-  const cols = statuses === STATUSES && tasks.some((t) => columnOf(t) === '?') ? [...statuses, '?'] : statuses
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}
-      onDragStart={(e) => setActive(tasks.find((t) => t.name === e.active.id))} onDragCancel={() => setActive(undefined)}>
+      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout) }}
+      onDragOver={({ active: a, over }) => over && setPreview((l) => l && dragOver(l, String(a.id), String(over.id), limit))}
+      onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
-          const all = columns[s] ?? tasks.filter((t) => columnOf(t) === '?')
+          // A task can vanish mid-drag when the vault reloads; the preview may still name it.
+          const all = shownLayout[s].map((id) => byName[id]).filter(Boolean)
           const shown = limit ? all.slice(0, limit) : all
           return (
             <Column key={s} status={s} count={all.length}>
@@ -98,7 +89,8 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions }) {
   )
 }
 
-function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions }) {
+// Memoised: while you drag, the board re-renders on every move, but a card only when its task changes.
+const Card = memo(function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions }) {
   const d = task.data
   const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
   return (
@@ -123,4 +115,4 @@ function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions 
       </div>
     </article>
   )
-}
+})

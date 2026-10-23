@@ -155,8 +155,15 @@ async function pollPullRequests() {
 
 // Status each linked task had when we last saw it; a change means: push it to Notion.
 const lastPushed = new Map<string, string>()
+const pushTimers = new Map<string, NodeJS.Timeout>()
 
-export async function onTaskChanged(file: string) {
+// `wait` holds the push back, so a card dragged around the board pushes only where it ends up.
+export function onTaskChanged(file: string, wait = 0) {
+  clearTimeout(pushTimers.get(file))
+  pushTimers.set(file, setTimeout(() => { pushTimers.delete(file); pushChange(file) }, wait))
+}
+
+async function pushChange(file: string) {
   const id = path.basename(file, '.md')
   // Deleted (or renamed away): nothing to push. Reading it would throw and take the server down.
   if (!fs.existsSync(file)) return void lastPushed.delete(id)
