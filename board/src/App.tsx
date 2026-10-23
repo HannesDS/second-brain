@@ -29,6 +29,10 @@ const VIEWS: [Page, string, LucideIcon][] = [
   ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
   ['gantt', 'Timeline', GanttChart], ['notes', 'Notes', NotebookPen], ['agents', 'Agents', Bot],
 ]
+// Pages with their own pane for a kind of item: opening one there shows it in the page, not in the peek.
+// Notes only lists notes and meeting notes; other docs (a project file from search) still peek.
+const PANE: Partial<Record<PeekItem['kind'], Page>> = { doc: 'notes', terminal: 'agents' }
+const inPane = (p: PeekItem, page: Page) => PANE[p.kind] === page && (p.kind !== 'doc' || /^(inbox|notes|meetings)\//.test(p.id))
 const PAGE: Record<Page, [string, LucideIcon]> = {
   ...Object.fromEntries(VIEWS.map(([p, l, i]) => [p, [l, i]])) as Record<Page, [string, LucideIcon]>,
   projects: ['Projects', FolderKanban], guide: ['Guide', HelpCircle],
@@ -109,7 +113,8 @@ export default function App() {
   const shown = agents.filter((a) => inContext(context, contextOf(a, vault)) && (!scope || agentProject(a) === scope))
     .map((a) => (a.state === 'needs-input' && seen[a.id] === a.updated ? { ...a, state: 'idle' } : a))
   const markSeen = (a: Agent) => { const next = { ...seen, [a.id]: a.updated }; setSeen(next); saveLocal('sb.seen', next) }
-  const peek = (p: PeekItem) => setPeeks((st) => (st.at(-1)?.kind === p.kind && st.at(-1)?.id === p.id ? st : [...st.slice(-9), p]))
+  const peek = (p: PeekItem) => (inPane(p, page) ? go(page, p.id)
+    : setPeeks((st) => (st.at(-1)?.kind === p.kind && st.at(-1)?.id === p.id ? st : [...st.slice(-9), p])))
   // A new task is created right away as "Untitled" and opened, so you can just start typing.
   const openTask = (doc?: Doc) => {
     if (doc) return peek({ kind: 'task', id: doc.name })
