@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { dragOver, dropMoves, type Layout } from './drag'
+import { aim, below, dragOver, dropMoves, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -83,3 +83,34 @@ test('Done takes only the card itself, and has no order to change', () => {
   expect(drop(dragOver(layout, 'D', 'F'), 'D', 'F')).toEqual([{ id: 'D', status: 'done', order: 0 }])
   expect(dropMoves(layout, { ...layout, done: ['F', 'G'] }, 'F', 'G', (id) => ({ status: 'done', order: id === 'F' ? 0 : 1 }))).toEqual([])
 })
+
+test('a card dropped under a starred card is placed among the unstarred cards only', () => {
+  // X is starred with a high order; it shows on top all the same.
+  const withStar = { ...layout, todo: ['X', 'A', 'B', 'C'] }
+  const get = (id: string) => (id === 'X' ? { status: 'todo', order: 90, focus: true } : data[id])
+  expect(dropMoves(withStar, withStar, 'C', 'A', get)).toEqual([{ id: 'C', status: 'todo', order: 5 }])
+})
+
+test('a card counts as below once its middle is past the middle of the card it is over', () => {
+  const over = { top: 100, height: 40 }
+  expect(below({ top: 101, height: 40 }, over)).toBe(true)
+  expect(below({ top: 99, height: 40 }, over)).toBe(false)
+  expect(below(null, over)).toBe(false)
+})
+
+test('over a column the drag aims at its nearest card, an empty column at the column', () => {
+  const sticky = { justMoved: false, active: 'A' }
+  const nearest = (cards: Set<string>) => [...cards].at(-1)
+  expect(aim('col:wip', layout, nearest, sticky)).toBe('E')
+  expect(aim('col:review', { ...layout, review: [] }, nearest, sticky)).toBe('col:review')
+  expect(aim('B', layout, nearest, sticky)).toBe('B')
+})
+
+test('over nothing the drag keeps its last target, or the card itself right after it changed column', () => {
+  const sticky = { justMoved: false, active: 'A' }
+  aim('C', layout, () => undefined, sticky)
+  expect(aim(undefined, layout, () => undefined, sticky)).toBe('C')
+  sticky.justMoved = true
+  expect(aim(undefined, layout, () => undefined, sticky)).toBe('A')
+})
+

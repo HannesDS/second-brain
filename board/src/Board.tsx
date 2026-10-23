@@ -1,13 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, closestCenter, getFirstCollision, pointerWithin, rectIntersection, useDroppable, useSensor,
-  useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent, type UniqueIdentifier,
+  useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { dragOver, dropMoves, type Layout } from './drag'
+import { aim, below, dragOver, dropMoves, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -33,53 +33,49 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
     return Object.fromEntries(Object.entries(docs).map(([s, c]) => [s, c.map((t) => t.name)])) as Layout
   }, [tasks, cols])
   // While dragging, the board shows where the card would land; the drop clears it.
-  const [preview, setPreview] = useState<Layout>()
+  const [preview, setPreviewState] = useState<Layout>()
+  // The preview as of the last drag event, ahead of React's render, so quick moves build on each other.
+  const live = useRef<Layout>(undefined)
+  const setPreview = (l?: Layout) => { live.current = l; setPreviewState(l) }
   const shownLayout = preview ?? layout
 
-  // Over a column, aim at its nearest card. Right after the card changed column, stay on the last target
-  // until the layout has caught up, or the card flips between two columns at their edge (dnd-kit's
-  // multiple-containers recipe).
-  const lastOver = useRef<UniqueIdentifier>(undefined)
-  const justMoved = useRef(false)
-  useEffect(() => { requestAnimationFrame(() => { justMoved.current = false }) }, [preview])
+  const sticky = useRef<Sticky>({ justMoved: false, active: '' })
+  useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
   const collision = useCallback<CollisionDetection>((args) => {
     const hits = pointerWithin(args)
-    let overId = getFirstCollision(hits.length ? hits : rectIntersection(args), 'id')
-    if (overId != null) {
-      const cards = String(overId).startsWith('col:') ? shownLayout[String(overId).slice(4)] : undefined
-      if (cards?.length) overId = closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => cards.includes(String(c.id))) })[0]?.id ?? overId
-      lastOver.current = overId
-      return [{ id: overId }]
+    const hit = getFirstCollision(hits.length ? hits : rectIntersection(args), 'id')
+    const nearest = (cards: Set<string>) => {
+      const id = closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => cards.has(String(c.id))) })[0]?.id
+      return id == null ? undefined : String(id)
     }
-    if (justMoved.current) lastOver.current = args.active.id
-    return lastOver.current != null ? [{ id: lastOver.current }] : []
-  }, [shownLayout])
+    const target = aim(hit == null ? undefined : String(hit), live.current ?? layout, nearest, sticky.current)
+    return target === undefined ? [] : [{ id: target }]
+  }, [layout])
 
   function onDragOver({ active: a, over }: DragOverEvent) {
     if (!over) return
-    // After the card it's over once the dragged card's middle is past that card's middle.
-    const r = a.rect.current.translated
-    const below = !!r && r.top + r.height / 2 > over.rect.top + over.rect.height / 2
-    const next = dragOver(shownLayout, String(a.id), String(over.id), limit, below)
-    if (next === shownLayout) return
-    justMoved.current = true
+    const now = live.current ?? layout
+    const next = dragOver(now, String(a.id), String(over.id), limit, below(a.rect.current.translated, over.rect))
+    if (next === now) return
+    sticky.current.justMoved = true
     setPreview(next)
   }
 
   function onDragEnd({ active: a, over }: DragEndEvent) {
-    const moves = over ? dropMoves(layout, shownLayout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
+    const moves = over ? dropMoves(layout, live.current ?? layout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
     setActive(undefined)
     setPreview(undefined)
     if (!moves.length) return
     const from = byName[a.id]?.data.status
     const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
     setVault({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) })
-    api('move', 'POST', moves).catch(fail)
+    // This tab skips the echo of its own drop, so a failed one reloads to show what the files really say.
+    api('move', 'POST', moves).catch((e) => { fail(e); api('data').then(setVault, fail) })
   }
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver}
-      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); lastOver.current = undefined }}
+      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
