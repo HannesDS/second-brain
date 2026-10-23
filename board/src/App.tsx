@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
   Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, PanelRightOpen, Pencil, Plus, RefreshCw,
@@ -16,6 +16,7 @@ import Notes from './Notes'
 import Split from './Split'
 import Terminals from './Terminals'
 import Today, { Agents, type Actions } from './Today'
+import { place, step, type Place } from './combobox'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
@@ -298,30 +299,86 @@ export default function App() {
 function Search({ vault, openTask, write }: { vault: Vault; openTask: (d: Doc) => void; write: (p: string) => void }) {
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<{ path: string; dir: string; name: string; title: string; snippet: string }[]>([])
+  const [state, setState] = useState<'loading' | 'done' | 'failed'>('done')
+  const [open, setOpenState] = useState(false)
+  const [active, setActive] = useState(-1)
+  const [at, setAt] = useState<Place>()
+  const input = useRef<HTMLInputElement>(null)
+  const id = useId()
+  const searching = q.trim().length >= 2
+  const loading = state === 'loading'
+  const setOpen = (o: boolean) => { setOpenState(o); if (!o) setActive(-1) }
   useEffect(() => {
-    if (q.trim().length < 2) return setHits([])
-    const t = setTimeout(() => api(`search?q=${encodeURIComponent(q)}`).then(setHits), 200)
-    return () => clearTimeout(t)
-  }, [q])
+    setActive(-1)
+    if (!searching) { setHits([]); setState('done'); return }
+    // A slower answer to an earlier query arrives after this cleanup ran, so it's dropped.
+    let live = true
+    setState('loading')
+    const t = setTimeout(() => api(`search?q=${encodeURIComponent(q)}`)
+      .then((h) => { if (live) { setHits(h); setState('done') } }, () => { if (live) { setHits([]); setState('failed') } }), 200)
+    return () => { live = false; clearTimeout(t) }
+  }, [q, searching])
+  const shown = open && searching
+  // The dropdown is fixed to the viewport (the sidebar scrolls, so it would clip it): follow the input,
+  // and close once the input scrolls out of sight.
+  useEffect(() => {
+    if (!shown) return
+    const follow = (e?: Event) => {
+      if (!input.current || (e && e.target instanceof Node && input.current.parentElement?.contains(e.target))) return
+      const rect = input.current.getBoundingClientRect()
+      if (rect.bottom < 0) return setOpen(false)
+      setAt(place(rect, { width: innerWidth, height: innerHeight }))
+    }
+    follow()
+    addEventListener('resize', follow)
+    addEventListener('scroll', follow, true)
+    return () => { removeEventListener('resize', follow); removeEventListener('scroll', follow, true) }
+  }, [shown])
+  useEffect(() => { if (active >= 0) document.getElementById(`${id}-${active}`)?.scrollIntoView({ block: 'nearest' }) }, [active, id])
   const pick = (h: (typeof hits)[number]) => {
     setQ('')
+    setOpen(false)
+    input.current?.blur()
     const task = h.dir === 'tasks' && vault.tasks.find((t) => t.name === h.name)
     if (task) openTask(task)
     else write(h.path)
   }
+  // While a new query loads, the old results stay on screen but can't be picked: they answer another query.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !loading) {
+      e.preventDefault()
+      setOpenState(true)
+      setActive((a) => step(a, e.key === 'ArrowDown' ? 1 : -1, hits.length))
+    } else if (e.key === 'Enter' && shown && hits.length && !loading) {
+      e.preventDefault()
+      pick(hits[Math.max(active, 0)])
+    } else if (e.key === 'Escape') {
+      // First Escape closes the results, the next one clears the query.
+      e.preventDefault()
+      if (shown) setOpen(false)
+      else setQ('')
+    }
+  }
+  const note = loading ? 'Searching…' : state === 'failed' ? 'Search failed, try again' : hits.length ? '' : `Nothing found for “${q.trim()}”`
   return (
     <div className="search">
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search everything…" aria-label="Search the vault"
-        onKeyDown={(e) => { if (e.key === 'Enter' && hits[0]) pick(hits[0]); if (e.key === 'Escape') setQ('') }} />
-      {hits.length > 0 && (
-        <ul className="search-hits" role="listbox">
-          {hits.map((h) => (
-            <li key={h.path} role="option" aria-selected={false} onClick={() => pick(h)}>
-              <span className="chip">{h.dir === 'inbox' || h.dir === 'notes' ? 'thought' : h.dir}</span> <strong>{h.title}</strong>
-              {h.snippet && <div className="muted">…{h.snippet}…</div>}
-            </li>
-          ))}
-        </ul>
+      <input ref={input} type="search" value={q} placeholder="Search everything…" aria-label="Search the vault"
+        role="combobox" aria-autocomplete="list" aria-expanded={shown} aria-controls={shown ? `${id}-hits` : undefined}
+        aria-activedescendant={shown && active >= 0 ? `${id}-${active}` : undefined}
+        onChange={(e) => { setQ(e.target.value); setOpenState(true) }} onFocus={() => setOpenState(true)} onBlur={() => setOpen(false)} onKeyDown={onKeyDown} />
+      {shown && at && (
+        // mousedown would blur the input and close the list before the click lands on an option.
+        <div className="search-hits" style={{ left: at.left, top: at.top, width: at.width, maxHeight: at.maxHeight }} onMouseDown={(e) => e.preventDefault()}>
+          <p className="search-note" role="status">{note}</p>
+          <ul id={`${id}-hits`} role="listbox" aria-label="Search results" aria-busy={loading} className={loading ? 'stale' : undefined}>
+            {hits.map((h, i) => (
+              <li key={h.path} id={`${id}-${i}`} role="option" aria-selected={i === active} onClick={() => !loading && pick(h)} onMouseMove={() => !loading && setActive(i)}>
+                <span className="chip">{h.dir === 'inbox' || h.dir === 'notes' ? 'thought' : h.dir}</span> <strong>{h.title}</strong>
+                {h.snippet && <div className="muted">…{h.snippet}…</div>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )
