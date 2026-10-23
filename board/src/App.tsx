@@ -78,10 +78,11 @@ export default function App() {
     load()
     loadAgents()
     api('sync').then(setSync)
-    let timer: number
+    let vaultTimer: number
+    let agentsTimer: number
     // A drop in this tab already shows; its own echo needs no reload.
-    const onChange = (e?: { tab?: string }) => { if (e?.tab === TAB) return; clearTimeout(timer); timer = window.setTimeout(load, 100) }
-    const onAgents = () => { clearTimeout(timer); timer = window.setTimeout(loadAgents, 300) }
+    const onChange = (e?: { tab?: string }) => { if (e?.tab === TAB) return; clearTimeout(vaultTimer); vaultTimer = window.setTimeout(load, 100) }
+    const onAgents = () => { clearTimeout(agentsTimer); agentsTimer = window.setTimeout(loadAgents, 300) }
     // Switching view closes the peek: it belonged to the page you left.
     const onHash = () => { setRoute(parseHash()); setPeeks([]) }
     import.meta.hot?.on('vault-change', onChange)

@@ -67,15 +67,12 @@ async function handle(req: IncomingMessage) {
   const body = await readJson(req)
 
   if (method === 'POST' && kind === 'move') {
-    let restatus = false
     for (const m of body as Move[]) {
       const f = file('tasks', m.id)
-      restatus ||= readDoc(f).data.status !== m.status
-      updateDoc(f, { status: m.status, order: m.order })
+      // Only a new status can start or end an autopilot run; a reorder doesn't need the whole queue read.
+      if (updateDoc(f, { status: m.status, order: m.order }).status !== m.status) runFrontierSoon()
       moved.mark(f, String(req.headers['x-tab'] ?? ''))
     }
-    // Only a new status can start or end an autopilot run; a reorder doesn't need the whole queue read.
-    if (restatus) runFrontierSoon()
     return { ok: true }
   }
   if (method === 'POST' && kind === 'sync') { await syncNow(); return syncStatus }

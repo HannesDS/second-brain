@@ -57,15 +57,17 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
 
   function onDragOver({ active: a, over }: DragOverEvent) {
     if (!over) return
+    // After the card it's over once the dragged card's middle is past that card's middle.
     const r = a.rect.current.translated
-    const next = dragOver(shownLayout, String(a.id), String(over.id), limit, !!r && r.top > over.rect.top + over.rect.height / 2)
+    const below = !!r && r.top + r.height / 2 > over.rect.top + over.rect.height / 2
+    const next = dragOver(shownLayout, String(a.id), String(over.id), limit, below)
     if (next === shownLayout) return
     justMoved.current = true
     setPreview(next)
   }
 
   function onDragEnd({ active: a, over }: DragEndEvent) {
-    const moves = over ? dropMoves(shownLayout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
+    const moves = over ? dropMoves(layout, shownLayout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
     setActive(undefined)
     setPreview(undefined)
     if (!moves.length) return

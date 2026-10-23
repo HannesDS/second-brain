@@ -160,7 +160,7 @@ const pushers = new Map<string, (wait: number) => void>()
 
 // `wait` holds the push back, so a card dragged around the board pushes only where it ends up.
 export function onTaskChanged(file: string, wait = 0) {
-  if (!pushers.has(file)) pushers.set(file, settle(() => pushChange(file)))
+  if (!pushers.has(file)) pushers.set(file, settle(() => { pushers.delete(file); pushChange(file) }))
   pushers.get(file)!(wait)
 }
 

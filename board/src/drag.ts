@@ -13,7 +13,7 @@ const columnFor = (layout: Layout, id: string) =>
   id.startsWith(COL) ? id.slice(COL.length) : Object.keys(layout).find((s) => layout[s].includes(id))
 
 // Dragging over another column moves the card into it, next to the card it's over (after it when the
-// pointer is `below` its middle), or last of the cards shown when it's over the column itself. Done lists the latest finished first, so there it goes on top.
+// dragged card is `below` its middle), or last of the cards shown when it's over the column itself. Done lists the latest finished first, so there it goes on top.
 // Same layout back when nothing changes, or for the unknown-status column, which a drop can't move to.
 export function dragOver(layout: Layout, id: string, over: string, limit?: number, below = false): Layout {
   const from = columnFor(layout, id)
@@ -25,27 +25,28 @@ export function dragOver(layout: Layout, id: string, over: string, limit?: numbe
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
-// The writes for a drop. Orders are spaced out: the card takes an order between its new neighbours, so a
-// drop is one write. Only when there's no room (equal orders, or a starred card above) is the column
-// renumbered, minus the cards that are already right. Done sorts by when a task was finished, so only the
-// card itself moves there.
-export function dropMoves(layout: Layout, id: string, over: string, current: (id: string) => { status?: unknown; order?: unknown }, limit?: number): Move[] {
-  const to = columnFor(layout, id)
+// Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
+const STEP = 10
+
+// The writes for a drop, from the layout `before` the drag and the previewed one `now`. The card takes an
+// order between its new neighbours, so a drop is one write. Only when there's no room (close orders, or a
+// starred card above) is the column renumbered, minus the cards that are already right. Done sorts by when
+// a task was finished, so only the card itself moves there.
+export function dropMoves(before: Layout, now: Layout, id: string, over: string, current: (id: string) => { status?: unknown; order?: unknown }, limit?: number): Move[] {
+  const to = columnFor(now, id)
   if (!to || to === '?') return []
   if (to === 'done') return current(id).status === 'done' ? [] : [{ id, status: to, order: 0 }]
-  const col = layout[to]
+  const col = now[to]
   const i = over.startsWith(COL) ? lastShown(col.length, limit) : col.indexOf(over)
   const ids = i >= 0 ? arrayMove(col, col.indexOf(id), i) : col
-  const same = current(id).status === to
-  if (same && ids.indexOf(id) === col.indexOf(id)) return []
+  if (ids.join() === before[to]?.join()) return []
   const order = (x?: string) => (x === undefined ? undefined : Number(current(x).order) || 0)
   const at = ids.indexOf(id)
   const [prev, next] = [order(ids[at - 1]), order(ids[at + 1])]
-  const fits = (o: number) => (prev === undefined || o > prev) && (next === undefined || o < next)
-  const between = prev === undefined ? (next === undefined ? 0 : next - 1) : next === undefined ? prev + 1 : (prev + next) / 2
+  const fits = (o: number) => Number.isInteger(o) && o > (prev ?? 0) && (next === undefined || o < next)
   const own = order(id)!
-  if (fits(own)) return same ? [] : [{ id, status: to, order: own }]
-  if (fits(between)) return [{ id, status: to, order: between }]
-  return ids.map((x, order) => ({ id: x, status: to, order }))
+  const fit = [own, next === undefined ? (prev ?? 0) + STEP : Math.floor(((prev ?? 0) + next) / 2)].find(fits)
+  if (fit !== undefined) return [{ id, status: to, order: fit }]
+  return ids.map((x, n) => ({ id: x, status: to, order: (n + 1) * STEP }))
     .filter((m) => current(m.id).status !== m.status || Number(current(m.id).order) !== m.order)
 }
