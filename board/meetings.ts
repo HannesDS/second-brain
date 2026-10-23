@@ -33,10 +33,10 @@ export function readTranscript(name: string) {
 // One clip at a time per process: Whisper uses the whole GPU anyway, and meeting chunks must stay in order.
 let queue = Promise.resolve()
 
-const INSTALL: Record<string, string> = { ffmpeg: 'brew install ffmpeg', 'whisper-cli': 'brew install whisper-cpp' }
+const INSTALL = { ffmpeg: 'brew install ffmpeg', 'whisper-cli': 'brew install whisper-cpp' }
 
 // Runs a local tool; a missing one gets an error that says how to install it.
-async function tool(cmd: string, args: string[], opts: { maxBuffer?: number; timeout?: number } = {}) {
+async function tool(cmd: keyof typeof INSTALL, args: string[], opts: { maxBuffer?: number; timeout?: number } = {}) {
   try {
     return await run(cmd, args, opts)
   } catch (e) {
@@ -48,7 +48,7 @@ async function tool(cmd: string, args: string[], opts: { maxBuffer?: number; tim
 // Speech to text on this Mac: a webm clip from the browser, through ffmpeg and Whisper. Audio never leaves the machine.
 export function transcribe(audio: Buffer) {
   const job = queue.then(async () => {
-    if (!fs.existsSync(MODEL)) throw new Error(`Whisper model missing at ${MODEL}`)
+    if (!fs.existsSync(MODEL)) throw new Error(`Whisper model missing at ${MODEL}: download ggml-large-v3-turbo-q5_0.bin from huggingface.co/ggerganov/whisper.cpp there, or point WHISPER_MODEL at one`)
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-rec-'))
     try {
       const input = path.join(dir, 'in.webm')
