@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DndContext, DragOverlay, PointerSensor, closestCenter, getFirstCollision, pointerWithin, rectIntersection, useDroppable, useSensor,
   useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent,
@@ -12,9 +13,9 @@ import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
 
-// Scroll a column or the page only with the card at its very edge. dnd-kit's default (the outer fifth)
-// starts scrolling the moment you pick up a card low in a long column, so the cards shift under the pointer.
-const AUTO_SCROLL = { threshold: { x: 0.05, y: 0.05 } }
+// How far a card travels before the board may scroll. dnd-kit scrolls a column or the page as soon as the
+// pointer is near its edge, so a card picked up low in a long column set the cards moving under the pointer.
+const TRAVEL_PX = 40
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
@@ -53,6 +54,9 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     const next = rebase(live.current, layout, sticky.current.active, sticky.current.home)
     if (next !== live.current) setPreview(next)
   }, [layout])
+
+  const travelled = useRef(false)
+  const autoScroll = useMemo(() => ({ canScroll: () => travelled.current }), [])
 
   const sticky = useRef<Sticky & { home: string }>({ justMoved: false, active: '', home: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])
@@ -97,8 +101,9 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={AUTO_SCROLL}
-      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={autoScroll}
+      onDragMove={({ delta }) => { if (Math.hypot(delta.x, delta.y) > TRAVEL_PX) travelled.current = true }}
+      onDragStart={(e) => { travelled.current = false; setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {
@@ -115,8 +120,9 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
           )
         })}
       </div>
-      {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer. */}
-      <DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} lifted />}</DragOverlay>
+      {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer.
+          It lives on <body>: dnd-kit places it in window coordinates, which a transformed view would offset. */}
+      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} lifted />}</DragOverlay>, document.body)}
     </DndContext>
   )
 }
