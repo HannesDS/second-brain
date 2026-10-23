@@ -43,8 +43,9 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
   const [searchState, setSearchState] = useState<'loading' | 'done' | 'failed'>('done')
   const [mode, setMode] = useState<'search' | 'ask'>('search')
   const [reply, setReply] = useState<Reply>()
-  // Bumped by every question and mode switch, so an older answer that arrives late is dropped.
-  const asked = useRef(0)
+  // Bumped by every question and reset, so an older answer that arrives late is dropped.
+  const askSeq = useRef(0)
+  const resetAsk = () => { askSeq.current++; setReply(undefined); setSearchState('done') }
   useEffect(() => { setCtx(context); setProject(scope) }, [context, scope])
   // Refetched whenever the vault changes (`fail` is a new function on every render, so it's left out).
   useEffect(() => { api('graph').then(setGraph, fail) }, [vault])
@@ -54,6 +55,8 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
   // A new list only when the shown docs change, not on every graph refetch.
   const within = useMemo(() => shown?.nodes.map((n) => n.id).join('\n') ?? '', [shown])
   const searching = q.trim().length >= 2
+  // An answer is only good for the docs it was asked about. Before the search effect, so its 'loading' wins.
+  useEffect(resetAsk, [within])
   useEffect(() => {
     if (mode !== 'search' || !searching || !within) { setHits(undefined); setSearchState('done'); return }
     // A slower answer to an earlier query (or other filters) arrives after this cleanup ran, so it's dropped.
@@ -67,11 +70,12 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
 
   const near = new Set(hover ? [hover, ...shown.edges.flatMap((e) => (e.a === hover ? [e.b] : e.b === hover ? [e.a] : []))] : [])
   const byId = new Map(shown.nodes.map((n) => [n.id, n]))
-  // Ask lists the docs its answer cites, in the order it first cites them.
+  const citedNode = (n: number) => reply && byId.get(reply.sources[n - 1]?.path)
+  // Ask lists the docs its answer cites, in the order it first cites them; citing none leaves the graph as it is.
+  const cited = reply && [...new Set(citeParts(reply.answer).filter((p) => typeof p === 'number'))].flatMap((n) => citedNode(n) ?? [])
   const found = mode === 'search'
     ? hits?.flatMap((h) => (byId.has(h.path) ? [{ node: byId.get(h.path)!, snippet: h.snippet }] : []))
-    : reply && [...new Set(citeParts(reply.answer).filter((p) => typeof p === 'number'))]
-      .flatMap((n) => (byId.has(reply.sources[n - 1]?.path) ? [{ node: byId.get(reply.sources[n - 1].path)!, snippet: '' }] : []))
+    : cited?.length ? cited.map((node) => ({ node, snippet: '' })) : undefined
   const matches = found && new Set(found.map((f) => f.node.id))
   const nodes: DocNode[] = shown.nodes.map((n) => ({
     id: n.id, type: 'doc', position: pos.get(n.id)!, origin: [0.5, 0.5],
@@ -82,16 +86,18 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
     className: `${e.kind} ${edgeState(e, hover, matches)}`,
   }))
   const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
-  const switchMode = (m: typeof mode) => { asked.current++; setMode(m); setReply(undefined); setSearchState('done') }
+  const switchMode = (m: typeof mode) => { resetAsk(); setMode(m) }
+  // One question at a time: each one runs a Claude on the server.
   const ask = () => {
-    if (!searching) return
-    const n = ++asked.current
+    if (!searching || searchState === 'loading') return
+    const seq = ++askSeq.current
     setSearchState('loading')
-    api('ask', 'POST', { q, within: within.split('\n') })
-      .then((r) => { if (n === asked.current) { setReply({ q: q.trim(), ...r }); setSearchState('done') } }, () => { if (n === asked.current) setSearchState('failed') })
+    api('ask', 'POST', { q, within: within.split('\n') }).then(
+      (r) => { if (seq === askSeq.current) { setReply({ q: q.trim(), ...r }); setSearchState('done') } },
+      () => { if (seq === askSeq.current) { setReply(undefined); setSearchState('failed') } })
   }
   const cite = (n: number, i: number) => {
-    const node = reply && byId.get(reply.sources[n - 1]?.path)
+    const node = citedNode(n)
     return node ? (
       <button key={i} className="kg-cite" title={node.title} onClick={() => open(node)} onMouseEnter={() => setHover(node.id)} onMouseLeave={() => setHover('')}
         onFocus={() => setHover(node.id)} onBlur={() => setHover('')}>{n}</button>
@@ -135,7 +141,7 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
         </div>
         <input type="search" className="kg-search" value={q} placeholder={mode === 'ask' ? 'Ask these docs, then Enter…' : 'Search these docs…'}
           aria-label={mode === 'ask' ? 'Ask a question about the docs shown' : 'Search the docs shown'} onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') { setQ(''); switchMode(mode) } else if (e.key === 'Enter' && mode === 'ask') ask() }} />
+          onKeyDown={(e) => { if (e.key === 'Escape') { setQ(''); resetAsk() } else if (e.key === 'Enter' && mode === 'ask') ask() }} />
         <span className="muted">{shown.nodes.length} docs · {shown.edges.length} links · click to open</span>
       </div>
       {shown.nodes.length ? (

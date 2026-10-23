@@ -24,7 +24,8 @@ QUESTION: ${q}
 
 SOURCES:
 ${docs.join('\n\n')}`
-  const { stdout } = await run('claude', ['-p', '--output-format', 'json', '--model', 'sonnet', prompt], {
+  // No tools, so Claude can't read docs outside the filters.
+  const { stdout } = await run('claude', ['-p', '--output-format', 'json', '--model', 'sonnet', '--tools', '', prompt], {
     cwd: ROOT, env: claudeEnv(WORKBENCH_ACCOUNT), timeout: 180_000, maxBuffer: 10 * 1024 * 1024,
   })
   return { answer: String(JSON.parse(stdout).result ?? '').trim(), sources }

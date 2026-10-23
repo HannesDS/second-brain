@@ -6,9 +6,10 @@ import { afterAll, beforeEach, expect, test, vi } from 'vitest'
 const rag = vi.hoisted(() => ({ search: vi.fn() }))
 vi.mock('../lib/rag.mjs', () => rag)
 // The claude CLI: answers with whatever `reply` holds and keeps the prompt it got.
-const cli = vi.hoisted(() => ({ prompt: '', reply: '' }))
+const cli = vi.hoisted(() => ({ args: [] as string[], prompt: '', reply: '' }))
 vi.mock('node:child_process', () => ({
   execFile: (_cmd: string, args: string[], _opts: unknown, done: (e: Error | null, out: { stdout: string }) => void) => {
+    cli.args = args
     cli.prompt = args.at(-1)!
     done(null, { stdout: JSON.stringify({ result: cli.reply }) })
   },
@@ -30,6 +31,7 @@ test('answers from the numbered docs inside the filters only', async () => {
   expect(out).toEqual({ answer: 'Tokens [1].', sources: [{ path: 'tasks/T-0001.md', title: 'Gantt colours' }] })
   expect(cli.prompt).toContain('[1] Gantt colours (tasks/T-0001.md)\nThe gantt uses tokens.')
   expect(cli.prompt).not.toContain('Ideas')
+  expect(cli.args.slice(-3, -1)).toEqual(['--tools', ''])
 })
 
 test('nothing found means no Claude call', async () => {
