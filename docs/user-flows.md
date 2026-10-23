@@ -8,12 +8,12 @@ A walk through the workbench as Hannes, on 2026-10-22, at desktop size (1440×90
 Context      All · Data Minded · Personal          (top right, filters everything)
 └─ Project   one project, or all                    (side menu; shown in the breadcrumb)
    └─ View   My day · Notes · Calendar · Board · Timeline · Agents
-      └─ Item  task · note · meeting · agent         (opens in the side peek, never leaves the page)
+      └─ Item  task · note · meeting · agent         (opens in the side peek, or in the page's own pane on Notes and Agents)
 ```
 
 * **The side menu chooses where you are**: a view, and optionally a project. The selected view and project are highlighted.
 * **The top bar says where you are**: `Board › Data Product Portal`. The project chip has an ✕ to go back to all projects, and opens the project overview (its tasks, chat, agents) in the peek.
-* **Items open in the side peek**: you keep your place. The peek closes when you switch view or project.
+* **Items open in the side peek**, unless the page has its own pane for them (a note on Notes, an agent or terminal on Agents): you keep your place. The peek closes when you switch view or project.
 * **The same words everywhere**: To do, In progress, Review, Blocked, Done. Not "WIP" on one page and "Now" on another.
 
 ## Flows
@@ -28,7 +28,7 @@ Context      All · Data Minded · Personal          (top right, filters everyth
 | 6 | **Capture a thought.** + Note, type, File it. | Works. | Unchanged. |
 | 7 | **Prepare a meeting.** Calendar → click meeting → prep todo / notes. | Calendar looked empty for about 4.5 s with no loading state; My day and Calendar evicted each other's cache, so every switch refetched all feeds. | Feeds cached per calendar (not per date range) and loaded when the server starts; "Loading…" while fetching. |
 | 8 | **Answer an agent.** My day → agent row → terminal in the peek. | Works; the folder line was shown twice. Peek stayed open after switching pages and covered the new page. | One folder line. The peek closes when you switch view or project. |
-| 9 | **Find something.** Search box. | Works; opens in the peek. | Unchanged. |
+| 9 | **Find something.** Search box. | Works; opens in the peek. | Opens in the peek; on Notes a note opens in the editor. |
 | 10 | **Plan the week.** Timeline. | Works, but not filterable by project. | Follows the project scope. |
 | 11 | **Find a meeting note.** Notes → Meetings. | Sorted oldest first (July at the top), because the import gave every file the same time. | Newest first, by the date in the name. |
 | 12 | **Projects overview.** | A separate menu item next to the views, mixed in with them. | The "Projects" header in the menu opens the cards; views and projects are separate groups. Guide moves to the menu footer. |
