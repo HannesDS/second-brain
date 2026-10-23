@@ -148,9 +148,6 @@
 [data-theme="terrain"] .topbar { background: transparent; border-bottom: 1px solid var(--border); min-height: 60px; padding: 10px 24px; }
 [data-theme="terrain"] .crumb h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.025em; }
 [data-theme="terrain"] .project-crumb { background: var(--surface); border-radius: var(--radius-pill); box-shadow: var(--shadow); }
-[data-theme="terrain"] .segmented { background: var(--surface-2); border-color: var(--border); padding: 4px; }
-[data-theme="terrain"] .segmented button { padding: 5px 14px; border-radius: var(--radius-pill); border-color: transparent; background: none; }
-[data-theme="terrain"] .segmented button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-lift); }
 
 /* ---------- Surfaces: panes, columns, cards ---------- */
 [data-theme="terrain"] :is(.pane, .column, .mini-col, .editor-pane, .new-agent, .meeting-bar, .proposal) { border-radius: var(--radius-lg); }

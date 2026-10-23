@@ -567,9 +567,6 @@ h2 { font-weight: 600; }
 
 /* Declutter pass: one context switch, assistant in a drawer, whole cards clickable, actions on hover. */
 .topbar { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 2px; background: var(--surface-2); }
-.segmented button { border: none; background: none; border-radius: 999px; padding: 4px 14px; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-.segmented button.on { background: var(--surface); color: var(--text); font-weight: 700; box-shadow: var(--shadow); }
 
 .drawer {
   position: fixed; z-index: 40; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); display: flex;
@@ -680,8 +677,6 @@ h2 { font-weight: 600; }
 .crumb-sep { color: var(--muted); flex: none; }
 .project-crumb { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 12px; }
 .project-crumb select { border: none; background: none; padding: 2px 4px; font-size: 15px; font-weight: 700; max-width: 260px; }
-.side-context { display: flex; margin: 2px 6px 4px; }
-.side-context button { flex: 1; justify-content: center; padding: 3px 6px; font-size: 12px; }
 .project-crumb .ib { height: 24px; min-width: 24px; }
 .side-section-link { border: none; background: none; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
 .side-section-link:hover, .side-section-link.on { color: var(--text); text-decoration: underline; }

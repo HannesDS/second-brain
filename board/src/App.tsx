@@ -173,24 +173,11 @@ export default function App() {
           <button className={`side-section-link ${page === 'projects' ? 'on' : ''}`} onClick={() => go('projects')} title="All projects as cards">Projects</button>
           <IconButton icon={Plus} label="New project" onClick={() => setEditing({ kind: 'project' })} />
         </div>
-        <div className="segmented side-context" role="group" aria-label="Context">
+        <nav className="side-projects" aria-label="Context">
           {['', ...CONTEXTS].map((c) => (
-            <button key={c || 'all'} className={context === c ? 'on' : ''} aria-pressed={context === c} onClick={() => setContext(c)}>
-              {c && <span className={`dot ${c}`} />}{c ? CONTEXT_LABEL[c] : 'All'}
-            </button>
-          ))}
-        </div>
-        <nav className="side-projects" aria-label="Projects">
-          <button className={!scope ? 'nav on' : 'nav'} onClick={() => setScope('')}>
-            <span className="dot all" />
-            <span className="proj-name">All projects</span>
-          </button>
-          {scoped.projects.filter((p) => p.data.status !== 'done').map((p) => (
-            <button key={p.name} className={scope === p.name ? 'nav on' : 'nav'} aria-current={scope === p.name ? 'true' : undefined}
-              title={`Show only ${p.data.name ?? p.name} in every view`} onClick={() => setScope(scope === p.name ? '' : p.name)}>
-              <span className={`dot ${p.data.context}`} />
-              <span className="proj-name">{p.data.name ?? p.name}</span>
-              {openCount(p) > 0 && <span className="count">{openCount(p)}</span>}
+            <button key={c || 'all'} className={context === c ? 'nav on' : 'nav'} aria-pressed={context === c} onClick={() => setContext(c)}>
+              <span className={`dot ${c || 'all'}`} />
+              <span className="proj-name">{c ? CONTEXT_LABEL[c] : 'All contexts'}</span>
             </button>
           ))}
         </nav>
@@ -214,7 +201,7 @@ export default function App() {
                 <span className={`dot ${scopeProject?.data.context ?? 'all'}`} />
                 <select value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Project filter" title="Show only this project in every view">
                   <option value="">All projects</option>
-                  {scoped.projects.filter((p) => p.data.status !== 'done' || p.name === scope).map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}</option>)}
+                  {scoped.projects.filter((p) => p.data.status !== 'done' || p.name === scope).map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}{openCount(p) ? ` (${openCount(p)})` : ''}</option>)}
                 </select>
                 {scopeProject && <IconButton icon={PanelRightOpen} label="Project overview: tasks, chat, new agent" onClick={() => peek({ kind: 'project', id: scope })} />}
                 {scopeProject && <IconButton icon={X} label="Show all projects" onClick={() => setScope('')} />}
