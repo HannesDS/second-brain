@@ -11,7 +11,7 @@ import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calenda
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { integrations } from './integrations'
 import { knowledgeGraph } from './graph'
-import { createMeeting, readTranscript, transcribe as whisper, transcribeChunk } from './meetings'
+import { createMeeting, meetingName, readTranscript, transcribe as whisper, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import type { Move } from './src/drag'
 import { agentLabel, type Agent } from './src/lib'
@@ -110,13 +110,6 @@ async function handle(req: IncomingMessage) {
   if (kind === 'meetings' && method === 'POST') return createMeeting(body)
   if (kind === 'file' && method === 'POST') return id === 'apply' ? { done: applyFiling(body.path, body.actions) } : proposeFiling(body.path, String(body.answers ?? ''))
   throw new Error(`no route: ${method} ${req.url}`)
-}
-
-// A meeting note's name, checked against the file system (it ends up in a path).
-function meetingName(name: unknown) {
-  const n = String(name ?? '')
-  if (!fs.existsSync(vaultPath(`meetings/${n}.md`))) throw new Error(`no meeting note "${n}"`)
-  return n
 }
 
 // Raw audio upload: POST /api/transcribe?name=<meeting>&at=<iso>, body = one self-contained webm chunk.

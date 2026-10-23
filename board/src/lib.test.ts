@@ -1,5 +1,5 @@
-import { expect, test, vi } from 'vitest'
-import { agentLabel, byProject, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
+import { expect, onTestFinished, test, vi } from 'vitest'
+import { agentLabel, byProject, dayRange, debounce, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -119,4 +119,49 @@ test('a session finds the tab that resumed it, else its task tab, never a tab it
 test('a task tab never claims a session that started before it', () => {
   const tabs = tabsOf([agent('a', '2026-10-22', { task: 'T-0001', started: '2026-10-20' })], [{ id: 't1', task: 'T-0001', exited: false, started: '2026-10-21' }])
   expect(tabs.size).toBe(0)
+})
+
+test('an older load that answers late does not overwrite a newer one', async () => {
+  const set = vi.fn()
+  const answers = [later<string>(), later<string>()]
+  let asked = 0
+  const vault = loader(() => answers[asked++].promise, set)
+  const first = vault.load()
+  const second = vault.load()
+  await vi.waitFor(() => expect(asked).toBe(2))
+  answers[1].settle('new')
+  await second
+  answers[0].settle('old')
+  await first
+  expect(set.mock.calls).toEqual([['new']])
+})
+
+test('typing saves once things go quiet, and closing saves what is still waiting', () => {
+  vi.useFakeTimers()
+  onTestFinished(() => { vi.useRealTimers() })
+  const save = vi.fn()
+  const typing = debounce(save, 700)
+  typing('a')
+  typing('ab')
+  vi.advanceTimersByTime(700)
+  expect(save.mock.calls).toEqual([['ab']])
+  typing('abc')
+  typing.flush()
+  expect(save.mock.calls).toEqual([['ab'], ['abc']])
+  // Nothing waiting: closing saves nothing.
+  typing.flush()
+  vi.advanceTimersByTime(700)
+  expect(save).toHaveBeenCalledTimes(2)
+})
+
+test('a day on which the clocks change is still a whole day', () => {
+  vi.stubEnv('TZ', 'Europe/Brussels')
+  try {
+    // 25 October 2026 has 25 hours there: the clocks go back.
+    const { from, to } = dayRange(new Date(2026, 9, 25, 12))
+    expect([from.getDate(), from.getHours()]).toEqual([25, 0])
+    expect([to.getDate(), to.getHours()]).toEqual([26, 0])
+  } finally {
+    vi.unstubAllEnvs()
+  }
 })

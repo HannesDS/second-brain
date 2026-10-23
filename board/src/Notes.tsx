@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Crepe } from '@milkdown/crepe'
 import '@milkdown/crepe/theme/common/style.css'
-import { ago, api, list, unlink, type Doc, type Vault } from './lib'
+import { ago, api, debounce, list, unlink, type Doc, type Vault } from './lib'
 import { ProjectSelect } from './Home'
 
 type Note = { path: string; name: string; data: Record<string, any>; mtime: string }
@@ -49,6 +49,7 @@ export function Editor({ vault, projects, path, fail, flash, onFiled, bare, auto
   vault: Vault; projects: Doc[]; path: string; fail: (e: Error) => void; flash: (m: string) => void; onFiled: () => void; bare?: boolean; autoFile?: boolean
 }) {
   const root = useRef<HTMLDivElement>(null)
+  const saving = useRef<() => Promise<void> | undefined>(undefined)
   const [saved, setSaved] = useState('saved')
   const [meta, setMeta] = useState<Record<string, any>>({})
   const [proposal, setProposal] = useState<{ summary: string; actions: Action[]; questions?: string[] }>()
@@ -64,8 +65,10 @@ export function Editor({ vault, projects, path, fail, flash, onFiled, bare, auto
 
   useEffect(() => {
     let crepe: Crepe | undefined
-    let timer: number
     let alive = true
+    // ponytail: last write wins; editing the same file in Obsidian at the same time can lose one side.
+    const save = debounce((body: string) => api('doc', 'PUT', { path, body }).then(() => setSaved('saved'), fail), 700)
+    saving.current = save.flush
     api(`doc?path=${encodeURIComponent(path)}`).then(async (doc) => {
       if (!alive || !root.current) return
       setMeta(doc.data)
@@ -78,13 +81,12 @@ export function Editor({ vault, projects, path, fail, flash, onFiled, bare, auto
       crepe.on((l) => l.markdownUpdated((_ctx, md) => {
         if (!touched) return
         setSaved('editing…')
-        clearTimeout(timer)
-        // ponytail: last write wins; editing the same file in Obsidian at the same time can lose one side.
-        timer = window.setTimeout(() => api('doc', 'PUT', { path, body: md }).then(() => setSaved('saved'), fail), 700)
+        save(md)
       }))
       await crepe.create()
     }, fail)
-    return () => { alive = false; clearTimeout(timer); crepe?.destroy() }
+    // Closing (another note, the peek, a view switch) saves what you typed in the last moment.
+    return () => { alive = false; save.flush(); crepe?.destroy() }
   }, [path, version])
 
   const setField = (data: Record<string, unknown>) => {
@@ -116,6 +118,8 @@ export function Editor({ vault, projects, path, fail, flash, onFiled, bare, auto
 
   async function apply() {
     const actions = proposal!.actions.filter((_, i) => picked[i] && proposal!.actions[i].kind !== 'external')
+    // Save what you just typed first: a save after the filing would write over the summary it added.
+    await saving.current?.()
     const { done } = await api('file/apply', 'POST', { path, actions })
     flash(done.length ? done.join(', ') : 'Nothing applied')
     setProposal(undefined)

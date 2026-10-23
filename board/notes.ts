@@ -33,7 +33,9 @@ const noteDate = (n: { name: string; mtime: string }) => /^\d{4}-\d{2}-\d{2}/.ex
 export function createNote(title: string, body = '') {
   const stamp = new Date().toLocaleString('sv').slice(0, 16).replace(':', '')
   const name = `${stamp} ${title.replace(/[\\/:*?"<>|#^[\]]/g, '').trim() || 'Thought'}`
-  const rel = `inbox/${name}.md`
+  // Names only go down to the minute: a second thought that minute gets a number, not the first one's file.
+  let rel = `inbox/${name}.md`
+  for (let n = 2; fs.existsSync(vaultPath(rel)); n++) rel = `inbox/${name} ${n}.md`
   writeDoc(vaultPath(rel), { created: today(), status: 'inbox', project: '', tasks: [] }, body)
   return rel
 }
@@ -180,7 +182,7 @@ export function applyFiling(rel: string, actions: Action[]) {
       patch.attendees = [...new Set([...list(note.data.attendees), ...a.people])]
       done.push('attendees set')
     } else if (a.kind === 'link-meeting' && a.meeting) {
-      ;(patch.meetings as string[]).push(`[[${a.meeting}]]`)
+      ;((patch.meetings ??= list(note.data.meetings)) as string[]).push(`[[${a.meeting}]]`)
       done.push(`linked to ${a.meeting}`)
     }
   }
