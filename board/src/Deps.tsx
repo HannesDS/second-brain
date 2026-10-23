@@ -28,6 +28,18 @@ function LaneBox({ data }: NodeProps<LaneNode>) {
 
 const nodeTypes = { task: TaskBox, lane: LaneBox }
 
+// What Board and My day show: the columns, or the chains. `{}` is every chain, `{ focus }` one ticket's.
+export type Graph = { focus?: string } | undefined
+
+export function ViewSwitch({ graph, set }: { graph: Graph; set: (g: Graph) => void }) {
+  return (
+    <div className="view-switch" role="group" aria-label="Show as">
+      <button className={graph ? 'tab' : 'tab on'} aria-pressed={!graph} onClick={() => set(undefined)}>Columns</button>
+      <button className={graph ? 'tab on' : 'tab'} aria-pressed={!!graph} onClick={() => set({})}>Dependencies</button>
+    </div>
+  )
+}
+
 // Dependency view: tickets left to right in the order they can land, like a commit graph of features.
 // With `focus` it shows that ticket's chain; without, every chain in `tasks` (the current scope).
 export default function Deps({ tasks, all, focus, agents, open, showAll }: {
@@ -58,12 +70,11 @@ export default function Deps({ tasks, all, focus, agents, open, showAll }: {
   }))
 
   return (
-    <main className="deps-page">
-      <div className="cal-head">
-        <h2>{target ? `Chain of ${target.name}` : 'Dependencies'}</h2>
-        {target && <span className="dep-head-title">{target.data.title}</span>}
-        <div className="spacer" />
+    <div className="deps">
+      <div className="deps-head">
+        {target && <><strong>Chain of <span className="id">{target.name}</span></strong><span className="dep-head-title">{target.data.title}</span></>}
         <span className="muted">{target ? 'what it waits on and what waits on it' : 'every chain in this scope'} · click a ticket to open it</span>
+        <div className="spacer" />
         {focus && <button onClick={showAll}>All chains</button>}
       </div>
       {focus && !target && <p className="muted">No ticket {focus}.</p>}
@@ -79,6 +90,6 @@ export default function Deps({ tasks, all, focus, agents, open, showAll }: {
           </ReactFlow>
         </div>
       )}
-    </main>
+    </div>
   )
 }

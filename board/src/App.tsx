@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
   Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Mountain, Plug, Sparkles, Square, Sun, Workflow, X, type LucideIcon,
+  Mountain, Plug, Sparkles, Square, Sun, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
@@ -10,7 +10,7 @@ import { Editor } from './Notes'
 import { IconButton } from './ui'
 import { THEME_LABEL, useTheme } from './theme'
 import Calendar, { guessProject } from './Calendar'
-import Deps from './Deps'
+import Deps, { ViewSwitch, type Graph } from './Deps'
 import Gantt from './Gantt'
 import Integrations from './Integrations'
 import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
@@ -26,11 +26,11 @@ import {
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
-type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'deps' | 'agents' | 'projects' | 'integrations' | 'guide'
+type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'agents' | 'projects' | 'integrations' | 'guide'
 // The views in the side menu. Projects (overview), Integrations and Guide live elsewhere in the menu.
 const VIEWS: [Page, string, LucideIcon][] = [
   ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
-  ['gantt', 'Timeline', GanttChart], ['deps', 'Dependencies', Workflow], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
+  ['gantt', 'Timeline', GanttChart], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
 ]
 // Pages with their own pane for a kind of item: opening one there shows it in the page, not in the peek.
 // Notes only lists notes and meeting notes; other docs (a project file from search) still peek.
@@ -61,6 +61,8 @@ export default function App() {
   const [peeks, setPeeks] = useState<PeekItem[]>([])
   const [wide, setWide] = useState<boolean>(() => loadLocal('sb.peekWide', false))
   const [prios, setPrios] = useState<string[]>([])
+  // Board and My day share it, so a card's dependencies button shows the chain right where you are.
+  const [graph, setGraph] = useState<Graph>()
   const [editing, setEditing] = useState<{ kind: 'task' | 'project'; doc?: Doc }>()
   const [seed, setSeed] = useState<Seed>()
   const [seen, setSeen] = useState<Record<string, string>>(() => loadLocal('sb.seen', {}))
@@ -160,7 +162,7 @@ export default function App() {
     autopilot: (t) => terminal({ kind: 'autopilot', task: t.name }),
     focus: toggleFocus,
     done: (t) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail),
-    deps: (t) => go('deps', t.name),
+    deps: (t) => setGraph({ focus: t.name }),
     write,
   }
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
@@ -169,6 +171,7 @@ export default function App() {
   const openCount = (p: Doc) => vault.tasks.filter((t) => unlink(t.data.project) === p.name && t.data.status !== 'done').length
   const [pageLabel, PageIcon] = PAGE[page]
   const filtered = view.tasks.filter((t) => !prios.length || prios.includes(t.data.priority))
+  const deps = <Deps tasks={view.tasks} all={vault.tasks} focus={graph?.focus} agents={agents} open={openTask} showAll={() => setGraph({})} />
 
   return (
     <div className="app">
@@ -233,7 +236,8 @@ export default function App() {
           <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
-          board={<BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />} />}
+          board={<><ViewSwitch graph={graph} set={setGraph} />{graph ? deps
+            : <BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (
@@ -247,12 +251,13 @@ export default function App() {
                 ))}
               </div>
               <span className="muted">{filtered.filter((t) => t.data.status !== 'done').length} open · starred cards stay on top · drag to change status</span>
+              <span className="spacer" />
+              <ViewSwitch graph={graph} set={setGraph} />
             </div>
-            <BoardColumns tasks={filtered} vault={vault} setVault={setVault} fail={fail} act={act} />
+            {graph ? deps : <BoardColumns tasks={filtered} vault={vault} setVault={setVault} fail={fail} act={act} />}
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
-        {page === 'deps' && <Deps tasks={view.tasks} all={vault.tasks} focus={arg || undefined} agents={agents} open={openTask} showAll={() => go('deps')} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>
