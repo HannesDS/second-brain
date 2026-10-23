@@ -194,7 +194,8 @@ function autopilot(task: string) {
     `When you are done, in ${VAULT}/tasks/${t.name}.md set status: review and branch: <your branch> (and pr: <url> if you opened one), and add a short "## Result" section to the body: what changed, how you verified it, anything left open.`,
     'If you hit a decision only I can make, write the question under "## Questions" in the task body, set status: blocked, and stop.',
   ].filter(Boolean).join('\n\n')
-  const flags = `--permission-mode auto --name ${shellQuote(`${t.name} ${t.data.title}`)}`
+  // The vault is outside the worktree, and the run must update its task there.
+  const flags = `--permission-mode auto --add-dir ${shellQuote(VAULT)} --name ${shellQuote(`${t.name} ${t.data.title}`)}`
   const id = openTerminal({ title: `🚀 ${t.name} ${t.data.title}`, cwd, account: p?.data.account || WORKBENCH_ACCOUNT, run: `claude ${flags} ${shellQuote(prompt)}`, taskId: t.name })
   launched.set(t.name, id)
   return id
