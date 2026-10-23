@@ -113,7 +113,7 @@
 [data-theme="terrain"] :is(button.primary, .ib.primary) { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600;
   border-radius: 16px 13px 17px 12px; /* pebble: slightly uneven on purpose */ }
 [data-theme="terrain"] :is(button.primary, .ib.primary):hover { background: var(--accent); color: var(--accent-text); filter: none; transform: scale(1.03); box-shadow: 0 0 0 4px var(--highlight-soft); }
-[data-theme="terrain"] :is(button.icon, button.link, .tab, .nav, .proj, .link-plain, .star, .more, .side-section-link) { background: none; border-color: transparent; }
+[data-theme="terrain"] :is(button.icon, button.link, .tab, .nav, .proj, .link-plain, .star, .more, .side-section-link, .kg-hit) { background: none; border-color: transparent; }
 [data-theme="terrain"] .ib { border-radius: 10px; height: 32px; min-width: 32px; transition: background .15s, color .15s, transform .35s var(--spring); }
 [data-theme="terrain"] .ib:hover { background: var(--surface-2); color: var(--text); }
 [data-theme="terrain"] .ib.with-label { border-radius: var(--radius); border-color: var(--border); background: var(--surface); }
@@ -305,16 +305,19 @@
 /* Brain Terrain: projects are summits with a contour ring, edges are contour lines, ochre marks what you point at. */
 [data-theme="terrain"] .kg-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .kg-chip { border-radius: var(--radius-pill); }
-[data-theme="terrain"] .kg-node, [data-theme="terrain"] .kg-chip .kg-dot { --kg: var(--p3); }
-[data-theme="terrain"] .kg-node.project, [data-theme="terrain"] .kg-chip.project .kg-dot { --kg: var(--st-done); }
-[data-theme="terrain"] .kg-node.task, [data-theme="terrain"] .kg-chip.task .kg-dot { --kg: var(--st-wip-ink); }
-[data-theme="terrain"] .kg-node.thought, [data-theme="terrain"] .kg-chip.thought .kg-dot { --kg: var(--st-review); }
-[data-theme="terrain"] .kg-node.meeting, [data-theme="terrain"] .kg-chip.meeting .kg-dot { --kg: var(--st-review-ink); }
-[data-theme="terrain"] .kg-node.report, [data-theme="terrain"] .kg-chip.report .kg-dot { --kg: var(--st-blocked); }
+[data-theme="terrain"] .kg-hits { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .kg-hit { border-radius: 12px; }
+[data-theme="terrain"] .kg-search { border-radius: var(--radius-pill); padding-left: 14px; }
+[data-theme="terrain"] .kg-node, [data-theme="terrain"] .kg-chip .kg-dot, [data-theme="terrain"] .kg-kind { --kg: var(--p3); }
+[data-theme="terrain"] .kg-node.project, [data-theme="terrain"] .kg-chip.project .kg-dot, [data-theme="terrain"] .kg-kind.project { --kg: var(--st-done); }
+[data-theme="terrain"] .kg-node.task, [data-theme="terrain"] .kg-chip.task .kg-dot, [data-theme="terrain"] .kg-kind.task { --kg: var(--st-wip-ink); }
+[data-theme="terrain"] .kg-node.thought, [data-theme="terrain"] .kg-chip.thought .kg-dot, [data-theme="terrain"] .kg-kind.thought { --kg: var(--st-review); }
+[data-theme="terrain"] .kg-node.meeting, [data-theme="terrain"] .kg-chip.meeting .kg-dot, [data-theme="terrain"] .kg-kind.meeting { --kg: var(--st-review-ink); }
+[data-theme="terrain"] .kg-node.report, [data-theme="terrain"] .kg-chip.report .kg-dot, [data-theme="terrain"] .kg-kind.report { --kg: var(--st-blocked); }
 [data-theme="terrain"] .kg-node.project::before { content: ''; position: absolute; inset: -7px; border: 1.5px dashed var(--contour); border-radius: 50%; }
 [data-theme="terrain"] .kg-node .kg-dot { transition: transform .35s var(--spring); }
 [data-theme="terrain"] .kg-node:hover .kg-dot { transform: scale(1.25); }
-[data-theme="terrain"] .kg-node.hot .kg-dot { outline-color: var(--highlight); }
+[data-theme="terrain"] :is(.kg-node.hot, .kg-node.match) .kg-dot { outline-color: var(--highlight); }
 [data-theme="terrain"] .kg-flow .react-flow__edge path { stroke: var(--contour); }
 [data-theme="terrain"] .kg-flow .react-flow__edge.link path { stroke: var(--muted); stroke-opacity: .55; }
 [data-theme="terrain"] .kg-flow .react-flow__edge.hot path { stroke: var(--highlight); stroke-opacity: 1; }

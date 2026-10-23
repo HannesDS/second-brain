@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { filterGraph, layout, type GraphNode, type KnowledgeGraph } from './graph'
+import { edgeState, filterGraph, layout, nodeState, type GraphNode, type KnowledgeGraph } from './graph'
 
 const node = (id: string, kind: GraphNode['kind'], project = '', context = ''): GraphNode => ({ id, kind, name: id, title: id, project, contexts: context ? [context] : [], status: '' })
 const g: KnowledgeGraph = {
@@ -45,4 +45,16 @@ test('a big graph still lays out quickly', () => {
   const t = performance.now()
   layout(nodes, [])
   expect(performance.now() - t).toBeLessThan(2000)
+})
+
+test('hover beats search; a search lights its matches and fades the rest', () => {
+  const near = new Set(['a', 'b'])
+  expect(['a', 'b', 'c'].map((id) => nodeState(id, 'a', near, new Set(['c'])))).toEqual(['hot', 'near', 'far'])
+  expect(['a', 'c'].map((id) => nodeState(id, '', new Set(), new Set(['c'])))).toEqual(['far', 'match'])
+  expect(nodeState('a', '', new Set())).toBe('')
+})
+
+test('an edge stays lit in a search only between two matches', () => {
+  const e = { a: 'a', b: 'b', kind: 'link' as const }
+  expect([edgeState(e, 'a'), edgeState(e, 'c'), edgeState(e, '', new Set(['a'])), edgeState(e, '', new Set(['a', 'b'])), edgeState(e, '')]).toEqual(['hot', 'far', 'far', '', ''])
 })
