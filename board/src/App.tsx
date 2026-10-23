@@ -173,6 +173,13 @@ export default function App() {
           <button className={`side-section-link ${page === 'projects' ? 'on' : ''}`} onClick={() => go('projects')} title="All projects as cards">Projects</button>
           <IconButton icon={Plus} label="New project" onClick={() => setEditing({ kind: 'project' })} />
         </div>
+        <div className="segmented side-context" role="group" aria-label="Context">
+          {['', ...CONTEXTS].map((c) => (
+            <button key={c || 'all'} className={context === c ? 'on' : ''} aria-pressed={context === c} onClick={() => setContext(c)}>
+              {c && <span className={`dot ${c}`} />}{c ? CONTEXT_LABEL[c] : 'All'}
+            </button>
+          ))}
+        </div>
         <nav className="side-projects" aria-label="Projects">
           <button className={!scope ? 'nav on' : 'nav'} onClick={() => setScope('')}>
             <span className="dot all" />
@@ -201,24 +208,20 @@ export default function App() {
         <header className="topbar">
           <nav className="crumbs" aria-label="You are here">
             <span className="crumb"><PageIcon size={18} strokeWidth={1.8} aria-hidden /><h1>{pageLabel}</h1></span>
-            {scopeProject && page !== 'projects' && page !== 'guide' && <>
+            {page !== 'projects' && page !== 'guide' && <>
               <ChevronRight size={16} className="crumb-sep" aria-hidden />
               <span className="crumb project-crumb">
-                <span className={`dot ${scopeProject.data.context}`} />
-                <button className="link-plain strong" title="Open the project overview" onClick={() => peek({ kind: 'project', id: scope })}>{scopeProject.data.name ?? scope}</button>
-                <IconButton icon={PanelRightOpen} label="Project overview: tasks, chat, new agent" onClick={() => peek({ kind: 'project', id: scope })} />
-                <IconButton icon={X} label="Show all projects" onClick={() => setScope('')} />
+                <span className={`dot ${scopeProject?.data.context ?? 'all'}`} />
+                <select value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Project filter" title="Show only this project in every view">
+                  <option value="">All projects</option>
+                  {scoped.projects.filter((p) => p.data.status !== 'done' || p.name === scope).map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}</option>)}
+                </select>
+                {scopeProject && <IconButton icon={PanelRightOpen} label="Project overview: tasks, chat, new agent" onClick={() => peek({ kind: 'project', id: scope })} />}
+                {scopeProject && <IconButton icon={X} label="Show all projects" onClick={() => setScope('')} />}
               </span>
             </>}
           </nav>
           <div className="spacer" />
-          <div className="segmented" role="group" aria-label="Context">
-            {['', ...CONTEXTS].map((c) => (
-              <button key={c || 'all'} className={context === c ? 'on' : ''} aria-pressed={context === c} onClick={() => setContext(c)}>
-                {c && <span className={`dot ${c}`} />}{c ? CONTEXT_LABEL[c] : 'All'}
-              </button>
-            ))}
-          </div>
           <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
           <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
