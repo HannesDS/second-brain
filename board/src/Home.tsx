@@ -5,7 +5,7 @@ import Split from './Split'
 import { IconButton } from './ui'
 
 const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, todo: 3 }
-const rank = (t: Doc) => RANK[t.data.status] ?? 3
+const rank = (t: Doc) => RANK[t.data.status] ?? RANK.todo
 const prio = (t: Doc) => { const i = PRIORITIES.indexOf(t.data.priority); return i < 0 ? 2 : i }
 
 // localStorage can throw (private mode, blocked storage); the board works without it.
