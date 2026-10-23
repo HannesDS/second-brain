@@ -54,17 +54,20 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   // When the board may scroll (see dragScroll). It follows the real pointer: dnd-kit's drag delta also
   // counts what has scrolled, so it drifts once the board scrolls.
   const scroll = useRef<ReturnType<typeof dragScroll>>(undefined)
-  const follow = useCallback((e: PointerEvent) => scroll.current?.move({ x: e.clientX, y: e.clientY }), [])
+  // Only the pointer carrying the card: on touch, another finger (or the mouse) can move too.
+  const carrying = useRef<number>(undefined)
+  const follow = useCallback((e: PointerEvent) => { if (e.pointerId === carrying.current) scroll.current?.move({ x: e.clientX, y: e.clientY }) }, [])
   const stopFollowing = () => { removeEventListener('pointermove', follow); scroll.current = undefined }
   useEffect(() => () => removeEventListener('pointermove', follow), [follow])
   const autoScroll = useMemo(() => ({
     canScroll: (el: Element) => {
       if (!scroll.current) return false
-      if (el === document.scrollingElement) return scroll.current.may({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, { x: false, y: false })
+      const scrolls = { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight }
+      if (el === document.scrollingElement) return scroll.current.may({ left: 0, top: 0, right: innerWidth, bottom: innerHeight }, scrolls)
       // Level with a column means anywhere across the column, not only across its list of cards.
       const r = el.getBoundingClientRect()
       const across = el.closest('.column')?.getBoundingClientRect() ?? r
-      return scroll.current.may({ left: across.left, right: across.right, top: r.top, bottom: r.bottom }, { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight })
+      return scroll.current.may({ left: across.left, right: across.right, top: r.top, bottom: r.bottom }, scrolls)
     },
   }), [])
 
@@ -113,7 +116,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={autoScroll}
-      onDragStart={(e) => { const start = getEventCoordinates(e.activatorEvent); if (start) { scroll.current = dragScroll(start); addEventListener('pointermove', follow) } setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
+      onDragStart={(e) => { const start = getEventCoordinates(e.activatorEvent); if (start) { scroll.current = dragScroll(start); carrying.current = (e.activatorEvent as PointerEvent).pointerId; addEventListener('pointermove', follow) } setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { stopFollowing(); setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {

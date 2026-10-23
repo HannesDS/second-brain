@@ -67,32 +67,38 @@ export function rebase(now: Layout, fresh: Layout, id: string, home: string): La
 
 // When the board may scroll an area while a card is dragged. dnd-kit scrolls any area whose edge the
 // pointer nears, also from beside it, and keeps a direction once the pointer twitched that way, so a card
-// picked up low in a long column, or carried up or on to the next column, set cards moving under it. Here:
-// - only once the card travelled TRAVEL_PX (for the rest of the drag), or is pushed past the area's edge;
-// - only an area the pointer is level with (across a column for its vertical scroll, along the board for
-//   its sideways scroll; past the edge in the scroll direction is fine, that's how you ask for more);
-// - only toward the edge the pointer last moved to: carried up inside a column's lower part, it stays put.
-export const TRAVEL_PX = 40
+// picked up low in a long column, carried up, or carried on to the next column set cards moving under it.
+// Here an area scrolls only while the pointer pushes toward its edge: it moved PUSH_PX that way since it
+// last turned (turns under TURN_PX, a hand's tremor, don't count), and it's level with the area across
+// that direction (anywhere across a column for its vertical scroll; past the edge itself is fine).
+export const PUSH_PX = 12
+const TURN_PX = 4
 type Point = { x: number; y: number }
 type Rect = { left: number; right: number; top: number; bottom: number }
+type Run = { dir: number; run: number; back: number }
+
+function step(r: Run, d: number) {
+  if (!d) return
+  const s = Math.sign(d)
+  if (!r.dir || s === r.dir) Object.assign(r, { dir: s, run: r.run + Math.abs(d), back: 0 })
+  else if ((r.back += Math.abs(d)) > TURN_PX) Object.assign(r, { dir: s, run: r.back, back: 0 })
+}
+
 export function dragScroll(start: Point) {
   let now = start
-  let travelled = false
-  const last = { x: 0, y: 0 }
+  const runs = { x: { dir: 0, run: 0, back: 0 }, y: { dir: 0, run: 0, back: 0 } }
   return {
     move(p: Point) {
-      if (p.x !== now.x) last.x = Math.sign(p.x - now.x)
-      if (p.y !== now.y) last.y = Math.sign(p.y - now.y)
+      step(runs.x, p.x - now.x)
+      step(runs.y, p.y - now.y)
       now = p
-      travelled ||= Math.hypot(p.x - start.x, p.y - start.y) > TRAVEL_PX
     },
     may(area: Rect, scrolls: { x: boolean; y: boolean }) {
-      const level = (!scrolls.y || (now.x >= area.left && now.x <= area.right)) && (!scrolls.x || (now.y >= area.top && now.y <= area.bottom))
-      const past = (scrolls.y && (now.y < area.top || now.y > area.bottom)) || (scrolls.x && (now.x < area.left || now.x > area.right))
-      // Which edge the pointer is nearer, and whether it last moved toward it.
-      const toward = (axis: 'x' | 'y', lo: number, hi: number) => last[axis] === 0 || (now[axis] > (lo + hi) / 2 ? last[axis] > 0 : last[axis] < 0)
-      const heading = (!scrolls.y || toward('y', area.top, area.bottom)) && (!scrolls.x || toward('x', area.left, area.right))
-      return (travelled || past) && level && heading
+      // Pushing toward the nearer edge of the area on that axis.
+      const pushing = (axis: 'x' | 'y', lo: number, hi: number) => runs[axis].run >= PUSH_PX && runs[axis].dir === (now[axis] > (lo + hi) / 2 ? 1 : -1)
+      const down = scrolls.y && now.x >= area.left && now.x <= area.right && pushing('y', area.top, area.bottom)
+      const along = scrolls.x && now.y >= area.top && now.y <= area.bottom && pushing('x', area.left, area.right)
+      return down || along
     },
   }
 }
