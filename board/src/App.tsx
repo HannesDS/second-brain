@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { marked } from 'marked'
 import {
-  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, NotebookPen, PanelRightOpen, Pencil, Plus, RefreshCw,
+  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, PanelRightOpen, Pencil, Plus, RefreshCw,
   Mountain, Sparkles, Sun, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
@@ -27,7 +27,7 @@ type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'agents' | 'pro
 // The views in the side menu. Projects (overview) and Guide live elsewhere in the menu.
 const VIEWS: [Page, string, LucideIcon][] = [
   ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
-  ['gantt', 'Timeline', GanttChart], ['notes', 'Notes', NotebookPen], ['agents', 'Agents', Bot],
+  ['gantt', 'Timeline', GanttChart], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
 ]
 // Pages with their own pane for a kind of item: opening one there shows it in the page, not in the peek.
 // Notes only lists notes and meeting notes; other docs (a project file from search) still peek.
@@ -62,6 +62,9 @@ export default function App() {
   const [seed, setSeed] = useState<Seed>()
   const [seen, setSeen] = useState<Record<string, string>>(() => loadLocal('sb.seen', {}))
   const [toast, setToast] = useState('')
+  const [capturing, setCapturing] = useState(false)
+  // The thought you just captured: its peek asks the agent for a proposal straight away.
+  const [captured, setCaptured] = useState('')
   const [theme, nextTheme] = useTheme()
 
   const load = useCallback(() => api('data').then(setVault), [])
@@ -78,11 +81,17 @@ export default function App() {
     import.meta.hot?.on('vault-change', onChange)
     import.meta.hot?.on('agents-change', onAgents)
     window.addEventListener('hashchange', onHash)
+    // Quick capture works from anywhere, also while typing in an editor.
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyK') { e.preventDefault(); setCapturing(true) }
+    }
+    window.addEventListener('keydown', onKey)
     const poll = window.setInterval(() => { loadAgents(); api('sync').then(setSync) }, 60_000)
     return () => {
       import.meta.hot?.off('vault-change', onChange)
       import.meta.hot?.off('agents-change', onAgents)
       window.removeEventListener('hashchange', onHash)
+      window.removeEventListener('keydown', onKey)
       clearInterval(poll)
     }
   }, [load, loadAgents])
@@ -163,7 +172,7 @@ export default function App() {
         <Search vault={vault} openTask={openTask} write={write} />
         <div className="side-actions">
           <IconButton icon={Plus} label="Task" showLabel primary onClick={() => openTask()} />
-          <IconButton icon={Plus} label="Note" showLabel onClick={() => api('notes', 'POST', { title: '' }).then(({ path }) => go('notes', path), fail)} />
+          <IconButton icon={Lightbulb} label="Thought" showLabel onClick={() => setCapturing(true)} />
         </div>
         <nav className="side-nav" aria-label="Views">
           {VIEWS.map(([id, label, Icon]) => (
@@ -219,7 +228,7 @@ export default function App() {
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
           board={<BoardColumns tasks={view.tasks} vault={vault} setVault={setVault} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />} />}
-        {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} fail={fail} flash={flash} />}
+        {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (
           <main className="board-page">
@@ -247,17 +256,19 @@ export default function App() {
         {page === 'guide' && <Guide />}
       </div>
 
+      {capturing && <Capture close={() => setCapturing(false)} fail={fail}
+        saved={(path) => { setCapturing(false); setCaptured(path); flash('Thought saved'); write(path) }} />}
       {editing?.kind === 'project' && <ProjectPanel key={editing.doc?.name ?? 'new'} doc={editing.doc}
         close={() => setEditing(undefined)} fail={fail} />}
       {peeks.length > 0 && (() => {
         const top = peeks.at(-1)!
-        const close = () => setPeeks([])
+        const close = () => { setPeeks([]); setCaptured('') }
         const back = peeks.length > 1 ? () => setPeeks(peeks.slice(0, -1)) : undefined
         const setW = (w: boolean) => { setWide(w); saveLocal('sb.peekWide', w) }
         const task = top.kind === 'task' ? vault.tasks.find((t) => t.name === top.id) : undefined
         const proj = top.kind === 'project' ? projects[top.id] : undefined
         const title = task ? <><span className="muted">{unlink(task.data.project) && (projects[unlink(task.data.project)]?.data.name ?? unlink(task.data.project))}</span> {task.name}</>
-          : proj ? 'Project' : top.kind === 'terminal' ? 'Agent' : top.id.split('/')[0]
+          : proj ? 'Project' : top.kind === 'terminal' ? 'Agent' : top.id.startsWith('meetings/') ? 'Meeting' : /^(inbox|notes)\//.test(top.id) ? 'Thought' : top.id.split('/')[0]
         return (
           <Peek key={`${top.kind}:${top.id}`} title={title} back={back} close={close} wide={wide} setWide={setW}>
             {top.kind === 'task' && (task
@@ -268,7 +279,7 @@ export default function App() {
                   edit={(doc) => setEditing({ kind: 'project', doc })} fail={fail} seed={seed} write={write} />
               : <p className="muted">Unknown project {top.id}.</p>)}
             {top.kind === 'terminal' && <TerminalPeek id={top.id} fail={fail} closed={back ?? close} />}
-            {top.kind === 'doc' && <Editor vault={vault} projects={scoped.projects} path={top.id} fail={fail} flash={flash} onFiled={() => {}} />}
+            {top.kind === 'doc' && <Editor vault={vault} projects={scoped.projects} path={top.id} fail={fail} flash={flash} onFiled={() => {}} autoFile={top.id === captured} />}
           </Peek>
         )
       })()}
@@ -305,7 +316,7 @@ function Search({ vault, openTask, write }: { vault: Vault; openTask: (d: Doc) =
         <ul className="search-hits" role="listbox">
           {hits.map((h) => (
             <li key={h.path} role="option" aria-selected={false} onClick={() => pick(h)}>
-              <span className="chip">{h.dir}</span> <strong>{h.title}</strong>
+              <span className="chip">{h.dir === 'inbox' || h.dir === 'notes' ? 'thought' : h.dir}</span> <strong>{h.title}</strong>
               {h.snippet && <div className="muted">…{h.snippet}…</div>}
             </li>
           ))}
@@ -375,6 +386,28 @@ function Panel({ title, close, children, onSave }: { title: string; close: () =>
         </form>
       </aside>
     </>
+  )
+}
+
+// Quick capture: the text is saved as-is to the inbox, then it opens so the agent can propose where it goes.
+function Capture({ close, saved, fail }: { close: () => void; saved: (path: string) => void; fail: (e: Error) => void }) {
+  const [text, setText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const save = () => {
+    if (!text.trim()) return close()
+    if (saving) return
+    setSaving(true)
+    api('notes', 'POST', { title: text.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 60), body: `${text.trim()}\n` }).then(({ path }) => saved(path), (e) => { setSaving(false); fail(e) })
+  }
+  return (
+    <Panel title="New thought" close={close} onSave={save}>
+      <div className="capture">
+        <Field label="An idea, a finding, a blog draft: anything. ⌘↵ saves.">
+          <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save() } }} />
+        </Field>
+      </div>
+    </Panel>
   )
 }
 

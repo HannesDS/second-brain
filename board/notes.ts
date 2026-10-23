@@ -1,4 +1,5 @@
-// Notes: free writing saved as-is, then an agent proposes where it belongs and you approve.
+// Thoughts: anything you jot down is saved as-is, then an agent proposes where it belongs and you approve.
+// The folders keep their names (inbox/, notes/); only meeting notes are still called notes in the UI.
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -29,11 +30,11 @@ export function listNotes() {
 // When a note is about: the date it starts with, else when it was last saved.
 const noteDate = (n: { name: string; mtime: string }) => /^\d{4}-\d{2}-\d{2}/.exec(n.name)?.[0] ?? n.mtime.slice(0, 10)
 
-export function createNote(title: string) {
+export function createNote(title: string, body = '') {
   const stamp = new Date().toLocaleString('sv').slice(0, 16).replace(':', '')
-  const name = `${stamp} ${title.replace(/[\\/:*?"<>|#^[\]]/g, '').trim() || 'Note'}`
+  const name = `${stamp} ${title.replace(/[\\/:*?"<>|#^[\]]/g, '').trim() || 'Thought'}`
   const rel = `inbox/${name}.md`
-  writeDoc(vaultPath(rel), { created: today(), status: 'inbox', project: '', tasks: [] }, '')
+  writeDoc(vaultPath(rel), { created: today(), status: 'inbox', project: '', tasks: [] }, body)
   return rel
 }
 
@@ -48,16 +49,17 @@ export function saveDoc(rel: string, body?: string, data: Record<string, unknown
 
 const SCHEMA = {
   type: 'object',
-  required: ['summary', 'actions'],
+  required: ['summary', 'actions', 'questions'],
   properties: {
     summary: { type: 'string', description: 'One sentence: what this note is about.' },
+    questions: { type: 'array', items: { type: 'string' }, description: 'What you need the user to decide before you can file it with confidence. Empty when you are sure.' },
     actions: {
       type: 'array',
       items: {
         type: 'object',
         required: ['kind', 'reason'],
         properties: {
-          kind: { enum: ['set-project', 'new-project', 'create-task', 'append-to-task', 'link-meeting', 'external', 'summary', 'action-points', 'attendees'] },
+          kind: { enum: ['set-project', 'new-project', 'create-task', 'append-to-task', 'link-task', 'link-note', 'link-meeting', 'external', 'summary', 'action-points', 'attendees'] },
           reason: { type: 'string' },
           project: { type: 'string', description: 'project id (existing, or the new id for new-project)' },
           projectName: { type: 'string' },
@@ -69,6 +71,7 @@ const SCHEMA = {
           type: { enum: ['code', 'pr-review', 'meeting', 'research', 'admin'] },
           text: { type: 'string', description: 'task description, or the text to append' },
           meeting: { type: 'string', description: 'meeting note name without .md' },
+          note: { type: 'string', description: 'for link-note: vault path of the related note, thought or meeting (e.g. notes/x.md)' },
           url: { type: 'string', description: 'for external: what to update outside the vault (Notion page, ADR, PR)' },
           people: { type: 'array', items: { type: 'string' }, description: 'for attendees: first names heard in the meeting' },
         },
@@ -77,7 +80,7 @@ const SCHEMA = {
   },
 }
 
-export async function proposeFiling(rel: string) {
+export async function proposeFiling(rel: string, answers = '') {
   const note = readDoc(vaultPath(rel))
   const projects = listDocs('projects').map((p) => `${p.name}: ${p.data.name} (${p.data.context}, ${p.data.account})`).join('\n')
   const tasks = listDocs('tasks').filter((t) => t.data.status !== 'done')
@@ -85,12 +88,13 @@ export async function proposeFiling(rel: string) {
   const meetings = listDocs('meetings').map((m) => m.name).sort().slice(-30).join('\n')
   const related = await ragContext(note.body.slice(0, 2000), 8)
   const meeting = rel.startsWith('meetings/') ? meetingContext(rel) : undefined
-  const prompt = `You file a note in the user's second-brain vault. Propose actions; the user approves each one.${meeting ? `
+  const prompt = `You file a note in the user's second-brain vault: a thought, idea, blog draft or meeting note. Propose actions; the user approves each one.${meeting ? `
 This is a MEETING note (date ${meeting.data.date}). Always propose: one "summary" action (text: 3-6 bullet markdown summary),
 one "action-points" action (text: markdown checklist "- [ ] what (who)", one line per action, owner in brackets), and "attendees" if names are clear.
 Then create-task only for action points owned by the user (Hannes), and append-to-task where an action belongs to an existing task.` : ''}
 Rules: prefer existing projects and tasks; propose new-project only when nothing fits. Propose create-task only for concrete, open work in the note.
-Use append-to-task to add findings to an existing task. Use external for things that must be updated outside the vault (the team's Notion ticket, an ADR, a PR) and say what to change.
+Use append-to-task to add findings to an existing task, link-task when it only relates to one, and link-note for related notes from RELATED NOTES (use their path).
+When you are not sure where it belongs or how it relates, do not guess: ask in questions and propose only what you are sure of. Use external for things that must be updated outside the vault (the team's Notion ticket, an ADR, a PR) and say what to change.
 Keep it short: usually 1-4 actions. Do not use tools.
 
 PROJECTS:
@@ -109,7 +113,10 @@ NOTE (${rel}):
 ${note.body}${meeting?.transcript ? `
 
 TRANSCRIPT (automatic, may contain errors; Dutch and English mixed):
-${meeting.transcript.slice(-60_000)}` : ''}`
+${meeting.transcript.slice(-60_000)}` : ''}${answers ? `
+
+THE USER ANSWERED YOUR EARLIER QUESTIONS:
+${answers}` : ''}`
   const { stdout } = await run('claude', ['-p', '--output-format', 'json', '--json-schema', JSON.stringify(SCHEMA), '--model', 'sonnet', prompt], {
     cwd: ROOT, env: claudeEnv(WORKBENCH_ACCOUNT), timeout: 180_000, maxBuffer: 10 * 1024 * 1024,
   })
@@ -125,7 +132,8 @@ export function applyFiling(rel: string, actions: Action[]) {
   const note = readDoc(file)
   const list = (v: unknown) => (Array.isArray(v) ? v : [])
   const isMeeting = rel.startsWith('meetings/')
-  const patch: Record<string, unknown> = { ...(isMeeting ? {} : { status: 'filed', meetings: list(note.data.meetings) }), tasks: list(note.data.tasks) }
+  const patch: Record<string, unknown> = { ...(isMeeting ? {} : { status: 'filed', meetings: list(note.data.meetings) }), tasks: list(note.data.tasks), related: list(note.data.related) }
+  const kind = isMeeting ? 'Meeting' : 'Thought'
   let body = note.body
   const done: string[] = []
 
@@ -145,15 +153,23 @@ export function applyFiling(rel: string, actions: Action[]) {
         id, title: a.title, aliases: [a.title], project: project ? `[[${project}]]` : '', status: 'todo',
         priority: a.priority || 'p2', order: 0, type: a.type || 'code', blocked_by: '', repo: '', branch: '', pr: '',
         sessions: [], meetings: [], sources: [`[[${noteName}]]`], due: '', created: today(), updated: today(),
-      }, `${a.text ?? ''}\n\nFrom note [[${noteName}]].\n`)
+      }, `${a.text ?? ''}\n\nFrom ${kind.toLowerCase()} [[${noteName}]].\n`)
       ;(patch.tasks as string[]).push(`[[${id}]]`)
       done.push(`${id} created`)
     } else if (a.kind === 'append-to-task' && ID.test(a.task ?? '')) {
       const f = path.join(VAULT, 'tasks', `${a.task}.md`)
       if (!fs.existsSync(f)) continue
-      updateDoc(f, {}, `${readDoc(f).body.trimEnd()}\n\n## Note ${today()}\n\n${a.text ?? ''}\n\nSee [[${noteName}]].\n`)
+      updateDoc(f, {}, `${readDoc(f).body.trimEnd()}\n\n## ${kind} ${today()}\n\n${a.text ?? ''}\n\nSee [[${noteName}]].\n`)
       ;(patch.tasks as string[]).push(`[[${a.task}]]`)
       done.push(`added to ${a.task}`)
+    } else if (a.kind === 'link-task' && ID.test(a.task ?? '') && fs.existsSync(path.join(VAULT, 'tasks', `${a.task}.md`))) {
+      ;(patch.tasks as string[]).push(`[[${a.task}]]`)
+      done.push(`linked to ${a.task}`)
+    } else if (a.kind === 'link-note' && a.note) {
+      const other = path.basename(a.note, '.md')
+      if (other === noteName || !['inbox', 'notes', 'meetings'].some((d) => fs.existsSync(path.join(VAULT, d, `${other}.md`)))) continue
+      ;(patch.related as string[]).push(`[[${other}]]`)
+      done.push(`linked to ${other}`)
     } else if (a.kind === 'summary' && a.text) {
       body = setSection(body, 'Summary', a.text)
       done.push('summary written')
@@ -169,6 +185,8 @@ export function applyFiling(rel: string, actions: Action[]) {
     }
   }
   patch.tasks = [...new Set(patch.tasks as string[])]
+  patch.related = [...new Set(patch.related as string[])]
+  if (!(patch.related as string[]).length) delete patch.related
   if (patch.meetings) patch.meetings = [...new Set(patch.meetings as string[])]
   updateDoc(file, patch, body)
   return done

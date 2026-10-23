@@ -330,6 +330,11 @@ tbody tr:hover { background: var(--surface-2); }
 .proposal { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin: 10px 0; }
 .proposal ul { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-direction: column; gap: 8px; }
 .proposal label { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.proposal li input:not([type]) { flex: 1; min-width: 220px; }
+.questions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 0 0 12px; }
+.proposal .questions label { flex-direction: column; align-items: stretch; align-self: stretch; }
+.capture textarea { min-height: 220px; font: inherit; }
+kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
 .row-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .milkdown {
   --crepe-color-background: var(--surface);
