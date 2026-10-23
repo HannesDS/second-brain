@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Second Brain</title>
+    <script>
+      // Apply the saved theme before the app paints (see src/theme.ts).
+      try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('sb.theme')) || 'terrain' } catch { document.documentElement.dataset.theme = 'terrain' }
+    </script>
   </head>
   <body>
     <div id="root"></div>

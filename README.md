@@ -7,6 +7,10 @@ A local, Notion-like workbench on top of a markdown vault, wired into Claude Cod
 - **Claude Code:** `task`, `grill` and `teach` skills, plus hooks that link sessions to tasks and report which agents need you. Supports two accounts (`~/.claude` and `~/.claude-personal`), chosen per project.
 - **Sync:** pushes task status to a Notion board, pulls stories assigned to you, and closes tasks when their PR merges.
 
+## Design
+
+The workbench has two themes: **Terrain** (default) and **Classic**. Switch with the mountain button in the top bar. Tokens, components and rules: `docs/DESIGN.md`.
+
 ## Setup
 
 ```bash

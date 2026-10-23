@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { marked } from 'marked'
 import {
   Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, NotebookPen, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Sparkles, Sun, X, type LucideIcon,
+  Mountain, Sparkles, Sun, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
 import { Editor } from './Notes'
 import { IconButton } from './ui'
+import { THEME_LABEL, useTheme } from './theme'
 import Calendar, { guessProject } from './Calendar'
 import Gantt from './Gantt'
 import ProjectPage, { Chat, load as loadLocal, save as saveLocal, type Seed } from './Home'
@@ -57,6 +58,7 @@ export default function App() {
   const [seed, setSeed] = useState<Seed>()
   const [seen, setSeen] = useState<Record<string, string>>(() => loadLocal('sb.seen', {}))
   const [toast, setToast] = useState('')
+  const [theme, nextTheme] = useTheme()
 
   const load = useCallback(() => api('data').then(setVault), [])
   const loadAgents = useCallback(() => api('agents').then(setAgents), [])
@@ -216,6 +218,7 @@ export default function App() {
               </button>
             ))}
           </div>
+          <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
           <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} agents={shown} act={act} openAgent={openAgent} seen={markSeen} fail={fail} prep={prep} meetingNote={meetingNote}

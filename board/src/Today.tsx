@@ -1,5 +1,6 @@
 import { EyeOff, ListPlus, NotebookText } from 'lucide-react'
 import { IconButton } from './ui'
+import Landscape from './Landscape'
 import { useEffect, useState } from 'react'
 import { ProjectSelect } from './Home'
 import { ago, api, projectForPath, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
@@ -39,6 +40,8 @@ export default function Today({ vault, tasks, agents, act, openAgent, seen, fail
   return (
     <main className="today">
       <p className="today-date">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+
+      <Landscape projects={vault.projects} tasks={tasks} open={act.project} />
 
       {waiting.length > 0 && (
         <section>

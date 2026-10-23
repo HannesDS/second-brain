@@ -1,0 +1,134 @@
+# Design system: Terrain
+
+The workbench has themes. **Terrain** is the default. **Classic** is the old Primer-like look, kept as a fallback.
+Switch with the mountain button in the top bar. The choice is stored in `localStorage` as `sb.theme`.
+
+- Tokens and the Classic look: `board/src/styles.css`
+- The Terrain theme: `board/src/terrain.css` (everything scoped to `<html data-theme="terrain">`)
+- Theme hook and toggle: `board/src/theme.ts`, used in `App.tsx`
+- Signature view: `board/src/Landscape.tsx` (My day, Terrain only)
+- Fonts: `board/public/fonts/` (Bricolage Grotesque, DM Mono, both OFL; local, no CDN)
+- Browsable reference with tokens and component previews: https://claude.ai/artifact/8v6GL9j3nCizf2V8orR9Li
+
+## Idea
+
+Each project is a hill. The more open work, the higher it rises. Your day is a trail between meetings.
+Calm, organic, grounded. You read the landscape in one glance, then go to the work.
+
+Three rules carry the whole look:
+
+1. **Contours, not boxes.** Lines are soft and rounded. Separators can be dashed, like contour lines.
+2. **One warm highlight.** Ochre means "now" or "important". It's the only loud colour.
+3. **Spring, not flash.** Things settle in with a little overshoot. Only waiting agents loop.
+
+## Palette
+
+| Name | Hex | Role |
+|---|---|---|
+| Moss | `#1E2A22` | Text, primary buttons. The dark ground in dark mode. |
+| Fog | `#EEF0E8` | Page ground in light mode. |
+| Lichen | `#B8D4A0` | In progress (fill). Ink version `#3F6B2E` for text and icons. |
+| Ochre | `#E3A44A` | Highlight: today, focus, p1, peaks. Ink version `#8A5A12` for text on light. |
+| Glacier | `#7FB7C9` | Review, agents waiting. Ink version `#2F6577`. |
+| Clay | `#C4553B` | Blocked, p0. Text version `#B2432B`. |
+
+Never put white text on ochre, lichen or glacier: use Moss. White on Clay is fine.
+
+## Tokens
+
+Components only use tokens, never raw hex. The role names are shared with Classic, so a component
+styled with them works in every theme.
+
+- Surfaces: `--bg`, `--surface`, `--surface-2`, `--border`, `--contour`
+- Text: `--text`, `--muted`
+- Action: `--accent`, `--accent-text`, `--focus`, `--highlight`, `--highlight-soft`
+- Priority: `--p0` to `--p3`
+- Status fills: `--st-todo`, `--st-wip`, `--st-review`, `--st-blocked`, `--st-done`, plus `--st-wip-ink`, `--st-review-ink` for text
+- Context: `--ctx-dm`, `--ctx-personal`
+- Shape: `--radius` (14), `--radius-lg` (22), `--radius-pill`
+- Depth: `--shadow`, `--shadow-lift` (hover, selected), `--shadow-float` (peek, drawer)
+- Type: `--font-ui` (Bricolage Grotesque), `--font-mono` (DM Mono)
+- Motion: `--spring` `cubic-bezier(.34,1.56,.64,1)`, `--ease` `cubic-bezier(.4,0,.2,1)`
+
+Dark mode ("Moss") follows the system and swaps the same tokens.
+
+## Type
+
+- **Bricolage Grotesque** for everything you read. Optical sizing is on, so big text gets tighter by itself.
+  - Page date on My day: 40 / 800 / -0.035em
+  - Page and task titles: 21 to 34 / 800 / -0.03em
+  - Card titles: 15 / 650
+  - Body: 15 / 400
+- **DM Mono** for things you scan: ids, times, counts, section labels (11px, uppercase, 0.08em tracking).
+
+## Status: elevation markers
+
+| Status | Marker | Colour |
+|---|---|---|
+| To do | Base camp (dot) | muted |
+| In progress | Climbing (triangle) | lichen ink |
+| Review | On the ridge | glacier ink |
+| Blocked | Rockfall | clay |
+| Done | Summit | text |
+
+Use the same words everywhere: To do, In progress, Review, Blocked, Done.
+
+## Priority
+
+Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fill, p3 outline only.
+
+## Components
+
+| Component | Class | Terrain look |
+|---|---|---|
+| Primary button | `button.primary`, `.ib.primary` | Moss, pebble radius (slightly uneven), spring scale on hover |
+| Secondary button | `button`, `.ib.with-label` | Surface with border, radius 14 |
+| Icon button | `.ib` | 32px, radius 10, no border |
+| Segmented control | `.segmented` | Pill track, selected item lifts |
+| Search | `.search input` | Pill, ochre focus halo |
+| Card | `.card`, `.mini-card`, `.todo-list li` | Radius 18, lift shadow on hover. **No transform**, dnd-kit owns it |
+| Highlighted card | `.focus`, `.big` | Soft ochre field and ochre border. No left-border stripe |
+| Column | `.column` | Surface-2, radius 22, marker in the header |
+| Project card | `.project-card` | Contour rings in the corner, lifts 3px |
+| Agent row | `.agent` | Status dot on the left. Waiting = glacier ring that breathes |
+| Peek and drawer | `.peek`, `.drawer` | Rounded left edge (28), slides in with a spring |
+| Toast | `.toast` | Moss pill, pops in |
+
+## Signature view: the landscape
+
+`Landscape.tsx` on My day. One hill per active project with open work, the largest first (max 7).
+
+- Size: open task count (square root, so one big project doesn't flatten the rest)
+- Rings, from peak outwards: blocked, in progress, review, to do
+- Ochre peak: the project has p0 or p1 work
+- Click or Enter: opens the project overview
+
+## Motion
+
+| Name | Where | Spec |
+|---|---|---|
+| Settle | Every view on open | 0.45s, `--spring`, from 12px below |
+| Spring | Buttons, project cards, hills | 0.35 to 0.5s, `--spring` |
+| Peek | Side peek | 0.5s, `--spring`, from 48px right |
+| Breathe | Waiting agents | 2s ring, infinite. The only loop |
+
+`prefers-reduced-motion` turns all of it off.
+
+## Rules for Claude Code
+
+1. Use tokens. No hex in components or in `styles.css` rules outside the token blocks.
+2. Theme-specific CSS goes in the theme file, scoped with `[data-theme="terrain"]`. Never change Classic to get a Terrain effect.
+3. A new component gets its base style in `styles.css` using tokens, so it works in both themes. Add Terrain extras in `terrain.css`.
+4. No transform transitions on draggable things (`.card`, `.mini-card`). Use shadow and border.
+5. No left-border colour stripes, no gradient washes, no emoji as icons. Icons are Lucide, stroke 1.8.
+6. Text contrast 4.5:1 or better. Use the ink versions of lichen, glacier and ochre for text.
+7. Mono only for ids, times, counts and labels. Never for sentences.
+8. One loud thing per screen: the ochre highlight.
+
+## Adding a theme
+
+1. Add the name to `THEMES` and `THEME_LABEL` in `theme.ts`.
+2. Create `board/src/<name>.css` with a `:root[data-theme="<name>"]` token block (light and dark), then scoped overrides.
+3. Import it in `main.tsx` after `styles.css`.
+
+Toybox is the next candidate.

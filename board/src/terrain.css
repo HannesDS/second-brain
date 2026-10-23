@@ -1,0 +1,309 @@
+/* Terrain theme. Projects are hills, the day is a trail. Calm, organic, grounded.
+   Everything is scoped to <html data-theme="terrain">, so Classic (styles.css) stays exactly as it was.
+   Tokens first, then component overrides. Rules for using it: docs/DESIGN.md. */
+
+@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 200 800; font-stretch: 75% 100%; font-display: swap;
+  src: url('/fonts/bricolage-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 200 800; font-stretch: 75% 100%; font-display: swap;
+  src: url('/fonts/bricolage-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'DM Mono'; font-weight: 400; font-display: swap; src: url('/fonts/dmmono-400-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: 'DM Mono'; font-weight: 400; font-display: swap; src: url('/fonts/dmmono-400-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+1E00-1E9F, U+A720-A7FF; }
+@font-face { font-family: 'DM Mono'; font-weight: 500; font-display: swap; src: url('/fonts/dmmono-500-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: 'DM Mono'; font-weight: 500; font-display: swap; src: url('/fonts/dmmono-500-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+1E00-1E9F, U+A720-A7FF; }
+
+/* ---------- Tokens: Fog (light) ---------- */
+:root[data-theme="terrain"] {
+  /* raw palette */
+  --moss: #1E2A22;  --fog: #EEF0E8;  --lichen: #B8D4A0;  --ochre: #E3A44A;  --glacier: #7FB7C9;  --clay: #C4553B;
+  /* roles (the names styles.css already uses) */
+  --bg: #EEF0E8;
+  --surface: #FFFFFF;
+  --surface-2: #F6F7F2;
+  --border: #D5DCCB;
+  --text: #1E2A22;
+  --muted: #4A5A4E;
+  --accent: #1E2A22;
+  --accent-text: #EEF0E8;
+  --focus: #8A5A12;
+  --p0: #B2432B;
+  --p1: #8A5A12;
+  --p2: #2F6577;
+  --p3: #6B7A6E;
+  --ok: #3F6B2E;
+  --danger: #B2432B;
+  --danger-bg: #F6E1DA;
+  --ctx-dm: #2F6577;
+  --ctx-personal: #B2432B;
+  /* status fills (rings, bars, markers) */
+  --st-todo: #D5DCCB;  --st-wip: #B8D4A0;  --st-review: #7FB7C9;  --st-blocked: #C4553B;  --st-done: #1E2A22;
+  --st-wip-ink: #3F6B2E;  --st-review-ink: #2F6577;
+  --highlight: #E3A44A;  --highlight-ink: #1E2A22;  --highlight-soft: rgb(227 164 74 / 20%);
+  --contour: #D5DCCB;
+  /* shape, depth, type, motion */
+  --radius: 14px;  --radius-lg: 22px;  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgb(30 42 34 / 6%);
+  --shadow-lift: 0 1px 2px rgb(30 42 34 / 6%), 0 14px 32px -18px rgb(30 42 34 / 45%);
+  --shadow-float: -18px 0 48px -12px rgb(30 42 34 / 30%);
+  --font-ui: 'Bricolage Grotesque', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease: cubic-bezier(.4, 0, .2, 1);
+  color-scheme: light;
+}
+
+/* ---------- Tokens: Moss (dark) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="terrain"] {
+    --bg: #161F19;
+    --surface: #1E2A22;
+    --surface-2: #233128;
+    --border: #34463A;
+    --text: #EEF0E8;
+    --muted: #A9B8A6;
+    --accent: #E3A44A;
+    --accent-text: #1E2A22;
+    --focus: #E3A44A;
+    --p0: #E58A72;
+    --p1: #E3A44A;
+    --p2: #8CC3D4;
+    --p3: #8D9B8F;
+    --ok: #B8D4A0;
+    --danger: #E58A72;
+    --danger-bg: #3A2420;
+    --ctx-dm: #8CC3D4;
+    --ctx-personal: #E58A72;
+    --st-todo: #3E5245;  --st-wip: #B8D4A0;  --st-review: #7FB7C9;  --st-blocked: #E07A5F;  --st-done: #EEF0E8;
+    --st-wip-ink: #B8D4A0;  --st-review-ink: #8CC3D4;
+    --highlight-soft: rgb(227 164 74 / 16%);
+    --contour: #2A3A2F;
+    --shadow: none;
+    --shadow-lift: 0 14px 32px -18px rgb(0 0 0 / 70%);
+    --shadow-float: -18px 0 48px -12px rgb(0 0 0 / 60%);
+    color-scheme: dark;
+  }
+}
+
+/* ---------- Base ---------- */
+[data-theme="terrain"] body { font: 15px/1.5 var(--font-ui); font-optical-sizing: auto; -webkit-font-smoothing: antialiased; }
+[data-theme="terrain"] h1, [data-theme="terrain"] h2, [data-theme="terrain"] h3 { letter-spacing: -0.015em; }
+[data-theme="terrain"] :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+[data-theme="terrain"] a { color: var(--text); text-decoration: underline; text-decoration-color: var(--highlight); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+[data-theme="terrain"] a:hover { text-decoration-color: currentColor; }
+[data-theme="terrain"] a.ib, [data-theme="terrain"] a.btn { text-decoration: none; }
+[data-theme="terrain"] :is(.id, .time, .todo-id, .count, .due-when, .state, .cal-num) { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0; }
+[data-theme="terrain"] textarea, [data-theme="terrain"] .msg.tool { font-family: var(--font-mono); }
+
+/* Contour lines behind the app: the one bit of atmosphere. */
+[data-theme="terrain"] .app {
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1100' height='520' viewBox='0 0 1100 520' fill='none' stroke='%23D5DCCB' stroke-width='1.2'%3E%3Cpath d='M-20 90C260 20 520 170 820 90S1060 20 1120 110'/%3E%3Cpath d='M-20 140C260 70 520 220 820 140S1060 70 1120 160'/%3E%3Cpath d='M-20 190C260 120 520 270 820 190S1060 120 1120 210'/%3E%3Cpath d='M-20 240C260 170 520 320 820 240S1060 170 1120 260' stroke-dasharray='6 5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right -160px top -40px;
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="terrain"] .app { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1100' height='520' viewBox='0 0 1100 520' fill='none' stroke='%232A3A2F' stroke-width='1.2'%3E%3Cpath d='M-20 90C260 20 520 170 820 90S1060 20 1120 110'/%3E%3Cpath d='M-20 140C260 70 520 220 820 140S1060 70 1120 160'/%3E%3Cpath d='M-20 190C260 120 520 270 820 190S1060 120 1120 210'/%3E%3Cpath d='M-20 240C260 170 520 320 820 240S1060 170 1120 260' stroke-dasharray='6 5'/%3E%3C/svg%3E"); }
+}
+
+/* ---------- Buttons ---------- */
+[data-theme="terrain"] button { border-radius: var(--radius); background: var(--surface); border-color: var(--border); font-weight: 500;
+  transition: transform .35s var(--spring), background .15s, border-color .15s, box-shadow .2s; }
+[data-theme="terrain"] button:hover { background: var(--surface-2); border-color: var(--muted); }
+[data-theme="terrain"] button:active { transform: scale(.97); }
+[data-theme="terrain"] :is(button.primary, .ib.primary) { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600;
+  border-radius: 16px 13px 17px 12px; /* pebble: slightly uneven on purpose */ }
+[data-theme="terrain"] :is(button.primary, .ib.primary):hover { background: var(--accent); color: var(--accent-text); filter: none; transform: scale(1.03); box-shadow: 0 0 0 4px var(--highlight-soft); }
+[data-theme="terrain"] :is(button.icon, button.link, .tab, .nav, .proj, .link-plain, .star, .more, .side-section-link) { background: none; border-color: transparent; }
+[data-theme="terrain"] .ib { border-radius: 10px; height: 32px; min-width: 32px; transition: background .15s, color .15s, transform .35s var(--spring); }
+[data-theme="terrain"] .ib:hover { background: var(--surface-2); color: var(--text); }
+[data-theme="terrain"] .ib.with-label { border-radius: var(--radius); border-color: var(--border); background: var(--surface); }
+[data-theme="terrain"] .ib.on { color: var(--p1); }
+[data-theme="terrain"] a.btn { border-radius: var(--radius); background: var(--surface); border-color: var(--border); }
+[data-theme="terrain"] .ib.with-label.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); border-radius: 16px 13px 17px 12px; }
+
+/* ---------- Inputs ---------- */
+[data-theme="terrain"] :is(input, select, textarea) { border-radius: 12px; background: var(--surface); border-color: var(--border); transition: border-color .15s, box-shadow .15s; }
+[data-theme="terrain"] :is(input, select, textarea):focus { outline: none; border-color: var(--text); box-shadow: 0 0 0 4px var(--highlight-soft); }
+[data-theme="terrain"] .search input { border-radius: var(--radius-pill); padding-left: 16px; background: var(--surface-2); }
+[data-theme="terrain"] .search-hits { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); padding: 6px; }
+[data-theme="terrain"] .search-hits li { border-radius: 12px; }
+[data-theme="terrain"] input[type="checkbox"] { accent-color: var(--ok); }
+[data-theme="terrain"] .page-title, [data-theme="terrain"] .prop input, [data-theme="terrain"] .prop select { box-shadow: none; }
+
+/* ---------- Shell: side menu and top bar ---------- */
+[data-theme="terrain"] .sidebar { background: transparent; border-right: 1px solid var(--border); padding: 18px 12px; gap: 8px; }
+[data-theme="terrain"] .brand { font-size: 21px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); display: flex; align-items: center; gap: 10px; padding: 2px 10px 10px; }
+[data-theme="terrain"] .brand::before { content: ""; width: 24px; height: 24px; flex: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231E2A22' stroke-width='1.6'%3E%3Cellipse cx='12' cy='12' rx='11' ry='9'/%3E%3Cellipse cx='12.6' cy='11.4' rx='7' ry='5.6'/%3E%3Cellipse cx='13' cy='11' rx='3' ry='2.4' fill='%23E3A44A'/%3E%3C/svg%3E") center/contain no-repeat; }
+@media (prefers-color-scheme: dark) {
+  [data-theme="terrain"] .brand::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23EEF0E8' stroke-width='1.6'%3E%3Cellipse cx='12' cy='12' rx='11' ry='9'/%3E%3Cellipse cx='12.6' cy='11.4' rx='7' ry='5.6'/%3E%3Cellipse cx='13' cy='11' rx='3' ry='2.4' fill='%23E3A44A'/%3E%3C/svg%3E"); }
+}
+[data-theme="terrain"] :is(.nav, .proj) { border-radius: var(--radius-pill); padding: 8px 12px; transition: background .15s; }
+[data-theme="terrain"] :is(.nav, .proj):hover { background: var(--surface-2); }
+[data-theme="terrain"] :is(.nav, .proj).on { background: var(--surface); box-shadow: var(--shadow-lift); font-weight: 700; }
+[data-theme="terrain"] .nav.on .nav-icon { color: var(--p1); }
+[data-theme="terrain"] .side-section { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; padding: 16px 12px 4px; }
+[data-theme="terrain"] .badge { background: var(--glacier); color: var(--moss); font-family: var(--font-mono); font-weight: 500; }
+[data-theme="terrain"] .side-foot { border-top: 1px dashed var(--border); }
+[data-theme="terrain"] .topbar { background: transparent; border-bottom: 1px solid var(--border); min-height: 60px; padding: 10px 24px; }
+[data-theme="terrain"] .crumb h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.025em; }
+[data-theme="terrain"] .project-crumb { background: var(--surface); border-radius: var(--radius-pill); box-shadow: var(--shadow); }
+[data-theme="terrain"] .segmented { background: var(--surface-2); border-color: var(--border); padding: 4px; }
+[data-theme="terrain"] .segmented button { padding: 5px 14px; border-radius: var(--radius-pill); border-color: transparent; background: none; }
+[data-theme="terrain"] .segmented button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-lift); }
+
+/* ---------- Surfaces: panes, columns, cards ---------- */
+[data-theme="terrain"] :is(.pane, .column, .mini-col, .editor-pane, .new-agent, .meeting-bar, .proposal) { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .pane { background: var(--surface); border-color: var(--border); }
+[data-theme="terrain"] :is(.column, .mini-col) { background: var(--surface-2); border-color: var(--border); padding: 12px; }
+[data-theme="terrain"] .column.over { border-color: var(--text); border-style: dashed; background: var(--highlight-soft); }
+[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .event-list li, .project-card, .agent, .meeting-pill, .due-pill) {
+  border-radius: 18px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+  transition: border-color .2s, box-shadow .3s var(--ease); }
+/* No transform on draggable cards: dnd-kit moves them with transform. */
+[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .agent, .meeting-pill, .due-pill, .clickable):hover { border-color: var(--muted); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .card { padding: 12px 14px; }
+[data-theme="terrain"] :is(.title, .mini-title, .todo-title, .agent-title) { font-weight: 650; letter-spacing: -0.01em; }
+/* Highlighted cards get a soft ochre field instead of a coloured left border. */
+[data-theme="terrain"] :is(.mini-card.big, .mini-card.focus, .card.focus) { border-left-width: 1px; border-color: var(--highlight); background: linear-gradient(var(--highlight-soft), var(--highlight-soft)), var(--surface); }
+[data-theme="terrain"] .todo-list li.on { border-color: var(--text); box-shadow: 0 0 0 3px var(--highlight-soft); }
+[data-theme="terrain"] .project-card { border-top: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; position: relative; overflow: hidden;
+  transition: transform .4s var(--spring), box-shadow .3s; }
+[data-theme="terrain"] .project-card:hover { transform: translateY(-3px); }
+[data-theme="terrain"] .project-card::after { content: ""; position: absolute; right: -60px; top: -48px; width: 140px; height: 100px; pointer-events: none;
+  border: 1.4px solid var(--st-wip); border-radius: 50%;
+  box-shadow: 0 0 0 14px var(--surface), 0 0 0 15.4px var(--st-wip), 0 0 0 30px var(--surface), 0 0 0 31.4px var(--contour); opacity: .45; }
+[data-theme="terrain"] .project-card > * { position: relative; z-index: 1; }
+[data-theme="terrain"] .project-card h3 { font-size: 21px; font-weight: 750; letter-spacing: -0.02em; }
+
+/* Column headers carry the elevation marker for their status. */
+[data-theme="terrain"] .column h2 { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; color: var(--muted); align-items: center; gap: 8px; }
+[data-theme="terrain"] .column h2::before { content: ""; width: 16px; height: 16px; flex: none; background: var(--muted); clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
+[data-theme="terrain"] .column[data-status="todo"] h2::before { clip-path: circle(30% at 50% 60%); }
+[data-theme="terrain"] .column[data-status="wip"] h2::before { background: var(--st-wip-ink); }
+[data-theme="terrain"] .column[data-status="review"] h2::before { background: var(--st-review-ink); }
+[data-theme="terrain"] .column[data-status="blocked"] h2::before { background: var(--p0); }
+[data-theme="terrain"] .column[data-status="done"] h2::before { background: var(--text); }
+[data-theme="terrain"] .column[data-status="blocked"] h2 { color: var(--p0); }
+[data-theme="terrain"] .count { background: var(--surface); border: 1px solid var(--border); padding: 0 8px; border-radius: var(--radius-pill); }
+
+/* ---------- Priority and status ---------- */
+[data-theme="terrain"] .prio { font-family: var(--font-mono); font-weight: 500; font-size: 11px; border-radius: var(--radius-pill); padding: 1px 8px; color: var(--text); background: transparent; border: 1px solid var(--border); }
+[data-theme="terrain"] .prio.p0 { background: var(--clay); border-color: var(--clay); color: #FFFFFF; }
+[data-theme="terrain"] .prio.p1 { background: var(--ochre); border-color: var(--ochre); color: var(--moss); }
+[data-theme="terrain"] .prio.p2 { background: var(--surface-2); color: var(--text); }
+[data-theme="terrain"] .prio.p3 { color: var(--muted); }
+[data-theme="terrain"] .prio-chip { border-radius: var(--radius-pill); opacity: 1; color: var(--muted); }
+[data-theme="terrain"] .prio-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+[data-theme="terrain"] .status.wip { color: var(--st-wip-ink); }
+[data-theme="terrain"] .type { background: var(--surface-2); border-radius: 8px; padding: 0 7px; }
+[data-theme="terrain"] .blocked { background: var(--danger-bg); color: var(--danger); border-radius: 12px; }
+[data-theme="terrain"] .status-bar { height: 10px; gap: 2px; background: none; }
+[data-theme="terrain"] .status-bar .seg { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .seg.todo { background: var(--st-todo); }
+[data-theme="terrain"] .seg.wip { background: var(--st-wip); }
+[data-theme="terrain"] .seg.review { background: var(--st-review); }
+[data-theme="terrain"] .seg.blocked { background: var(--st-blocked); }
+[data-theme="terrain"] .seg.done { background: var(--st-done); }
+[data-theme="terrain"] .ctx { border-radius: var(--radius-pill); font-weight: 600; }
+[data-theme="terrain"] .chip { border-radius: var(--radius-pill); background: var(--surface-2); }
+
+/* ---------- Agents: waiting ones breathe in glacier rings ---------- */
+[data-theme="terrain"] .agent { border-left-width: 1px; padding: 12px 16px 12px 42px; position: relative; }
+[data-theme="terrain"] .agent::before { content: ""; position: absolute; left: 16px; top: 17px; width: 12px; height: 12px; border-radius: 50%; background: var(--st-todo); }
+[data-theme="terrain"] .agent.working::before { background: var(--st-wip-ink); }
+[data-theme="terrain"] .agent.needs-input { border-color: var(--st-review); }
+[data-theme="terrain"] .agent.needs-input::before { background: var(--st-review); animation: tr-breathe 2s var(--ease) infinite; }
+[data-theme="terrain"] .state { border-radius: var(--radius-pill); font-weight: 500; text-transform: none; letter-spacing: 0; padding: 1px 8px; }
+[data-theme="terrain"] .state.needs-input { background: var(--st-review); color: var(--moss); }
+[data-theme="terrain"] .state.working { background: var(--st-wip); color: var(--moss); }
+@keyframes tr-breathe { 0% { box-shadow: 0 0 0 0 rgb(127 183 201 / 70%); } 70% { box-shadow: 0 0 0 10px rgb(127 183 201 / 0%); } 100% { box-shadow: 0 0 0 0 rgb(127 183 201 / 0%); } }
+
+/* ---------- Peek, drawer, panels, popovers, toast ---------- */
+[data-theme="terrain"] :is(.peek, .drawer, .panel) { border-left: 1px solid var(--border); border-radius: 28px 0 0 28px; box-shadow: var(--shadow-float); }
+[data-theme="terrain"] .peek { overflow: hidden; animation: tr-peek .5s var(--spring); }
+@keyframes tr-peek { from { transform: translateX(48px); opacity: .4; } }
+[data-theme="terrain"] .peek-bar { padding: 10px 14px; border-bottom: 1px dashed var(--border); }
+[data-theme="terrain"] .peek-title { font-weight: 700; }
+[data-theme="terrain"] .scrim { background: rgb(30 42 34 / 30%); backdrop-filter: blur(2px); }
+[data-theme="terrain"] .popover { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); animation: tr-pop .35s var(--spring); }
+[data-theme="terrain"] .toast { background: var(--moss); color: var(--fog); border-radius: var(--radius-pill); padding: 10px 20px; font-weight: 600; animation: tr-pop .4s var(--spring); }
+@media (prefers-color-scheme: dark) { [data-theme="terrain"] .toast { background: var(--fog); color: var(--moss); } }
+@keyframes tr-pop { from { transform: translateX(-50%) scale(.9); opacity: 0; } }
+[data-theme="terrain"] .page-title { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; }
+[data-theme="terrain"] .tabs button { border-color: transparent; background: none; }
+[data-theme="terrain"] .tabs button.on { border-bottom: 3px solid var(--highlight); }
+
+/* ---------- Chat ---------- */
+[data-theme="terrain"] .msg { border-radius: 18px; padding: 10px 14px; }
+[data-theme="terrain"] .msg.user { background: var(--accent); color: var(--accent-text); border-radius: 18px 18px 6px 18px; }
+[data-theme="terrain"] .msg.assistant { background: var(--surface-2); border: 1px solid var(--border); border-radius: 18px 18px 18px 6px; }
+
+/* ---------- My day ---------- */
+[data-theme="terrain"] .today { gap: 10px; padding: 20px 28px 40px; }
+[data-theme="terrain"] .today-date { font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; color: var(--text); margin: 6px 0 2px; }
+[data-theme="terrain"] :is(.today > section > h3, .today .mini-col > h3, .pane h3) { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; }
+[data-theme="terrain"] .meeting-pill { border-left-width: 1px; padding: 8px 14px; border-radius: var(--radius-pill); }
+[data-theme="terrain"] .cal-item.event[class*="cal-"] { border-left-width: 3px; }
+[data-theme="terrain"] .meeting-pill .time { color: var(--text); font-weight: 500; }
+[data-theme="terrain"] .due-pill { border-radius: var(--radius-pill); padding: 6px 14px; }
+[data-theme="terrain"] .due-pill .due-when { color: var(--p1); }
+
+/* The landscape (Landscape.tsx) only shows in Terrain. */
+.landscape { display: none; }
+[data-theme="terrain"] .landscape { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 14px 18px 12px; margin: 6px 0 4px; animation: tr-settle .7s var(--spring) both; }
+.landscape svg { width: 100%; height: auto; max-height: 320px; display: block; overflow: visible; }
+.landscape .ring { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; transition: stroke-width .2s; }
+.landscape .ring.base { stroke: var(--contour); }
+.landscape .ring.todo { stroke: var(--st-todo); }
+.landscape .ring.wip { stroke: var(--st-wip-ink); }
+.landscape .ring.review { stroke: var(--st-review); }
+.landscape .ring.blocked { stroke: var(--st-blocked); }
+.landscape .peak { fill: var(--surface-2); stroke: var(--text); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.landscape .peak.hot { fill: var(--ochre); }
+.landscape .hill { cursor: pointer; outline: none; }
+.landscape .hill-rings { transform-box: fill-box; transform-origin: center; transition: scale .5s var(--spring); }
+.landscape .hill:is(:hover, :focus-visible) .hill-rings { scale: 1.06; }
+.landscape .hill:is(:hover, :focus-visible) .ring { stroke-width: 2.4; }
+.landscape .hill-name { font: 700 17px var(--font-ui); fill: var(--text); letter-spacing: -0.01em; }
+.landscape .hill-meta { font: 400 11px var(--font-mono); fill: var(--muted); }
+.landscape-key { display: flex; flex-wrap: wrap; gap: 14px; font: 400 11px var(--font-mono); color: var(--muted); padding: 4px 4px 0; }
+.landscape-key span { display: inline-flex; align-items: center; gap: 6px; }
+.landscape-key .k { width: 14px; height: 0; border: 0; border-top: 2px solid; border-radius: 0; display: inline-block; }
+.landscape-key .k.blocked { border-color: var(--st-blocked); }
+.landscape-key .k.wip { border-color: var(--st-wip-ink); }
+.landscape-key .k.review { border-color: var(--st-review); }
+.landscape-key .k.todo { border-color: var(--st-todo); }
+.landscape-key .k.hot { width: 10px; height: 10px; border: 1.5px solid var(--text); border-radius: 50%; background: var(--ochre); }
+
+/* ---------- Calendar, notes, terminals, guide ---------- */
+[data-theme="terrain"] .cal-grid { border-radius: var(--radius-lg); background: var(--surface); }
+[data-theme="terrain"] .cal-dow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+[data-theme="terrain"] .cal-day.today .cal-num { background: var(--ochre); color: var(--moss); }
+[data-theme="terrain"] .cal-item { border-radius: 10px; }
+[data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
+[data-theme="terrain"] .cal-item.task { border-color: var(--muted); }
+[data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .term-tab.on { border-color: var(--text); }
+[data-theme="terrain"] .gantt-host { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }
+[data-theme="terrain"] .guide :is(code, pre) { font-family: var(--font-mono); border-radius: 10px; }
+[data-theme="terrain"] .milkdown {
+  --crepe-color-primary: var(--text);
+  --crepe-color-inline-code: var(--p1);
+  --crepe-font-title: var(--font-ui);
+  --crepe-font-default: var(--font-ui);
+  --crepe-font-code: var(--font-mono);
+  --crepe-shadow-2: var(--shadow-lift);
+}
+[data-theme="terrain"] :is(.split-handle:hover, .split-handle[data-separator="active"])::after { background: var(--highlight); }
+[data-theme="terrain"] .mono { border-radius: 8px; }
+
+/* ---------- Motion ---------- */
+/* Each view settles in when you open it. Hover springs a little. Nothing loops except waiting agents. */
+@keyframes tr-settle { from { opacity: 0; transform: translateY(12px); } }
+[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) both; }
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="terrain"] *, [data-theme="terrain"] *::before { animation: none !important; transition: none !important; }
+}
