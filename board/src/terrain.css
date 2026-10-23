@@ -301,6 +301,24 @@
 [data-theme="terrain"] .dep-node.done .dep-marker { background: var(--text); }
 [data-theme="terrain"] .dep-node.running .dep-marker { animation: none; }
 [data-theme="terrain"] .dep-node.running { animation: tr-run 2s var(--ease) infinite; }
+
+/* Brain Terrain: projects are summits with a contour ring, edges are contour lines, ochre marks what you point at. */
+[data-theme="terrain"] .kg-host { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .kg-chip { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .kg-node, [data-theme="terrain"] .kg-chip .kg-dot { --kg: var(--p3); }
+[data-theme="terrain"] .kg-node.project, [data-theme="terrain"] .kg-chip.project .kg-dot { --kg: var(--st-done); }
+[data-theme="terrain"] .kg-node.task, [data-theme="terrain"] .kg-chip.task .kg-dot { --kg: var(--st-wip-ink); }
+[data-theme="terrain"] .kg-node.thought, [data-theme="terrain"] .kg-chip.thought .kg-dot { --kg: var(--st-review); }
+[data-theme="terrain"] .kg-node.meeting, [data-theme="terrain"] .kg-chip.meeting .kg-dot { --kg: var(--st-review-ink); }
+[data-theme="terrain"] .kg-node.report, [data-theme="terrain"] .kg-chip.report .kg-dot { --kg: var(--st-blocked); }
+[data-theme="terrain"] .kg-node.project::before { content: ''; position: absolute; inset: -7px; border: 1.5px dashed var(--contour); border-radius: 50%; }
+[data-theme="terrain"] .kg-node .kg-dot { transition: transform .35s var(--spring); }
+[data-theme="terrain"] .kg-node:hover .kg-dot { transform: scale(1.25); }
+[data-theme="terrain"] .kg-node.hot .kg-dot { outline-color: var(--highlight); }
+[data-theme="terrain"] .kg-flow .react-flow__edge path { stroke: var(--contour); }
+[data-theme="terrain"] .kg-flow .react-flow__edge.link path { stroke: var(--muted); stroke-opacity: .55; }
+[data-theme="terrain"] .kg-flow .react-flow__edge.hot path { stroke: var(--highlight); stroke-opacity: 1; }
+[data-theme="terrain"] .kg-line { border-top-color: var(--contour); }
 @keyframes tr-run { 0% { box-shadow: 0 0 0 0 var(--st-wip); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 [data-theme="terrain"] .dep-lane { border-color: var(--contour); border-radius: var(--radius-lg); }
 [data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }

@@ -10,6 +10,7 @@ import { AGENTS_DIR, listAgents } from './agents'
 import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { integrations } from './integrations'
+import { knowledgeGraph } from './graph'
 import { createMeeting, readTranscript, transcribe as whisper, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import type { Move } from './src/drag'
@@ -54,6 +55,7 @@ async function handle(req: IncomingMessage) {
     if (kind === 'agents') return listAgents()
     if (kind === 'notes') return listNotes()
     if (kind === 'doc') return readDoc(vaultPath(url.searchParams.get('path') ?? ''))
+    if (kind === 'graph') return knowledgeGraph()
     if (kind === 'search') return await search(url.searchParams.get('q') ?? '')
     if (kind === 'sync') return syncStatus
     if (kind === 'terminals') return listTerminals()
