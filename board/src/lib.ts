@@ -36,6 +36,9 @@ export const TAB = crypto.randomUUID()
 export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
   const writing = new Set<Promise<void>>()
   let drops = 0
+  // A drop that failed in the browser can still land on the server (a request that gave up): until the
+  // next echo of this tab's own write, that echo can't be trusted to be already on screen.
+  let doubted = false
   const load = (): Promise<void> => {
     const at = drops
     return Promise.all(writing).then(fetch).then((v) => { if (at === drops) set(v); else return load() })
@@ -47,7 +50,14 @@ export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
       const done: Promise<void> = write.then(() => {}, () => {}).finally(() => { writing.delete(done) })
       writing.add(done)
       set(v)
-      return write.then(() => {}, () => load())
+      return write.then(() => {}, () => { doubted = true; return load() })
+    },
+    // Whether a vault change from `tab` needs a reload in this tab, `mine`.
+    needsReload(tab: string | undefined, mine: string) {
+      if (tab !== mine) return true
+      const reload = doubted
+      doubted = false
+      return reload
     },
   }
 }

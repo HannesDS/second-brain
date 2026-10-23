@@ -69,6 +69,16 @@ test('a failed drop reloads what the files say', async () => {
   expect(set.mock.calls).toEqual([['dropped'], ['files']])
 })
 
+test('a tab skips the echo of its own drop, unless a drop failed and may still land', async () => {
+  const vault = loader(async () => 'files', () => {})
+  expect(vault.needsReload('me', 'me')).toBe(false)
+  expect(vault.needsReload('other tab', 'me')).toBe(true)
+  expect(vault.needsReload(undefined, 'me')).toBe(true)
+  await vault.dropped('dropped', Promise.reject(new Error('timed out')))
+  expect(vault.needsReload('me', 'me')).toBe(true)
+  expect(vault.needsReload('me', 'me')).toBe(false)
+})
+
 test('a request with a timeout gives up, so a hung drop settles and loads go on', async () => {
   const seen: (AbortSignal | null | undefined)[] = []
   vi.stubGlobal('fetch', async (_: string, init: RequestInit) => { seen.push(init.signal); return new Response('{}') })
