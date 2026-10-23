@@ -10,7 +10,7 @@ import type { Actions } from './Today'
 import { aim, dragOver, dropMoves, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
-import { LABELS, MOVE_TIMEOUT_MS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
+import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
@@ -72,9 +72,8 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
     if (!moves.length) return
     const from = byName[a.id]?.data.status
     const patch = Object.fromEntries(moves.map((m) => [m.id, m.status === 'done' && from !== 'done' ? { ...m, completed: todayISO() } : m]))
-    const write = api('move', 'POST', moves, MOVE_TIMEOUT_MS)
-    // A request that gave up may still be written: say so. The board reloads once the server answers.
-    write.catch((e: Error) => fail(e.name === 'TimeoutError' ? new Error('No answer on the move yet; the board catches up once the server answers') : e))
+    const write = api('move', 'POST', moves)
+    write.catch(fail)
     drop({ ...vault, tasks: vault.tasks.map((t) => patch[t.name] ? { ...t, data: { ...t.data, ...patch[t.name] } } : t) }, write).catch(fail)
   }
 

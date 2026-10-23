@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import { api, loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
+import { loader, prReport, teachPrompt, todayISO, type Doc } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -68,15 +68,3 @@ test('a failed drop reloads what the files say', async () => {
   await reload
   expect(set.mock.calls).toEqual([['dropped'], ['files']])
 })
-
-test('a request with a timeout gives up, so a hung drop settles and loads go on', async () => {
-  const seen: (AbortSignal | null | undefined)[] = []
-  vi.stubGlobal('fetch', async (_: string, init: RequestInit) => { seen.push(init.signal); return new Response('{}') })
-  try {
-    await api('move', 'POST', [], 30_000)
-    await api('data')
-    expect(seen[0]).toBeInstanceOf(AbortSignal)
-    expect(seen[1]).toBeUndefined()
-  } finally { vi.unstubAllGlobals() }
-})
-

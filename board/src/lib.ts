@@ -30,8 +30,8 @@ export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished
 export const TAB = crypto.randomUUID()
 
 // Loads the vault without undoing a drop the files don't have yet. A load waits for the drops still being
-// written (each gives up after MOVE_TIMEOUT_MS, so none blocks it for good); one already on its way when a
-// drop comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands
+// written (the server writes a move as soon as it reads it, so each answers or fails); one already on its
+// way when a drop comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands
 // back that reload, so its own failure can be shown too.
 export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
   const writing = new Set<Promise<void>>()
@@ -52,11 +52,8 @@ export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
   }
 }
 
-export const MOVE_TIMEOUT_MS = 30_000
-
-export async function api(url: string, method = 'GET', body?: unknown, timeoutMs?: number) {
-  const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
-  const res = await fetch(`/api/${url}`, { method, signal, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
+export async function api(url: string, method = 'GET', body?: unknown) {
+  const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
   const out = await res.json()
   if (!res.ok) throw new Error(out.error)
   return out
