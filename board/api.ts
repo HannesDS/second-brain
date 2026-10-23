@@ -9,7 +9,7 @@ import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, write
 import { AGENTS_DIR, listAgents } from './agents'
 import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
-import { createMeeting, readTranscript, transcribeChunk } from './meetings'
+import { createMeeting, readTranscript, transcribe as whisper, transcribeChunk } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import { ownWrites } from './own-writes'
 import { asList, expand, workdir } from './repos'
@@ -110,9 +110,10 @@ function meetingName(name: unknown) {
 }
 
 // Raw audio upload: POST /api/transcribe?name=<meeting>&at=<iso>, body = one self-contained webm chunk.
+// Without a name it only returns the text (dictating a thought).
 async function transcribe(req: IncomingMessage) {
   const url = new URL(req.url ?? '/', 'http://local')
-  const name = meetingName(url.searchParams.get('name'))
+  const name = url.searchParams.has('name') ? meetingName(url.searchParams.get('name')) : ''
   const chunks: Buffer[] = []
   let size = 0
   for await (const c of req) {
@@ -120,7 +121,8 @@ async function transcribe(req: IncomingMessage) {
     if (size > 50 * 1024 * 1024) throw new Error('audio chunk too large')
     chunks.push(c)
   }
-  return { text: await transcribeChunk(name, Buffer.concat(chunks), url.searchParams.get('at') ?? '') }
+  const audio = Buffer.concat(chunks)
+  return { text: name ? await transcribeChunk(name, audio, url.searchParams.get('at') ?? '') : await whisper(audio) }
 }
 
 // Opens a terminal tab: resume an agent session, or start Claude / a shell for a project or task.

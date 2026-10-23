@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
-  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Mountain, Sparkles, Sun, X, type LucideIcon,
+  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, PanelRightOpen, Pencil, Plus, RefreshCw,
+  Mountain, Sparkles, Square, Sun, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
@@ -407,9 +407,44 @@ function Capture({ close, saved, fail }: { close: () => void; saved: (path: stri
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save() } }} />
         </Field>
+        <Dictate add={(said) => setText((t) => t.trim() ? `${t.trimEnd()}\n${said}` : said)} fail={fail} />
       </div>
     </Panel>
   )
+}
+
+// Speak a thought: one recording, transcribed by the local Whisper the meetings use, added to the text.
+function Dictate({ add, fail }: { add: (text: string) => void; fail: (e: Error) => void }) {
+  const [state, setState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
+  const recorder = useRef<MediaRecorder>(undefined)
+  // Closing the panel mid-recording drops the audio and frees the mic.
+  useEffect(() => () => {
+    const r = recorder.current
+    if (r?.state === 'recording') { r.onstop = () => r.stream.getTracks().forEach((t) => t.stop()); r.stop() }
+  }, [])
+
+  async function start() {
+    try {
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      const r = new MediaRecorder(mic, { mimeType: 'audio/webm;codecs=opus' })
+      const parts: Blob[] = []
+      r.ondataavailable = (e) => parts.push(e.data)
+      r.onstop = () => {
+        mic.getTracks().forEach((t) => t.stop())
+        setState('transcribing')
+        fetch('/api/transcribe', { method: 'POST', body: new Blob(parts, { type: 'audio/webm' }) })
+          .then(async (res) => { const out = await res.json(); if (!res.ok) throw new Error(out.error); if (out.text) add(out.text) })
+          .catch(fail)
+          .finally(() => setState('idle'))
+      }
+      r.start()
+      recorder.current = r
+      setState('recording')
+    } catch (e) { fail(e as Error) }
+  }
+
+  if (state === 'recording') return <IconButton icon={Square} label="Stop and transcribe" showLabel active onClick={() => recorder.current?.stop()} />
+  return <IconButton icon={Mic} label={state === 'transcribing' ? 'Transcribing…' : 'Dictate (local Whisper)'} showLabel disabled={state === 'transcribing'} onClick={start} />
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
