@@ -30,32 +30,36 @@ test('the unknown-status column takes no preview', () => {
   expect(dragOver(withUnknown, 'A', 'col:?')).toBe(withUnknown)
 })
 
-test('a reorder writes only the cards whose order changed', () => {
-  expect(dropMoves(layout, 'C', 'B', current)).toEqual([
-    { id: 'C', status: 'todo', order: 1 },
-    { id: 'B', status: 'todo', order: 2 },
-  ])
+test('a reorder writes only the card, with an order between its new neighbours', () => {
+  expect(dropMoves(layout, 'C', 'B', current)).toEqual([{ id: 'C', status: 'todo', order: 0.5 }])
+  expect(dropMoves(layout, 'C', 'A', current)).toEqual([{ id: 'C', status: 'todo', order: -1 }])
 })
 
 test('a drop onto its own place writes nothing', () => {
   expect(dropMoves(layout, 'B', 'B', current)).toEqual([])
 })
 
-test('a move to another column writes the card and the cards it pushed down', () => {
+test('a move to another column writes only the card', () => {
   // After the preview the card sits under the pointer, so it's over itself.
-  expect(dropMoves(dragOver(layout, 'A', 'E'), 'A', 'A', current)).toEqual([
-    { id: 'A', status: 'wip', order: 1 },
-    { id: 'E', status: 'wip', order: 2 },
-  ])
+  expect(dropMoves(dragOver(layout, 'A', 'E'), 'A', 'A', current)).toEqual([{ id: 'A', status: 'wip', order: 0.5 }])
+})
+
+test('the pointer below a card\'s middle previews the card after it', () => {
+  expect(dragOver(layout, 'A', 'E', undefined, true).wip).toEqual(['D', 'E', 'A'])
+  expect(dropMoves(dragOver(layout, 'A', 'E', undefined, true), 'A', 'A', current)).toEqual([{ id: 'A', status: 'wip', order: 2 }])
 })
 
 test('a drop onto the column moves the card last of the cards shown', () => {
-  expect(dropMoves(layout, 'A', 'col:todo', current)).toEqual([
-    { id: 'B', status: 'todo', order: 0 },
+  expect(dropMoves(layout, 'A', 'col:todo', current)).toEqual([{ id: 'A', status: 'todo', order: 3 }])
+  expect(dropMoves(layout, 'A', 'col:todo', current, 2)).toEqual([{ id: 'A', status: 'todo', order: 1.5 }])
+})
+
+test('with no room between the neighbours, the column is renumbered', () => {
+  const tied = () => ({ status: 'todo', order: 0 })
+  expect(dropMoves(layout, 'C', 'B', tied)).toEqual([
     { id: 'C', status: 'todo', order: 1 },
-    { id: 'A', status: 'todo', order: 2 },
+    { id: 'B', status: 'todo', order: 2 },
   ])
-  expect(dropMoves(layout, 'A', 'col:todo', current, 2).map((m) => m.id)).toEqual(['B', 'A'])
 })
 
 test('Done takes only the card itself, and has no order to change', () => {

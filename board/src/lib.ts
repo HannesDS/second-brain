@@ -26,8 +26,11 @@ export const byOrder = (a: Doc, b: Doc) => (Number(a.data.order) || 0) - (Number
 const finished = (t: Doc) => String(t.data.completed ?? t.data.updated ?? '')
 export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished(a)) || b.name.localeCompare(a.name)
 
+// Names this browser tab to the server, so the tab can skip the reload for a drop it already shows.
+export const TAB = crypto.randomUUID()
+
 export async function api(url: string, method = 'GET', body?: unknown) {
-  const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json' } })
+  const res = await fetch(`/api/${url}`, { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json', 'x-tab': TAB } })
   const out = await res.json()
   if (!res.ok) throw new Error(out.error)
   return out

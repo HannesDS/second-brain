@@ -1,6 +1,7 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  DndContext, DragOverlay, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent,
+  DndContext, DragOverlay, PointerSensor, closestCenter, getFirstCollision, pointerWithin, rectIntersection, useDroppable, useSensor,
+  useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent, type UniqueIdentifier,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -35,6 +36,34 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
   const [preview, setPreview] = useState<Layout>()
   const shownLayout = preview ?? layout
 
+  // Over a column, aim at its nearest card. Right after the card changed column, stay on the last target
+  // until the layout has caught up, or the card flips between two columns at their edge (dnd-kit's
+  // multiple-containers recipe).
+  const lastOver = useRef<UniqueIdentifier>(undefined)
+  const justMoved = useRef(false)
+  useEffect(() => { requestAnimationFrame(() => { justMoved.current = false }) }, [preview])
+  const collision = useCallback<CollisionDetection>((args) => {
+    const hits = pointerWithin(args)
+    let overId = getFirstCollision(hits.length ? hits : rectIntersection(args), 'id')
+    if (overId != null) {
+      const cards = String(overId).startsWith('col:') ? shownLayout[String(overId).slice(4)] : undefined
+      if (cards?.length) overId = closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => cards.includes(String(c.id))) })[0]?.id ?? overId
+      lastOver.current = overId
+      return [{ id: overId }]
+    }
+    if (justMoved.current) lastOver.current = args.active.id
+    return lastOver.current != null ? [{ id: lastOver.current }] : []
+  }, [shownLayout])
+
+  function onDragOver({ active: a, over }: DragOverEvent) {
+    if (!over) return
+    const r = a.rect.current.translated
+    const next = dragOver(shownLayout, String(a.id), String(over.id), limit, !!r && r.top > over.rect.top + over.rect.height / 2)
+    if (next === shownLayout) return
+    justMoved.current = true
+    setPreview(next)
+  }
+
   function onDragEnd({ active: a, over }: DragEndEvent) {
     const moves = over ? dropMoves(shownLayout, String(a.id), String(over.id), (id) => byName[id]?.data ?? {}, limit) : []
     setActive(undefined)
@@ -47,9 +76,8 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}
-      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout) }}
-      onDragOver={({ active: a, over }) => over && setPreview((l) => l && dragOver(l, String(a.id), String(over.id), limit))}
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver}
+      onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); lastOver.current = undefined }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
         {cols.map((s) => {

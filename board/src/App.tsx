@@ -22,7 +22,7 @@ import { place, step, type Place } from './combobox'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
-  contextOf, inContext, projectForPath, scopeVault, startCommand, teachPrompt, unlink,
+  TAB, contextOf, inContext, projectForPath, scopeVault, startCommand, teachPrompt, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -79,7 +79,8 @@ export default function App() {
     loadAgents()
     api('sync').then(setSync)
     let timer: number
-    const onChange = () => { clearTimeout(timer); timer = window.setTimeout(load, 100) }
+    // A drop in this tab already shows; its own echo needs no reload.
+    const onChange = (e?: { tab?: string }) => { if (e?.tab === TAB) return; clearTimeout(timer); timer = window.setTimeout(load, 100) }
     const onAgents = () => { clearTimeout(timer); timer = window.setTimeout(loadAgents, 300) }
     // Switching view closes the peek: it belonged to the page you left.
     const onHash = () => { setRoute(parseHash()); setPeeks([]) }
