@@ -30,27 +30,35 @@ export function readTranscript(name: string) {
   return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : ''
 }
 
-// One chunk at a time per process: Whisper uses the whole GPU anyway, and chunks must stay in order.
+// One clip at a time per process: Whisper uses the whole GPU anyway, and meeting chunks must stay in order.
 let queue = Promise.resolve()
 
-export function transcribeChunk(name: string, audio: Buffer, startedAt: string) {
+const INSTALL = { ffmpeg: 'brew install ffmpeg', 'whisper-cli': 'brew install whisper-cpp' }
+
+// Runs a local tool; a missing one gets an error that says how to install it.
+async function tool(cmd: keyof typeof INSTALL, args: string[], opts: { maxBuffer?: number; timeout?: number } = {}) {
+  try {
+    return await run(cmd, args, opts)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`${cmd} not found: install it with \`${INSTALL[cmd]}\``)
+    throw e
+  }
+}
+
+// Speech to text on this Mac: a webm clip from the browser, through ffmpeg and Whisper. Audio never leaves the machine.
+export function transcribe(audio: Buffer) {
   const job = queue.then(async () => {
-    if (!fs.existsSync(MODEL)) throw new Error(`Whisper model missing at ${MODEL}`)
+    if (!fs.existsSync(MODEL)) throw new Error(`Whisper model missing at ${MODEL}: download ggml-large-v3-turbo-q5_0.bin from huggingface.co/ggerganov/whisper.cpp there, or point WHISPER_MODEL at one`)
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-rec-'))
     try {
       const input = path.join(dir, 'in.webm')
       const wav = path.join(dir, 'in.wav')
       fs.writeFileSync(input, audio)
-      await run('ffmpeg', ['-loglevel', 'error', '-i', input, '-ar', '16000', '-ac', '1', wav])
-      const { stdout } = await run('whisper-cli', ['-m', MODEL, '-f', wav, '-l', 'auto', '-nt', '-np'], { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 })
+      await tool('ffmpeg', ['-loglevel', 'error', '-i', input, '-ar', '16000', '-ac', '1', wav])
+      const { stdout } = await tool('whisper-cli', ['-m', MODEL, '-f', wav, '-l', 'auto', '-nt', '-np'], { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 })
       const text = stdout.replace(/\s+/g, ' ').trim()
       // Whisper hallucinates these on silence.
       if (!text || /^\[?(BLANK_AUDIO|silence|music)\]?$|^(thank you\.?|bedankt\.?)$/i.test(text)) return ''
-      const f = transcriptPath(name)
-      fs.mkdirSync(path.dirname(f), { recursive: true })
-      if (!fs.existsSync(f)) fs.writeFileSync(f, `---\nmeeting: "[[${name}]]"\n---\n`)
-      const stamp = new Date(startedAt || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-      fs.appendFileSync(f, `\n**${stamp}** ${text}\n`)
       return text
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
@@ -58,6 +66,17 @@ export function transcribeChunk(name: string, audio: Buffer, startedAt: string) 
   })
   queue = job.then(() => {}, () => {})
   return job
+}
+
+export async function transcribeChunk(name: string, audio: Buffer, startedAt: string) {
+  const text = await transcribe(audio)
+  if (!text) return ''
+  const f = transcriptPath(name)
+  fs.mkdirSync(path.dirname(f), { recursive: true })
+  if (!fs.existsSync(f)) fs.writeFileSync(f, `---\nmeeting: "[[${name}]]"\n---\n`)
+  const stamp = new Date(startedAt || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  fs.appendFileSync(f, `\n**${stamp}** ${text}\n`)
+  return text
 }
 
 // Replaces the content of one "## Heading" section, keeping the rest of the note as it is.

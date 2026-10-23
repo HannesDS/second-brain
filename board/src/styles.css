@@ -338,6 +338,8 @@ tbody tr:hover { background: var(--surface-2); }
 .questions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 0 0 12px; }
 .proposal .questions label { flex-direction: column; align-items: stretch; align-self: stretch; }
 .capture textarea { min-height: 220px; font: inherit; }
+.dictate { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.dictate-error { color: var(--danger); font-size: 13px; }
 kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
 .row-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .milkdown {

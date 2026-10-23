@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
-  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Mountain, Sparkles, Sun, X, type LucideIcon,
+  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, PanelRightOpen, Pencil, Plus, RefreshCw,
+  Mountain, Sparkles, Square, Sun, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
@@ -451,7 +451,10 @@ function Panel({ title, close, children, onSave }: { title: string; close: () =>
 function Capture({ close, saved, fail }: { close: () => void; saved: (path: string) => void; fail: (e: Error) => void }) {
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
+  // Saving waits until a dictation is in, so the spoken part is never lost.
+  const [dictating, setDictating] = useState(false)
   const save = () => {
+    if (dictating) return
     if (!text.trim()) return close()
     if (saving) return
     setSaving(true)
@@ -464,8 +467,67 @@ function Capture({ close, saved, fail }: { close: () => void; saved: (path: stri
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save() } }} />
         </Field>
+        <Dictate add={(said) => setText((t) => t.trim() ? `${t.trimEnd()}\n${said}` : said)} busy={setDictating} />
       </div>
     </Panel>
+  )
+}
+
+// Speak a thought: one recording, transcribed by the local Whisper the meetings use, added to the text.
+// Errors show here, not in a toast: the panel would cover it, and an install hint needs time to read.
+function Dictate({ add, busy }: { add: (text: string) => void; busy: (on: boolean) => void }) {
+  const [state, setState] = useState<'idle' | 'starting' | 'recording' | 'transcribing'>('idle')
+  const [error, setError] = useState('')
+  const recorder = useRef<MediaRecorder>(undefined)
+  const gone = useRef(false)
+  useEffect(() => busy(state !== 'idle'), [state, busy])
+  // Closing the panel mid-recording drops the audio and frees the mic.
+  useEffect(() => () => {
+    gone.current = true
+    const r = recorder.current
+    if (r?.state === 'recording') { r.onstop = () => r.stream.getTracks().forEach((t) => t.stop()); r.stop() }
+  }, [])
+
+  async function start() {
+    setError('')
+    setState('starting')
+    let mic: MediaStream | undefined
+    try {
+      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      if (gone.current) return mic.getTracks().forEach((t) => t.stop())
+      const r = new MediaRecorder(mic, { mimeType: 'audio/webm;codecs=opus' })
+      const parts: Blob[] = []
+      r.ondataavailable = (e) => parts.push(e.data)
+      r.onstop = () => {
+        r.stream.getTracks().forEach((t) => t.stop())
+        setState('transcribing')
+        fetch('/api/transcribe', { method: 'POST', body: new Blob(parts, { type: 'audio/webm' }) })
+          .then(async (res) => {
+            const out = await res.json()
+            if (!res.ok) throw new Error(out.error)
+            if (out.text) add(out.text)
+            else setError('Nothing heard. Try again, a little closer to the mic.')
+          })
+          .catch((e) => setError(e.message || 'Transcription failed'))
+          .finally(() => setState('idle'))
+      }
+      r.start()
+      recorder.current = r
+      setState('recording')
+    } catch (e) {
+      mic?.getTracks().forEach((t) => t.stop())
+      setError((e as Error).message)
+      setState('idle')
+    }
+  }
+
+  return (
+    <div className="dictate">
+      {state === 'recording'
+        ? <IconButton icon={Square} label="Stop and transcribe" showLabel active onClick={() => recorder.current?.stop()} />
+        : <IconButton icon={Mic} label={state === 'transcribing' ? 'Transcribing…' : 'Dictate (local Whisper)'} showLabel disabled={state !== 'idle'} onClick={start} />}
+      {error && <span className="dictate-error" role="alert">{error}</span>}
+    </div>
   )
 }
 
