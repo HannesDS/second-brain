@@ -266,7 +266,7 @@ tbody tr:hover { background: var(--surface-2); }
 .integration-state { font-size: 12px; color: var(--muted); }
 .integration.error .integration-state { color: var(--danger); }
 .integration .dot.ok { background: var(--ok); }
-.integration .dot.error { background: var(--p0); }
+.integration .dot.error { background: var(--danger); }
 .integration-config { list-style: none; margin: 6px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 
 @media (max-width: 1000px) {

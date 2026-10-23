@@ -1,5 +1,5 @@
 import { CalendarDays, RefreshCw } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Feeds } from './Calendar'
 import { IconButton } from './ui'
 import { ago, api } from './lib'
@@ -18,9 +18,11 @@ export default function Integrations({ synced, fail }: { synced: (s: Record<stri
     setSyncing(true)
     api('sync', 'POST').then((s) => { synced(s); return load() }, fail).finally(() => setSyncing(false))
   }
-  const actions: Record<string, React.ReactNode> = {
-    notion: <IconButton icon={RefreshCw} label={syncing ? 'Syncing…' : 'Sync now'} showLabel disabled={syncing} onClick={sync} />,
-    github: <IconButton icon={RefreshCw} label={syncing ? 'Syncing…' : 'Sync now'} showLabel disabled={syncing} onClick={sync} />,
+  // One sync runs both Notion and GitHub.
+  const syncButton = <IconButton icon={RefreshCw} label={syncing ? 'Syncing…' : 'Sync now'} showLabel disabled={syncing} onClick={sync} />
+  const actions: Record<string, ReactNode> = {
+    notion: syncButton,
+    github: syncButton,
     calendars: <IconButton icon={CalendarDays} label="Calendars" showLabel onClick={() => setFeedsOpen(true)} />,
   }
 

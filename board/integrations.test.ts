@@ -8,7 +8,9 @@ const bin = path.join(scratch, 'bin')
 const model = path.join(scratch, 'model.bin')
 process.env.SECOND_BRAIN_VAULT = path.join(scratch, 'vault')
 process.env.WHISPER_MODEL = model
-const { envVars, ollama, onPath, whisper } = await import('./integrations')
+const { envVars, notion, ollama, onPath, whisper } = await import('./integrations')
+const { redact } = await import('./calendar')
+const { status: syncStatus } = await import('./sync')
 
 const tool = (name: string, mode = 0o755) => {
   fs.mkdirSync(bin, { recursive: true })
@@ -61,4 +63,21 @@ test('ollama works once the embedding model is pulled', async () => {
 test('ollama down is an error, not a crash', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')))
   expect(await ollama()).toMatchObject({ state: 'error', detail: expect.stringContaining('ECONNREFUSED') })
+})
+
+test('notion is off without a token, and shows the last sync error', () => {
+  Object.assign(syncStatus, { notion: 'ok', lastRun: '2026-10-23T08:00:00.000Z', error: '' })
+  vi.stubEnv('NOTION_TOKEN', '')
+  expect(notion()).toMatchObject({ state: 'off', lastRun: '' })
+  vi.stubEnv('NOTION_TOKEN', 'secret_abc')
+  expect(notion()).toMatchObject({ state: 'ok', lastRun: '2026-10-23T08:00:00.000Z' })
+  Object.assign(syncStatus, { error: 'Notion 401: API token is invalid.' })
+  expect(notion()).toMatchObject({ state: 'error', detail: 'Notion 401: API token is invalid.' })
+  expect(JSON.stringify(notion())).not.toContain('secret_abc')
+})
+
+test('calendar errors keep the host, not the secret address', () => {
+  const out = redact('request to https://calendar.google.com/calendar/ical/me%40x.com/private-abc123/basic.ics failed')
+  expect(out).toBe('request to https://calendar.google.com failed')
+  expect(redact('404 Not Found')).toBe('404 Not Found')
 })

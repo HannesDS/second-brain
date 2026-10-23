@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 import { VAULT, readDoc, writeDoc } from '../lib/vault.mjs'
 
 const run = promisify(execFile)
-export const MODEL = process.env.WHISPER_MODEL ?? path.join(os.homedir(), '.cache/whisper/ggml-large-v3-turbo-q5_0.bin')
+export const WHISPER_MODEL = process.env.WHISPER_MODEL ?? path.join(os.homedir(), '.cache/whisper/ggml-large-v3-turbo-q5_0.bin')
 
 // Same sections as the Notion "Meeting notes" template. The transcript lives in transcripts/
 // (embedded below) so recording never fights with you typing in the note.
@@ -35,14 +35,14 @@ let queue = Promise.resolve()
 
 export function transcribeChunk(name: string, audio: Buffer, startedAt: string) {
   const job = queue.then(async () => {
-    if (!fs.existsSync(MODEL)) throw new Error(`Whisper model missing at ${MODEL}`)
+    if (!fs.existsSync(WHISPER_MODEL)) throw new Error(`Whisper model missing at ${WHISPER_MODEL}`)
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-rec-'))
     try {
       const input = path.join(dir, 'in.webm')
       const wav = path.join(dir, 'in.wav')
       fs.writeFileSync(input, audio)
       await run('ffmpeg', ['-loglevel', 'error', '-i', input, '-ar', '16000', '-ac', '1', wav])
-      const { stdout } = await run('whisper-cli', ['-m', MODEL, '-f', wav, '-l', 'auto', '-nt', '-np'], { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 })
+      const { stdout } = await run('whisper-cli', ['-m', WHISPER_MODEL, '-f', wav, '-l', 'auto', '-nt', '-np'], { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 })
       const text = stdout.replace(/\s+/g, ' ').trim()
       // Whisper hallucinates these on silence.
       if (!text || /^\[?(BLANK_AUDIO|silence|music)\]?$|^(thank you\.?|bedankt\.?)$/i.test(text)) return ''
