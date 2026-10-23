@@ -29,23 +29,27 @@ export const byFinished = (a: Doc, b: Doc) => finished(b).localeCompare(finished
 // Names this browser tab to the server, so the tab can skip the reload for a drop it already shows.
 export const TAB = crypto.randomUUID()
 
-// Loads the vault without undoing a drop the files don't have yet. A load waits for the drops sent before
-// it; one already on its way when a drop comes is asked again once that drop is written. A failed drop
-// reloads, to show what the files really say.
+// Loads the vault without undoing a drop the files don't have yet. A load waits for the drops still being
+// written (up to WRITE_WAIT_MS, so a hung one can't block it for good); one already on its way when a drop
+// comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands back
+// that reload, so its own failure can be shown too.
+const WRITE_WAIT_MS = 10_000
 export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
-  let writing: Promise<unknown> = Promise.resolve()
+  const writing = new Set<Promise<void>>()
   let drops = 0
   const load = (): Promise<void> => {
     const at = drops
-    return writing.then(fetch).then((v) => { if (at === drops) set(v); else return load() })
+    const waited = writing.size ? Promise.race([Promise.all(writing), new Promise((r) => setTimeout(r, WRITE_WAIT_MS))]) : Promise.resolve()
+    return waited.then(fetch).then((v) => { if (at === drops) set(v); else return load() })
   }
   return {
     load,
     dropped(v: T, write: Promise<unknown>) {
       drops++
-      writing = Promise.all([writing, write.catch(() => undefined)])
-      write.catch(() => load())
+      const done: Promise<void> = write.then(() => {}, () => {}).finally(() => { writing.delete(done) })
+      writing.add(done)
       set(v)
+      return write.then(() => {}, () => load())
     },
   }
 }
@@ -139,4 +143,6 @@ export function contextOf(run: { cwd: string; account: string; task?: string }, 
 
 // Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.
 export const FOCUS_MAX = 3
-export const isFocus = (t: Doc) => t.data.focus === true && t.data.status !== 'done'
+// Starred in the file. It counts everywhere but in Done, where tasks sort by when they were finished.
+export const starred = (d: Fields) => d.focus === true
+export const isFocus = (t: Doc) => starred(t.data) && t.data.status !== 'done'

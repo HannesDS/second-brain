@@ -88,26 +88,40 @@ test('Done takes only the card itself, and has no order to change', () => {
 test('a card dropped under a starred card is placed among the unstarred cards only', () => {
   // X is starred with a high order; it shows on top all the same.
   const withStar = { ...layout, todo: ['X', 'A', 'B', 'C'] }
-  const get = (id: string) => (id === 'X' ? { status: 'todo', order: 90, focus: true } : data[id])
-  expect(dropMoves(withStar, withStar, 'C', 'A', get)).toEqual([{ id: 'C', status: 'todo', order: 5 }])
+  const get = (id: string) => (id === 'X' ? { status: 'todo', order: 90 } : data[id])
+  const starred = (id: string) => id === 'X'
+  expect(dropMoves(withStar, withStar, 'C', 'A', get, undefined, starred)).toEqual([{ id: 'C', status: 'todo', order: 5 }])
   // Moved above the starred card only: it still shows below it, so nothing changes.
-  expect(dropMoves(withStar, withStar, 'A', 'X', get)).toEqual([])
+  expect(dropMoves(withStar, withStar, 'A', 'X', get, undefined, starred)).toEqual([])
 })
+
+const nobody = () => false
 
 test('over a column the drag aims at its nearest card, an empty column at the column', () => {
   const sticky = { justMoved: false, active: 'A' }
   const nearest = (cards: Set<string>) => [...cards].at(-1)
-  expect(aim('col:wip', layout, nearest, sticky)).toBe('E')
-  expect(aim('col:review', { ...layout, review: [] }, nearest, sticky)).toBe('col:review')
-  expect(aim('B', layout, nearest, sticky)).toBe('B')
+  expect(aim('col:wip', layout, nearest, sticky, nobody)).toBe('E')
+  expect(aim('col:review', { ...layout, review: [] }, nearest, sticky, nobody)).toBe('col:review')
+  expect(aim('B', layout, nearest, sticky, nobody)).toBe('B')
 })
 
 test('over nothing the drag aims at the card right after it changed column, else at nothing', () => {
   const sticky = { justMoved: true, active: 'A' }
-  expect(aim(undefined, layout, () => undefined, sticky)).toBe('A')
+  expect(aim(undefined, layout, () => undefined, sticky, nobody)).toBe('A')
   // Let go off the board: the drag is cancelled.
   sticky.justMoved = false
-  expect(aim(undefined, layout, () => undefined, sticky)).toBeUndefined()
+  expect(aim(undefined, layout, () => undefined, sticky, nobody)).toBeUndefined()
+})
+
+test('the drag aims only at cards starred like the dragged one', () => {
+  const withStars = { ...layout, wip: ['S1', 'S2', 'D', 'E'] }
+  const starred = (id: string) => id.startsWith('S')
+  const nearest = (cards: Set<string>) => [...cards][0]
+  // Unstarred A over starred S2 aims at the nearest unstarred card instead, so the list never draws it above S2.
+  expect(aim('S2', withStars, nearest, { justMoved: false, active: 'A' }, starred)).toBe('D')
+  expect(aim('col:wip', withStars, nearest, { justMoved: false, active: 'A' }, starred)).toBe('D')
+  // With no such card in the column, at the column itself.
+  expect(aim('S1', { ...layout, wip: ['S1'] }, nearest, { justMoved: false, active: 'A' }, starred)).toBe('col:wip')
 })
 
 test('a card entering a column stays with the cards starred like it', () => {
@@ -118,4 +132,6 @@ test('a card entering a column stays with the cards starred like it', () => {
   // A starred card over an unstarred one goes last of the starred ones.
   const withA2 = { ...withStars, todo: ['A2', 'B', 'C'] }
   expect(dragOver(withA2, 'A2', 'E', undefined, starred).wip).toEqual(['S1', 'S2', 'A2', 'D', 'E'])
+  // When starred cards fill every place shown, the unstarred card goes below them, out of sight, as the drop will.
+  expect(dragOver(withStars, 'A', 'col:wip', 2, starred).wip).toEqual(['S1', 'S2', 'A', 'D', 'E'])
 })

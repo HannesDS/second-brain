@@ -12,25 +12,34 @@ const lastShown = (length: number, limit?: number) => Math.min(length, limit ?? 
 const columnFor = (layout: Layout, id: string) =>
   id.startsWith(COL) ? id.slice(COL.length) : Object.keys(layout).find((s) => layout[s].includes(id))
 
-// Where a drag aims, given what the pointer hit. Over a column, at its nearest card. Over nothing right
-// after the card changed column, at the card itself until the layout has caught up, or the card flips
-// between two columns at their edge (dnd-kit's multiple-containers recipe). Over nothing otherwise, at
-// nothing: letting go off the board cancels the drag.
+// Where a drag aims, given what the pointer hit. Only at cards starred like the dragged one: starred cards
+// sit on top, so the card can't go among the others. Over a column, at its nearest such card. Over nothing
+// right after the card changed column, at the card itself until the layout has caught up, or the card
+// flips between two columns at their edge (dnd-kit's multiple-containers recipe). Over nothing otherwise,
+// at nothing: letting go off the board cancels the drag.
 export type Sticky = { justMoved: boolean; active: string }
-export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Set<string>) => string | undefined, sticky: Sticky) {
+export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Set<string>) => string | undefined, sticky: Sticky, starred: (id: string) => boolean) {
   if (hit === undefined) return sticky.justMoved ? sticky.active : undefined
-  const cards = hit.startsWith(COL) ? layout[hit.slice(COL.length)] : undefined
-  return (cards?.length ? nearest(setOf(cards)) : undefined) ?? hit
+  const mine = starred(sticky.active)
+  const col = hit.startsWith(COL) ? hit.slice(COL.length) : starred(hit) === mine ? undefined : columnFor(layout, hit)
+  if (col === undefined) return hit
+  const cards = layout[col] ? group(layout[col], mine, starred) : undefined
+  return (cards?.size ? nearest(cards) : undefined) ?? `${COL}${col}`
 }
 
-// Collision detection runs on every pointer move; a column's set is built once per layout.
-const sets = new WeakMap<string[], Set<string>>()
-const setOf = (cards: string[]) => sets.get(cards) ?? sets.set(cards, new Set(cards)).get(cards)!
+// Collision detection runs on every pointer move; a column's groups are built once per layout.
+const groups = new WeakMap<string[], Map<boolean, Set<string>>>()
+function group(cards: string[], mine: boolean, starred: (id: string) => boolean) {
+  if (!groups.has(cards)) groups.set(cards, new Map())
+  const byStar = groups.get(cards)!
+  if (!byStar.has(mine)) byStar.set(mine, new Set(cards.filter((x) => starred(x) === mine)))
+  return byStar.get(mine)!
+}
 
 // Dragging over another column moves the card into it, before the card it's over, or last of the cards
 // shown when it's over the column itself. From there the sortable list moves it within the column. It
-// stays with the cards starred like it (starred ones sit on top), and never goes past the cards shown, or
-// it would vanish mid-drag on My day. Done lists the latest finished first, so there it goes on top.
+// doesn't go past the cards shown, or it would vanish mid-drag on My day, but staying with the cards
+// starred like it (starred ones sit on top) comes first, as that's where the drop puts it. Done lists the latest finished first, so there it goes on top.
 // Same layout back when nothing changes, or for the unknown-status column, which a drop can't move to.
 export function dragOver(layout: Layout, id: string, over: string, limit?: number, starred: (id: string) => boolean = () => false): Layout {
   const from = columnFor(layout, id)
@@ -39,8 +48,9 @@ export function dragOver(layout: Layout, id: string, over: string, limit?: numbe
   const target = layout[to]
   const i = target.indexOf(over)
   const stars = target.filter(starred).length
-  const grouped = starred(id) ? Math.min(i >= 0 ? i : Infinity, stars) : Math.max(i >= 0 ? i : Infinity, stars)
-  const at = to === 'done' ? 0 : Math.min(grouped, lastShown(target.length + 1, limit))
+  const [lo, hi] = starred(id) ? [0, stars] : [stars, target.length]
+  const shown = Math.min(i >= 0 ? i : Infinity, lastShown(target.length + 1, limit))
+  const at = to === 'done' ? 0 : Math.min(Math.max(shown, lo), hi)
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
@@ -51,7 +61,7 @@ const STEP = 10
 // order between its new neighbours, so a drop is one write. Only when there's no room is the column
 // renumbered, minus the cards that are already right. Done sorts by when a task was finished, so only the
 // card itself moves there.
-export function dropMoves(before: Layout, now: Layout, id: string, over: string, current: (id: string) => { status?: unknown; order?: unknown; focus?: unknown }, limit?: number): Move[] {
+export function dropMoves(before: Layout, now: Layout, id: string, over: string, current: (id: string) => { status?: unknown; order?: unknown }, limit?: number, starred: (id: string) => boolean = () => false): Move[] {
   const to = columnFor(now, id)
   if (!to || to === '?') return []
   if (to === 'done') return current(id).status === 'done' ? [] : [{ id, status: to, order: 0 }]
@@ -60,7 +70,6 @@ export function dropMoves(before: Layout, now: Layout, id: string, over: string,
   const moved = i >= 0 ? arrayMove(col, col.indexOf(id), i) : col
   if (moved.join() === before[to]?.join()) return []
   // Starred cards sit on top whatever their order, so the card is placed among the cards starred like it.
-  const starred = (x: string) => current(x).focus === true
   const ids = moved.filter((x) => starred(x) === starred(id))
   const order = (x?: string) => (x === undefined ? undefined : Number(current(x).order) || 0)
   const at = ids.indexOf(id)

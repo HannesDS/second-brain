@@ -33,8 +33,9 @@ test('a load that was on its way when a drop came is asked again once the drop i
   const loading = vault.load()
   const write = later<void>()
   vault.dropped('dropped', write.promise)
+  await vi.waitFor(() => expect(asked).toBe(1))
   answers[0].settle('before the drop')
-  await Promise.resolve()
+  await new Promise((r) => setTimeout(r, 0))
   // The old answer is not shown, and the second load waits for the write.
   expect(set.mock.calls).toEqual([['dropped']])
   expect(asked).toBe(1)
@@ -62,7 +63,23 @@ test('a failed drop reloads what the files say', async () => {
   const set = vi.fn()
   const vault = loader(async () => 'files', set)
   const write = later<void>()
-  vault.dropped('dropped', write.promise)
+  const reload = vault.dropped('dropped', write.promise)
   write.fail(new Error('invalid frontmatter'))
-  await vi.waitFor(() => expect(set.mock.calls).toEqual([['dropped'], ['files']]))
+  await reload
+  expect(set.mock.calls).toEqual([['dropped'], ['files']])
+})
+
+test('a hung drop holds a load back for ten seconds, not for good', async () => {
+  vi.useFakeTimers()
+  try {
+    const fetch = vi.fn(async () => 'files')
+    const vault = loader(fetch, () => {})
+    vault.dropped('dropped', new Promise(() => {}))
+    const loading = vault.load()
+    await vi.advanceTimersByTimeAsync(9999)
+    expect(fetch).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await loading
+    expect(fetch).toHaveBeenCalledOnce()
+  } finally { vi.useRealTimers() }
 })
