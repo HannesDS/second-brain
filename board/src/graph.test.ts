@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { edgeState, filterGraph, hull, layout, mapOf, nodeState, smoothPath, walkOf, type GraphNode, type KnowledgeGraph } from './graph'
+import { edgeState, filterGraph, hull, layout, mapOf, nodeState, smoothPath, timedStops, walkOf, type GraphNode, type KnowledgeGraph } from './graph'
 
 const node = (id: string, kind: GraphNode['kind'], project = '', context = ''): GraphNode => ({ id, kind, name: id, title: id, project, contexts: context ? [context] : [], status: '', priority: '' })
 const g: KnowledgeGraph = {
@@ -187,4 +187,12 @@ test('an unfiled thought waits in the Clearing even when it names a project; hil
   expect(m.clearing?.count).toBe(1)
   expect(m.hills.find((h) => h.project === 'a')?.docs).toBe(0)
   expect(m.regions).toEqual([])
+})
+
+test('walk times: start, end and arrivals first, then every stop whose label fits', () => {
+  const stop = (i: number, x: number, hill: string) => ({ x, y: 0, at: `2026-10-23T0${i}:00`, id: `t${i}`, what: 'session' as const, hill })
+  // Up close every label fits; from afar the stops on one hill crowd and only the start, the end and the arrival keep theirs.
+  const stops = [stop(1, 0, 'a'), stop(2, 130, 'a'), stop(3, 190, 'a'), stop(4, 1000, 'b'), stop(5, 4000, 'b')]
+  expect([...timedStops(stops, 1, 10)].sort()).toEqual([0, 1, 2, 3, 4])
+  expect([...timedStops(stops, 0.2, 10)].sort()).toEqual([0, 3, 4])
 })
