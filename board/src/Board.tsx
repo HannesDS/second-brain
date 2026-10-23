@@ -12,6 +12,10 @@ import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
 
+// Scroll a column or the page only with the card at its very edge. dnd-kit's default (the outer fifth)
+// starts scrolling the moment you pick up a card low in a long column, so the cards shift under the pointer.
+const AUTO_SCROLL = { threshold: { x: 0.05, y: 0.05 } }
+
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
 export default function BoardColumns({ tasks, vault, drop, fail, act, statuses = STATUSES, limit, more }: {
@@ -93,7 +97,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver}
+    <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd} onDragOver={onDragOver} autoScroll={AUTO_SCROLL}
       onDragStart={(e) => { setActive(byName[e.active.id]); setPreview(layout); sticky.current = { justMoved: false, active: String(e.active.id), home: columnOf(byName[e.active.id]) } }}
       onDragCancel={() => { setActive(undefined); setPreview(undefined) }}>
       <div className="board" style={{ gridTemplateColumns: limit ? `repeat(${cols.length}, minmax(0, 1fr))` : undefined }}>
@@ -111,7 +115,8 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
           )
         })}
       </div>
-      <DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} />}</DragOverlay>
+      {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer. */}
+      <DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} lifted />}</DragOverlay>
     </DndContext>
   )
 }
@@ -137,11 +142,11 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: 
 }
 
 // Memoised: while you drag, the board re-renders on every move, but a card only when its task changes.
-const Card = memo(function Card({ task, project, act, chained }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean }) {
+const Card = memo(function Card({ task, project, act, chained, lifted }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean; lifted?: boolean }) {
   const d = task.data
   const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
   return (
-    <article className={`card ${isFocus(task) ? 'focus' : ''}`}>
+    <article className={`card ${isFocus(task) ? 'focus' : ''} ${lifted ? 'lifted' : ''}`}>
       <div className="card-top">
         <button className="link-plain project" title="Open project overview" {...stop(() => act?.project(unlink(d.project)))}>
           <span className={`dot ${project?.data.context ?? ''}`} />{project?.data.name ?? (unlink(d.project) || 'No project')}
