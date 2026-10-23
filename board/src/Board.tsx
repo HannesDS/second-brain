@@ -7,7 +7,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
-import { aim, dragOver, dropMoves, type Layout, type Sticky } from './drag'
+import { aim, dragOver, dropMoves, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
@@ -42,9 +42,13 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   const live = useRef<Layout>(undefined)
   const setPreview = (l?: Layout) => { live.current = l; setPreviewState(l) }
   const shownLayout = preview ?? layout
-  // The vault reloaded mid-drag (an agent, Obsidian): start the preview over from it, so the drop works
-  // from columns as they are. The card shows back in its own column until it's over another again.
-  useEffect(() => { if (live.current) setPreview(layout) }, [layout])
+  // The vault reloaded mid-drag (an agent, Obsidian): carry the preview over, so the drop works from the
+  // columns as they are. The layout is also rebuilt on renders that changed nothing; then nothing moves.
+  useEffect(() => {
+    if (!live.current) return
+    const next = rebase(live.current, layout, sticky.current.active)
+    if (next !== live.current) setPreview(next)
+  }, [layout])
 
   const sticky = useRef<Sticky>({ justMoved: false, active: '' })
   useEffect(() => { requestAnimationFrame(() => { sticky.current.justMoved = false }) }, [preview])

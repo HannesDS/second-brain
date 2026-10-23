@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { aim, dragOver, dropMoves, type Layout } from './drag'
+import { aim, dragOver, dropMoves, rebase, type Layout } from './drag'
 
 const layout: Layout = { todo: ['A', 'B', 'C'], wip: ['D', 'E'], done: ['F'] }
 const data: Record<string, { status: string; order: number }> = {
@@ -149,5 +149,19 @@ test('a renumber leaves alone a card that left the column during the drag', () =
   const stale = { ...layout, todo: ['A', 'X', 'B', 'C'] }
   const get = (id: string) => (id === 'X' ? { status: 'wip', order: 0 } : { status: 'todo', order: 0 })
   expect(dropMoves(stale, stale, 'C', 'B', get).map((m) => m.id)).not.toContain('X')
+})
+
+test('a reload that changed nothing leaves the preview as it is', () => {
+  const now = dragOver(layout, 'A', 'E')
+  expect(rebase(now, { ...layout, todo: [...layout.todo] }, 'A')).toBe(now)
+})
+
+test('a reload mid-drag keeps the card where the preview had it, in the columns as they are now', () => {
+  // A is previewed in wip after D; meanwhile G was added to wip and B left todo.
+  const now = dragOver(layout, 'A', 'E')
+  const fresh = { todo: ['A', 'C'], wip: ['D', 'G', 'E'], done: ['F'] }
+  expect(rebase(now, fresh, 'A')).toEqual({ todo: ['C'], wip: ['D', 'A', 'G', 'E'], done: ['F'] })
+  // The card before it left: it goes first.
+  expect(rebase(now, { todo: ['A', 'C'], wip: ['E'], done: ['F'] }, 'A').wip).toEqual(['A', 'E'])
 })
 

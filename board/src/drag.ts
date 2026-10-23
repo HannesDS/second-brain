@@ -45,6 +45,22 @@ export function dragOver(layout: Layout, id: string, over: string, limit?: numbe
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
+// The preview `now` carried over onto a reloaded layout `fresh`: the columns as they are now, with the
+// dragged card where the preview had it, after the same card as before (or first, if that card left).
+// Same `now` back when nothing it shows changed, so a reload that changed nothing moves nothing.
+export function rebase(now: Layout, fresh: Layout, id: string): Layout {
+  const col = columnFor(now, id)
+  if (!col || !fresh[col]) return fresh
+  const rest = (c: string) => fresh[c].filter((x) => x !== id)
+  const shown = now[col]
+  const after = shown.slice(0, shown.indexOf(id)).reverse().find((x) => rest(col).includes(x))
+  const target = rest(col)
+  const at = after === undefined ? 0 : target.indexOf(after) + 1
+  const next: Layout = Object.fromEntries(Object.keys(fresh).map((c) => [c, c === col ? [...target.slice(0, at), id, ...target.slice(at)] : rest(c)]))
+  const same = Object.keys(next).length === Object.keys(now).length && Object.keys(next).every((c) => next[c].join() === now[c]?.join())
+  return same ? now : next
+}
+
 // Orders are spaced out by STEP and stay positive whole numbers; 0 is where new tasks start, at the top.
 const STEP = 10
 
