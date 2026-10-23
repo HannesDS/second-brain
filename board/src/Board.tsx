@@ -4,10 +4,11 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GitPullRequest, Play, Rocket, Star } from 'lucide-react'
+import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import type { Actions } from './Today'
 import { dragOver, dropMoves, type Layout } from './drag'
 import { IconButton, IconLink } from './ui'
+import { linked } from './chains'
 import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, todayISO, unlink, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
@@ -18,6 +19,7 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
   const byName = useMemo(() => Object.fromEntries(tasks.map((t) => [t.name, t])), [tasks])
+  const chained = useMemo(() => linked(vault.tasks), [vault.tasks])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [active, setActive] = useState<Doc>()
   const hasUnknown = statuses === STATUSES && tasks.some((t) => columnOf(t) === '?')
@@ -57,7 +59,7 @@ export default function BoardColumns({ tasks, vault, setVault, fail, act, status
           return (
             <Column key={s} status={s} count={all.length}>
               <SortableContext items={shown.map((t) => t.name)} strategy={verticalListSortingStrategy}>
-                {shown.map((t) => <SortableCard key={t.name} task={t} project={projects[unlink(t.data.project)]} act={act} />)}
+                {shown.map((t) => <SortableCard key={t.name} task={t} project={projects[unlink(t.data.project)]} act={act} chained={chained.has(t.name)} />)}
               </SortableContext>
               {all.length > shown.length && <button className="more" onClick={more}>+{all.length - shown.length} more on the Board</button>}
             </Column>
@@ -79,7 +81,7 @@ function Column({ status, count, children }: { status: string; count: number; ch
   )
 }
 
-function SortableCard(props: { task: Doc; project?: Doc; act: Actions }) {
+function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.name })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
@@ -90,7 +92,7 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions }) {
 }
 
 // Memoised: while you drag, the board re-renders on every move, but a card only when its task changes.
-const Card = memo(function Card({ task, project, act }: { task: Doc; project?: Doc; act?: Actions }) {
+const Card = memo(function Card({ task, project, act, chained }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean }) {
   const d = task.data
   const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
   return (
@@ -108,6 +110,7 @@ const Card = memo(function Card({ task, project, act }: { task: Doc; project?: D
       {d.blocked_by && <div className="blocked">⛔ {unlink(d.blocked_by)}</div>}
       <div className="card-bottom">
         <span className="id">{task.name}</span>
+        {act && chained && <IconButton icon={Workflow} label="Dependencies: see this ticket's chain" stop onClick={() => act.deps(task)} />}
         {d.due && <span className="due">due {d.due}</span>}
         <div className="spacer" />
         {d.pr && <IconLink icon={GitPullRequest} label="Pull request" href={d.pr} />}
