@@ -437,6 +437,39 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .dep-lane { width: 100%; height: 100%; border: 1px dashed var(--border); border-radius: var(--radius); }
 .dep-lane-label { display: block; padding: 4px 10px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Brain Terrain: the vault as one graph (React Flow, laid out by graph.ts) */
+.kg-page { display: flex; flex-direction: column; padding: 12px 20px 16px; min-height: 0; flex: 1; }
+.kg-page .filter-bar select { width: auto; }
+.kg-host { flex: 1; height: auto; min-height: 420px; }
+.kg-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.kg-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; font-size: 12px; color: var(--muted); opacity: 0.6; }
+.kg-chip.on { opacity: 1; color: var(--text); }
+.kg-node { position: relative; width: 14px; height: 14px; cursor: pointer; }
+.kg-node.project { width: 26px; height: 26px; }
+.kg-node, .kg-chip .kg-dot { --kg: var(--p3); }
+.kg-node.project, .kg-chip.project .kg-dot { --kg: var(--text); }
+.kg-node.task, .kg-chip.task .kg-dot { --kg: var(--p2); }
+.kg-node.thought, .kg-chip.thought .kg-dot { --kg: var(--p1); }
+.kg-node.meeting, .kg-chip.meeting .kg-dot { --kg: var(--ok); }
+.kg-node.report, .kg-chip.report .kg-dot { --kg: var(--p0); }
+.kg-dot { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--kg); border: 2px solid var(--surface); box-shadow: var(--shadow); }
+.kg-chip .kg-dot { width: 10px; height: 10px; border: none; }
+.kg-node.done .kg-dot { opacity: 0.45; }
+.kg-node.far { opacity: 0.25; }
+.kg-node.hot .kg-dot { outline: 3px solid var(--focus); outline-offset: 1px; }
+.kg-node:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 50%; }
+.kg-label { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 3px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); pointer-events: none; }
+.kg-node.project .kg-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.kg-flow .react-flow__handle { top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0; }
+.kg-flow .react-flow__edge path { stroke: var(--border); stroke-width: 1.2; }
+.kg-flow .react-flow__edge.link path { stroke: var(--muted); }
+.kg-flow .react-flow__edge.similar path { stroke-dasharray: 3 4; }
+.kg-flow .react-flow__edge.hot path { stroke: var(--focus); stroke-width: 2; }
+.kg-flow .react-flow__edge.far { opacity: 0.2; }
+.kg-line { display: block; width: 16px; border-top: 2px solid var(--border); }
+.kg-chip.link .kg-line { border-top-color: var(--muted); }
+.kg-chip.similar .kg-line { border-top-style: dashed; border-top-color: var(--muted); }
+
 /* Gantt */
 .gantt-host { background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
 .gantt-host .bar-p0 .bar { fill: var(--p0); }

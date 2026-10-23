@@ -2,9 +2,11 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
   Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, PanelRightOpen, Pencil, Plus, RefreshCw,
-  Mountain, Plug, Sparkles, Square, Sun, X, type LucideIcon,
+  Mountain, Plug, Sparkles, Square, Sun, Waypoints, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
+import BrainTerrain from './BrainTerrain'
+import type { GraphNode } from './graph'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
 import { Editor } from './Notes'
 import { IconButton } from './ui'
@@ -26,11 +28,11 @@ import {
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
-type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'agents' | 'projects' | 'integrations' | 'guide'
+type Page = 'today' | 'notes' | 'calendar' | 'board' | 'gantt' | 'terrain' | 'agents' | 'projects' | 'integrations' | 'guide'
 // The views in the side menu. Projects (overview), Integrations and Guide live elsewhere in the menu.
 const VIEWS: [Page, string, LucideIcon][] = [
   ['today', 'My day', Sun], ['board', 'Board', KanbanSquare], ['calendar', 'Calendar', CalendarDays],
-  ['gantt', 'Timeline', GanttChart], ['notes', 'Thoughts', Lightbulb], ['agents', 'Agents', Bot],
+  ['gantt', 'Timeline', GanttChart], ['notes', 'Thoughts', Lightbulb], ['terrain', 'Brain Terrain', Waypoints], ['agents', 'Agents', Bot],
 ]
 // Pages with their own pane for a kind of item: opening one there shows it in the page, not in the peek.
 // Notes only lists notes and meeting notes; other docs (a project file from search) still peek.
@@ -168,6 +170,12 @@ export default function App() {
     deps: (t) => setGraph({ focus: t.name }),
     write,
   }
+  // A graph node: projects open their overview, teach reports their HTML in a new tab, the rest in the peek.
+  const openNode = (n: GraphNode) => {
+    if (n.kind === 'project') act.project(n.name)
+    else if (n.kind === 'report') window.open(`/api/reports/${n.name}`, '_blank', 'noopener')
+    else write(n.id)
+  }
   const grill = (t: Doc) => { setSeed({ task: t.name, message: 'Grill', at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
   const teach = (t: Doc) => { setSeed({ task: t.name, message: teachPrompt(t, vault.vault), at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
@@ -261,6 +269,7 @@ export default function App() {
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}
+        {page === 'terrain' && <BrainTerrain vault={vault} projects={vault.projects} context={context} scope={scope} open={openNode} fail={fail} />}
         {page === 'projects' && <Projects vault={scoped} go={(p) => peek({ kind: 'project', id: p })} edit={(doc) => setEditing({ kind: 'project', doc })} />}
         {page === 'agents' && (
           <Split id="agents" sideLeft>
