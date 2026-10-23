@@ -39,6 +39,11 @@ export function edgeState(e: GraphEdge, hover: string, matches?: Set<string>): '
   return matches && !(matches.has(e.a) && matches.has(e.b)) ? 'far' : ''
 }
 
+// An Ask answer split into text and citations: "[2]" and "[1, 3]" become source numbers (1-based).
+export function citeParts(answer: string): (string | number)[] {
+  return answer.split(/\[(\d+(?:\s*,\s*\d+)*)\]/).flatMap<string | number>((p, i) => (i % 2 ? p.split(',').map(Number) : p ? [p] : []))
+}
+
 export type Point = { x: number; y: number }
 
 // How hard each kind of edge pulls its ends together.

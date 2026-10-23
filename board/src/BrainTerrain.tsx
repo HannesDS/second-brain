@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Background, Controls, Handle, Position, ReactFlow, useStore, type Edge, type Node, type NodeProps } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { KINDS, KIND_LABEL, LINKS, LINK_LABEL, filterGraph, edgeState, layout, nodeState, type GraphNode, type Kind, type KnowledgeGraph, type LinkKind, type NodeState } from './graph'
+import { KINDS, KIND_LABEL, LINKS, LINK_LABEL, citeParts, filterGraph, edgeState, layout, nodeState, type GraphNode, type Kind, type KnowledgeGraph, type LinkKind, type NodeState } from './graph'
 import { CONTEXTS, CONTEXT_LABEL, api, inContext, type Doc, type Vault } from './lib'
 
 type DocData = { node: GraphNode; state: NodeState; open: (n: GraphNode) => void }
 type Hit = { path: string; snippet: string }
+type Reply = { q: string; answer: string; sources: { path: string; title: string }[] }
 type DocNode = Node<DocData, 'doc'>
 
 // A doc is a dot; projects are bigger and always named, the rest show their title once you zoom in or hover.
@@ -26,6 +27,7 @@ const nodeTypes = { doc: DocDot }
 
 // Brain Terrain: the whole vault as one graph. Filters start at the global context and project, and follow them.
 // The search box searches only the docs the filters show (by meaning, or plain text when Ollama is down).
+// In Ask mode Claude answers from the best of those docs instead, and the docs it cites light up.
 // `vault` is only read to refetch the graph when it changes.
 export default function BrainTerrain({ vault, projects, context, scope, open, fail }: {
   vault: Vault; projects: Doc[]; context: string; scope: string; open: (n: GraphNode) => void; fail: (e: Error) => void
@@ -39,6 +41,10 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<Hit[]>()
   const [searchState, setSearchState] = useState<'loading' | 'done' | 'failed'>('done')
+  const [mode, setMode] = useState<'search' | 'ask'>('search')
+  const [reply, setReply] = useState<Reply>()
+  // Bumped by every question and mode switch, so an older answer that arrives late is dropped.
+  const asked = useRef(0)
   useEffect(() => { setCtx(context); setProject(scope) }, [context, scope])
   // Refetched whenever the vault changes (`fail` is a new function on every render, so it's left out).
   useEffect(() => { api('graph').then(setGraph, fail) }, [vault])
@@ -49,19 +55,23 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
   const within = useMemo(() => shown?.nodes.map((n) => n.id).join('\n') ?? '', [shown])
   const searching = q.trim().length >= 2
   useEffect(() => {
-    if (!searching || !within) { setHits(undefined); setSearchState('done'); return }
+    if (mode !== 'search' || !searching || !within) { setHits(undefined); setSearchState('done'); return }
     // A slower answer to an earlier query (or other filters) arrives after this cleanup ran, so it's dropped.
     let live = true
     setSearchState('loading')
     const t = setTimeout(() => api('search', 'POST', { q, within: within.split('\n') })
       .then((h) => { if (live) { setHits(h); setSearchState('done') } }, () => { if (live) { setHits(undefined); setSearchState('failed') } }), 200)
     return () => { live = false; clearTimeout(t) }
-  }, [q, searching, within])
+  }, [q, searching, within, mode])
   if (!shown || !pos) return <main className="kg-page"><p className="muted">Loading the terrain…</p></main>
 
   const near = new Set(hover ? [hover, ...shown.edges.flatMap((e) => (e.a === hover ? [e.b] : e.b === hover ? [e.a] : []))] : [])
   const byId = new Map(shown.nodes.map((n) => [n.id, n]))
-  const found = hits?.flatMap((h) => (byId.has(h.path) ? [{ node: byId.get(h.path)!, snippet: h.snippet }] : []))
+  // Ask lists the docs its answer cites, in the order it first cites them.
+  const found = mode === 'search'
+    ? hits?.flatMap((h) => (byId.has(h.path) ? [{ node: byId.get(h.path)!, snippet: h.snippet }] : []))
+    : reply && [...new Set(citeParts(reply.answer).filter((p) => typeof p === 'number'))]
+      .flatMap((n) => (byId.has(reply.sources[n - 1]?.path) ? [{ node: byId.get(reply.sources[n - 1].path)!, snippet: '' }] : []))
   const matches = found && new Set(found.map((f) => f.node.id))
   const nodes: DocNode[] = shown.nodes.map((n) => ({
     id: n.id, type: 'doc', position: pos.get(n.id)!, origin: [0.5, 0.5],
@@ -72,6 +82,21 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
     className: `${e.kind} ${edgeState(e, hover, matches)}`,
   }))
   const toggle = <T,>(all: T[], set: (v: T[]) => void, v: T) => set(all.includes(v) ? all.filter((x) => x !== v) : [...all, v])
+  const switchMode = (m: typeof mode) => { asked.current++; setMode(m); setReply(undefined); setSearchState('done') }
+  const ask = () => {
+    if (!searching) return
+    const n = ++asked.current
+    setSearchState('loading')
+    api('ask', 'POST', { q, within: within.split('\n') })
+      .then((r) => { if (n === asked.current) { setReply({ q: q.trim(), ...r }); setSearchState('done') } }, () => { if (n === asked.current) setSearchState('failed') })
+  }
+  const cite = (n: number, i: number) => {
+    const node = reply && byId.get(reply.sources[n - 1]?.path)
+    return node ? (
+      <button key={i} className="kg-cite" title={node.title} onClick={() => open(node)} onMouseEnter={() => setHover(node.id)} onMouseLeave={() => setHover('')}
+        onFocus={() => setHover(node.id)} onBlur={() => setHover('')}>{n}</button>
+    ) : `[${n}]`
+  }
 
   return (
     <main className="kg-page">
@@ -103,8 +128,14 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
             </button>
           ))}
         </div>
-        <input type="search" className="kg-search" value={q} placeholder="Search these docs…" aria-label="Search the docs shown"
-          onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setQ('')} />
+        <div className="view-switch" role="group" aria-label="Search mode">
+          <button className={mode === 'search' ? 'tab on' : 'tab'} aria-pressed={mode === 'search'} onClick={() => switchMode('search')}>Search</button>
+          <button className={mode === 'ask' ? 'tab on' : 'tab'} aria-pressed={mode === 'ask'} onClick={() => switchMode('ask')}
+            title="Claude answers from the docs shown and cites them">Ask</button>
+        </div>
+        <input type="search" className="kg-search" value={q} placeholder={mode === 'ask' ? 'Ask these docs, then Enter…' : 'Search these docs…'}
+          aria-label={mode === 'ask' ? 'Ask a question about the docs shown' : 'Search the docs shown'} onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setQ(''); switchMode(mode) } else if (e.key === 'Enter' && mode === 'ask') ask() }} />
         <span className="muted">{shown.nodes.length} docs · {shown.edges.length} links · click to open</span>
       </div>
       {shown.nodes.length ? (
@@ -119,11 +150,18 @@ export default function BrainTerrain({ vault, projects, context, scope, open, fa
               <Controls showInteractive={false} />
             </ReactFlow>
           </div>
-          {searching && (
-            <aside className="kg-hits" aria-label="Search results">
+          {(mode === 'search' ? searching : reply || searchState !== 'done') && (
+            <aside className="kg-hits" aria-label={mode === 'ask' ? 'Answer' : 'Search results'}>
               <p className="search-note" role="status">
-                {searchState === 'loading' ? 'Searching…' : searchState === 'failed' ? 'Search failed, try again' : found?.length ? `${found.length} found` : `Nothing found for “${q.trim()}”`}
+                {mode === 'ask'
+                  ? searchState === 'loading' ? 'Asking Claude…' : searchState === 'failed' ? 'Asking failed, try again' : reply?.answer ? reply.q : `Nothing in these docs about “${reply?.q}”`
+                  : searchState === 'loading' ? 'Searching…' : searchState === 'failed' ? 'Search failed, try again' : found?.length ? `${found.length} found` : `Nothing found for “${q.trim()}”`}
               </p>
+              {mode === 'ask' && reply?.answer && (
+                <p className={searchState === 'loading' ? 'kg-answer stale' : 'kg-answer'}>
+                  {citeParts(reply.answer).map((p, i) => (typeof p === 'number' ? cite(p, i) : p))}
+                </p>
+              )}
               <ul className={searchState === 'loading' ? 'stale' : undefined}>
                 {found?.map(({ node, snippet }) => (
                   <li key={node.id}>

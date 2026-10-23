@@ -307,6 +307,8 @@
 [data-theme="terrain"] .kg-chip { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .kg-hits { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .kg-hit { border-radius: 12px; }
+[data-theme="terrain"] .kg-cite { border-radius: var(--radius-pill); background: var(--highlight-soft); border-color: transparent; }
+[data-theme="terrain"] .kg-cite:hover, [data-theme="terrain"] .kg-cite:focus-visible { background: var(--highlight); color: var(--highlight-ink); }
 [data-theme="terrain"] .kg-search { border-radius: var(--radius-pill); padding-left: 14px; }
 [data-theme="terrain"] .kg-node, [data-theme="terrain"] .kg-chip .kg-dot, [data-theme="terrain"] .kg-kind { --kg: var(--p3); }
 [data-theme="terrain"] .kg-node.project, [data-theme="terrain"] .kg-chip.project .kg-dot, [data-theme="terrain"] .kg-kind.project { --kg: var(--st-done); }

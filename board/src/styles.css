@@ -446,6 +446,10 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .kg-hits { width: 300px; flex: none; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .kg-hits ul { list-style: none; margin: 0; padding: 0 4px 4px; }
 .kg-hits ul.stale { opacity: 0.55; }
+.kg-answer { margin: 0 10px 8px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.kg-answer.stale { opacity: 0.55; }
+.kg-cite { display: inline-block; min-width: 18px; margin: 0 1px; padding: 0 4px; font: 11px/16px var(--font-mono); text-align: center; vertical-align: 1px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; }
+.kg-cite:hover, .kg-cite:focus-visible { border-color: var(--focus); }
 .kg-hit { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; width: 100%; text-align: left; padding: 6px 8px; border: none; background: none; font-size: 13px; }
 .kg-hit:hover { background: var(--surface-2); }
 .kg-hit .muted { grid-column: 2; font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

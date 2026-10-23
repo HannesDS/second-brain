@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { edgeState, filterGraph, layout, nodeState, type GraphNode, type KnowledgeGraph } from './graph'
+import { citeParts, edgeState, filterGraph, layout, nodeState, type GraphNode, type KnowledgeGraph } from './graph'
 
 const node = (id: string, kind: GraphNode['kind'], project = '', context = ''): GraphNode => ({ id, kind, name: id, title: id, project, contexts: context ? [context] : [], status: '' })
 const g: KnowledgeGraph = {
@@ -57,4 +57,9 @@ test('hover beats search; a search lights its matches and fades the rest', () =>
 test('an edge stays lit in a search only between two matches', () => {
   const e = { a: 'a', b: 'b', kind: 'link' as const }
   expect([edgeState(e, 'a'), edgeState(e, 'c'), edgeState(e, '', new Set(['a'])), edgeState(e, '', new Set(['a', 'b'])), edgeState(e, '')]).toEqual(['hot', 'far', 'far', '', ''])
+})
+
+test('an answer splits into text and the sources it cites', () => {
+  expect(citeParts('Tokens [1]. Both [2, 3][1]')).toEqual(['Tokens ', 1, '. Both ', 2, 3, 1])
+  expect(citeParts('Not in these docs.')).toEqual(['Not in these docs.'])
 })
