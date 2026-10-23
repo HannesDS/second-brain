@@ -182,5 +182,7 @@ test('a card deleted during the drag stays gone, and its drop writes nothing', (
 
 test('a card dragged into Done previews where Done sorts it', () => {
   expect(dragOver({ ...layout, done: ['F', 'G'] }, 'A', 'G', undefined, undefined, (target) => target.indexOf('G')).done).toEqual(['F', 'A', 'G'])
+  // On My day, no further down than the cards shown, or it would vanish mid-drag.
+  expect(dragOver({ ...layout, done: ['F', 'G', 'H'] }, 'A', 'col:done', 2, undefined, () => 3).done).toEqual(['F', 'A', 'G', 'H'])
 })
 

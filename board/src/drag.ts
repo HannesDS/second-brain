@@ -30,7 +30,8 @@ export function aim(hit: string | undefined, layout: Layout, nearest: (cards: Se
 // Dragging over another column moves the card into it, before the card it's over, or last of the cards
 // shown when it's over the column itself. From there the sortable list moves it within the column. It
 // doesn't go past the cards shown, or it would vanish mid-drag on My day, but staying with the cards
-// starred like it (starred ones sit on top) comes first, as that's where the drop puts it. Done sorts by when a task was finished, so there it goes where `doneAt` says.
+// starred like it (starred ones sit on top) comes first, as that's where the drop puts it. Done sorts by
+// when a task was finished, so there it goes where `doneAt` says, as far as it's shown.
 // Same layout back when nothing changes, or for the unknown-status column, which a drop can't move to.
 export function dragOver(layout: Layout, id: string, over: string, limit?: number, starred: (id: string) => boolean = () => false,
   doneAt: (target: string[], id: string) => number = () => 0): Layout {
@@ -42,7 +43,7 @@ export function dragOver(layout: Layout, id: string, over: string, limit?: numbe
   const stars = target.filter(starred).length
   const [lo, hi] = starred(id) ? [0, stars] : [stars, target.length]
   const shown = Math.min(i >= 0 ? i : Infinity, lastShown(target.length + 1, limit))
-  const at = to === 'done' ? doneAt(target, id) : Math.min(Math.max(shown, lo), hi)
+  const at = to === 'done' ? Math.min(doneAt(target, id), lastShown(target.length + 1, limit)) : Math.min(Math.max(shown, lo), hi)
   return { ...layout, [from]: layout[from].filter((x) => x !== id), [to]: [...target.slice(0, at), id, ...target.slice(at)] }
 }
 
