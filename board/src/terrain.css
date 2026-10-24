@@ -44,7 +44,8 @@
   /* card-edge: card border (dark has no shadow, so cards get an edge); on-fill: text on ochre, lichen, glacier; toggle-on: selected segment */
   --card-edge: transparent;  --on-fill: #1E2A22;  --toggle-on: #FFFFFF;
   /* shape, depth, type, motion */
-  --radius: 14px;  --radius-lg: 22px;  --radius-pill: 999px;
+  --radius-sm: 8px;  --radius: 14px;  --radius-md: 18px;  --radius-lg: 22px;  --radius-xl: 28px;  --radius-pill: 999px;
+  --radius-pebble: 16px 13px 17px 12px; /* primary buttons: slightly uneven on purpose */
   --shadow: 0 1px 2px rgb(30 42 34 / 6%);
   --shadow-lift: 0 1px 2px rgb(30 42 34 / 6%), 0 14px 32px -18px rgb(30 42 34 / 45%);
   --shadow-float: -18px 0 48px -12px rgb(30 42 34 / 30%);
@@ -89,7 +90,7 @@
 /* ---------- Base ---------- */
 [data-theme="terrain"] body { font: 15px/1.5 var(--font-ui); font-optical-sizing: auto; -webkit-font-smoothing: antialiased; }
 [data-theme="terrain"] h1, [data-theme="terrain"] h2, [data-theme="terrain"] h3 { letter-spacing: -0.015em; }
-[data-theme="terrain"] :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+[data-theme="terrain"] :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
 [data-theme="terrain"] a { color: var(--text); text-decoration: underline; text-decoration-color: var(--highlight); text-underline-offset: 3px; text-decoration-thickness: 2px; }
 [data-theme="terrain"] a:hover { text-decoration-color: currentColor; }
 [data-theme="terrain"] a.ib, [data-theme="terrain"] a.btn { text-decoration: none; }
@@ -110,25 +111,25 @@
 [data-theme="terrain"] button:hover { background: var(--surface-2); border-color: var(--muted); }
 [data-theme="terrain"] button:active { transform: scale(.97); }
 [data-theme="terrain"] :is(button.primary, .ib.primary) { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600;
-  border-radius: 16px 13px 17px 12px; /* pebble: slightly uneven on purpose */ }
+  border-radius: var(--radius-pebble); }
 [data-theme="terrain"] :is(button.primary, .ib.primary):hover { background: var(--accent); color: var(--accent-text); filter: none; transform: scale(1.03); box-shadow: 0 0 0 4px var(--highlight-soft); }
 [data-theme="terrain"] :is(button.icon, button.link, .tab, .nav, .proj, .link-plain, .pin, .more, .side-section-link, .kg-hit) { background: none; border-color: transparent; }
-[data-theme="terrain"] .ib { border-radius: 10px; height: 32px; min-width: 32px; transition: background .15s, color .15s, transform .35s var(--spring); }
+[data-theme="terrain"] .ib { border-radius: var(--radius-sm); height: 32px; min-width: 32px; transition: background .15s, color .15s, transform .35s var(--spring); }
 [data-theme="terrain"] .ib:hover { background: var(--surface-2); color: var(--text); }
 [data-theme="terrain"] .ib.with-label { border-radius: var(--radius); border-color: var(--border); background: var(--surface); }
 [data-theme="terrain"] .ib.on { color: var(--p1); }
 [data-theme="terrain"] a.btn { border-radius: var(--radius); background: var(--surface); border-color: var(--border); }
-[data-theme="terrain"] .ib.with-label.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); border-radius: 16px 13px 17px 12px; }
-[data-theme="terrain"] .mode-switch button { border-radius: 50%; background: none; transition: background .2s, color .15s, box-shadow .2s; }
+[data-theme="terrain"] .ib.with-label.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); border-radius: var(--radius-pebble); }
+[data-theme="terrain"] .mode-switch button { border-radius: var(--radius-round); background: none; transition: background .2s, color .15s, box-shadow .2s; }
 [data-theme="terrain"] .mode-switch button:hover { background: none; color: var(--text); }
 [data-theme="terrain"] .mode-switch button[aria-checked="true"] { background: var(--toggle-on); }
 
 /* ---------- Inputs ---------- */
-[data-theme="terrain"] :is(input, select, textarea) { border-radius: 12px; background: var(--surface); border-color: var(--border); transition: border-color .15s, box-shadow .15s; }
+[data-theme="terrain"] :is(input, select, textarea) { border-radius: var(--radius); background: var(--surface); border-color: var(--border); transition: border-color .15s, box-shadow .15s; }
 [data-theme="terrain"] :is(input, select, textarea):focus { outline: none; border-color: var(--text); box-shadow: 0 0 0 4px var(--highlight-soft); }
 [data-theme="terrain"] .search input { border-radius: var(--radius-pill); padding-left: 16px; background: var(--surface-2); }
 [data-theme="terrain"] .search-hits { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); padding: 6px; }
-[data-theme="terrain"] .search-hits li { border-radius: 12px; }
+[data-theme="terrain"] .search-hits li { border-radius: var(--radius); }
 [data-theme="terrain"] input[type="checkbox"] { accent-color: var(--ok); }
 [data-theme="terrain"] .page-title, [data-theme="terrain"] .prop input, [data-theme="terrain"] .prop select { box-shadow: none; }
 
@@ -160,7 +161,7 @@
 [data-theme="terrain"] :is(.column, .mini-col) { background: var(--surface-2); border-color: var(--border); padding: 12px; }
 [data-theme="terrain"] .column.over { border-color: var(--text); border-style: dashed; background: var(--highlight-soft); }
 [data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .event-list li, .project-card, .agent, .due-pill, .cairn) {
-  border-radius: 18px; background: var(--surface); border: 1px solid var(--card-edge); box-shadow: var(--shadow);
+  border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--card-edge); box-shadow: var(--shadow);
   transition: border-color .2s, box-shadow .3s var(--ease); }
 /* No transform on draggable cards: dnd-kit moves them with transform. */
 /* .lifted: the card in hand looks like the hovered card it was picked up as. */
@@ -174,7 +175,7 @@
   transition: transform .4s var(--spring), box-shadow .3s; }
 [data-theme="terrain"] .project-card:hover { transform: translateY(-3px); }
 [data-theme="terrain"] .project-card::after { content: ""; position: absolute; right: -60px; top: -48px; width: 140px; height: 100px; pointer-events: none;
-  border: 1.4px solid var(--st-wip); border-radius: 50%;
+  border: 1.4px solid var(--st-wip); border-radius: var(--radius-round);
   box-shadow: 0 0 0 14px var(--surface), 0 0 0 15.4px var(--st-wip), 0 0 0 30px var(--surface), 0 0 0 31.4px var(--contour); opacity: .45; }
 [data-theme="terrain"] .project-card > * { position: relative; z-index: 1; }
 [data-theme="terrain"] .project-card h3 { font-size: 21px; font-weight: 750; letter-spacing: -0.02em; }
@@ -199,8 +200,8 @@
 [data-theme="terrain"] .prio-chip { border-radius: var(--radius-pill); opacity: 1; color: var(--muted); }
 [data-theme="terrain"] .prio-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 [data-theme="terrain"] .status.wip { color: var(--st-wip-ink); }
-[data-theme="terrain"] .type { background: var(--surface-2); border-radius: 8px; padding: 0 7px; }
-[data-theme="terrain"] .blocked { background: var(--danger-bg); color: var(--danger); border-radius: 12px; }
+[data-theme="terrain"] .type { background: var(--surface-2); border-radius: var(--radius-sm); padding: 0 7px; }
+[data-theme="terrain"] .blocked { background: var(--danger-bg); color: var(--danger); border-radius: var(--radius); }
 [data-theme="terrain"] .status-bar { height: 10px; gap: 2px; background: none; }
 [data-theme="terrain"] .status-bar .seg { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .seg.todo { background: var(--st-todo); }
@@ -213,7 +214,7 @@
 
 /* ---------- Agents: waiting ones breathe in glacier rings ---------- */
 [data-theme="terrain"] .agent { border-left-width: 1px; padding: 12px 16px 12px 42px; position: relative; }
-[data-theme="terrain"] .agent::before { content: ""; position: absolute; left: 16px; top: 17px; width: 12px; height: 12px; border-radius: 50%; background: var(--st-todo); }
+[data-theme="terrain"] .agent::before { content: ""; position: absolute; left: 16px; top: 17px; width: 12px; height: 12px; border-radius: var(--radius-round); background: var(--st-todo); }
 [data-theme="terrain"] .agent.working::before { background: var(--st-wip-ink); }
 [data-theme="terrain"] .agent.needs-input { border-color: var(--st-review); }
 [data-theme="terrain"] .agent.needs-input::before { background: var(--st-review); animation: tr-breathe 2s var(--ease) infinite; }
@@ -224,7 +225,7 @@
 @keyframes tr-breathe { 0% { box-shadow: 0 0 0 0 rgb(127 183 201 / 70%); } 70% { box-shadow: 0 0 0 10px rgb(127 183 201 / 0%); } 100% { box-shadow: 0 0 0 0 rgb(127 183 201 / 0%); } }
 
 /* ---------- Peek, drawer, panels, popovers, toast ---------- */
-[data-theme="terrain"] :is(.peek, .drawer, .panel) { border-left: 1px solid var(--border); border-radius: 28px 0 0 28px; box-shadow: var(--shadow-float); }
+[data-theme="terrain"] :is(.peek, .drawer, .panel) { border-left: 1px solid var(--border); border-radius: var(--radius-xl) 0 0 var(--radius-xl); box-shadow: var(--shadow-float); }
 [data-theme="terrain"] .peek { overflow: hidden; animation: tr-peek .5s var(--spring); }
 @keyframes tr-peek { from { transform: translateX(48px); opacity: .4; } }
 [data-theme="terrain"] .peek-bar { padding: 10px 14px; border-bottom: 1px dashed var(--border); }
@@ -239,9 +240,9 @@
 [data-theme="terrain"] .tabs button.on { border-bottom: 3px solid var(--highlight); }
 
 /* ---------- Chat ---------- */
-[data-theme="terrain"] .msg { border-radius: 18px; padding: 10px 14px; }
-[data-theme="terrain"] .msg.user { background: var(--accent); color: var(--accent-text); border-radius: 18px 18px 6px 18px; }
-[data-theme="terrain"] .msg.assistant { background: var(--surface-2); border: 1px solid var(--border); border-radius: 18px 18px 18px 6px; }
+[data-theme="terrain"] .msg { border-radius: var(--radius-md); padding: 10px 14px; }
+[data-theme="terrain"] .msg.user { background: var(--accent); color: var(--accent-text); border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md); }
+[data-theme="terrain"] .msg.assistant { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-sm); }
 
 /* ---------- My day ---------- */
 [data-theme="terrain"] .today { gap: 10px; padding: 20px 28px 40px; }
@@ -254,33 +255,42 @@
 /* The trail and cairns (Trail.tsx, Cairns.tsx): pebble cards, mono labels, elevation markers. */
 [data-theme="terrain"] .today-sum { font-family: var(--font-mono); letter-spacing: .04em; text-transform: uppercase; }
 [data-theme="terrain"] .trail-card { border: 1px solid var(--card-edge); border-radius: var(--radius-lg); animation: tr-settle .7s var(--spring) both; }
+/* Faint terrain behind the trail: contour lines and two low hills, as quiet as the app's backdrop. */
+[data-theme="terrain"] .trail-card { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='290' viewBox='0 0 1200 290' fill='none' stroke='%23E8ECE2' stroke-width='1.2'%3E%3Cpath d='M-20 250C180 214 380 268 600 236S980 200 1220 240'/%3E%3Cpath d='M-20 274C200 240 400 290 620 260S1000 228 1220 266' stroke-dasharray='6 5'/%3E%3Cpath d='M-20 40C160 10 300 70 470 34S760 0 900 24'/%3E%3Cg transform='translate(1080 70)'%3E%3Cellipse rx='92' ry='46'/%3E%3Cellipse rx='62' ry='30'/%3E%3Cellipse rx='32' ry='15'/%3E%3C/g%3E%3Cg transform='translate(140 150)'%3E%3Cellipse rx='70' ry='30' stroke-dasharray='6 5'/%3E%3Cellipse rx='38' ry='16'/%3E%3C/g%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: cover; background-position: center; }
+[data-theme="terrain"][data-mode="dark"] .trail-card { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='290' viewBox='0 0 1200 290' fill='none' stroke='%232A382F' stroke-width='1.2'%3E%3Cpath d='M-20 250C180 214 380 268 600 236S980 200 1220 240'/%3E%3Cpath d='M-20 274C200 240 400 290 620 260S1000 228 1220 266' stroke-dasharray='6 5'/%3E%3Cpath d='M-20 40C160 10 300 70 470 34S760 0 900 24'/%3E%3Cg transform='translate(1080 70)'%3E%3Cellipse rx='92' ry='46'/%3E%3Cellipse rx='62' ry='30'/%3E%3Cellipse rx='32' ry='15'/%3E%3C/g%3E%3Cg transform='translate(140 150)'%3E%3Cellipse rx='70' ry='30' stroke-dasharray='6 5'/%3E%3Cellipse rx='38' ry='16'/%3E%3C/g%3E%3C/svg%3E"); }
+/* The trail winds a little instead of running ruler-straight. */
+[data-theme="terrain"] :is(.trail-line, .trail-walked) { display: none; }
+[data-theme="terrain"] .trail-path { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+[data-theme="terrain"] .trail-path path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+[data-theme="terrain"] .trail-path .ahead { stroke: var(--contour-strong); stroke-width: 2; stroke-dasharray: 6 6; }
+[data-theme="terrain"] .trail-path .walked { stroke: var(--text); stroke-width: 4; }
 [data-theme="terrain"] :is(.trail-now-label, .trail-key, .eyebrow) { font-family: var(--font-mono); font-weight: 500; }
-[data-theme="terrain"] .trail-meeting { border-radius: 12px; }
-[data-theme="terrain"] .trail-stretch { border-radius: 16px; transition: border-color .2s, background .2s; }
+[data-theme="terrain"] .trail-meeting { border-radius: var(--radius); }
+[data-theme="terrain"] .trail-stretch { border-radius: var(--radius); transition: border-color .2s, background .2s; }
 [data-theme="terrain"] .trail-cairn-label .time, [data-theme="terrain"] .trail-hours { font-family: var(--font-mono); }
-[data-theme="terrain"] .cairn { border: 1px solid var(--card-edge); border-radius: 18px; }
+[data-theme="terrain"] .cairn { border: 1px solid var(--card-edge); border-radius: var(--radius-md); }
 [data-theme="terrain"] .cairn.done { border-color: var(--border); }
 [data-theme="terrain"] .cairn-name .time { font-family: var(--font-mono); }
-[data-theme="terrain"] :is(.popover.choose-way, .popover.cairn-form) { border-radius: 28px; box-shadow: var(--shadow-float); padding: 28px; }
+[data-theme="terrain"] :is(.popover.choose-way, .popover.cairn-form) { border-radius: var(--radius-xl); box-shadow: var(--shadow-float); padding: 28px; }
 [data-theme="terrain"] .choose-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
 [data-theme="terrain"] :is(.way-option, .hill-chip) { transition: border-color .15s, background .15s; }
-[data-theme="terrain"] .way-option { border-radius: 16px; }
+[data-theme="terrain"] .way-option { border-radius: var(--radius); }
 [data-theme="terrain"] .way-text .time { font-family: var(--font-mono); }
 [data-theme="terrain"] .marker { width: 12px; height: 12px; border-radius: 0; clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
 [data-theme="terrain"] .marker.todo { clip-path: circle(30% at 50% 60%); }
-[data-theme="terrain"] :is(.today-head .ib.primary, .cairn-foot .primary) { border-radius: 16px 13px 17px 12px; }
+[data-theme="terrain"] :is(.today-head .ib.primary, .cairn-foot .primary) { border-radius: var(--radius-pebble); }
 
 /* ---------- Calendar, notes, terminals, guide ---------- */
 [data-theme="terrain"] .cal-grid { border-radius: var(--radius-lg); background: var(--surface); }
 [data-theme="terrain"] .cal-dow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
 [data-theme="terrain"] .cal-day.is-today .cal-num { background: var(--ochre); color: var(--on-fill); }
-[data-theme="terrain"] .cal-item { border-radius: 10px; }
+[data-theme="terrain"] .cal-item { border-radius: var(--radius-sm); }
 [data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
 [data-theme="terrain"] .cal-item.task { border-color: var(--muted); }
 [data-theme="terrain"] .cal-more { background: none; border-color: transparent; }
 [data-theme="terrain"] .cal-time { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .cal-col { background-image: repeating-linear-gradient(to bottom, var(--contour) 0 1px, transparent 1px var(--hour)); }
-[data-theme="terrain"] .cal-col .cal-item { border-radius: 8px; }
+[data-theme="terrain"] .cal-col .cal-item { border-radius: var(--radius-sm); }
 [data-theme="terrain"] .cal-now { background: var(--ochre); }
 [data-theme="terrain"] .cal-hour { font-family: var(--font-mono); }
 [data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
@@ -292,7 +302,7 @@
 [data-theme="terrain"] .gantt-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-flow { --xy-background-pattern-dots-color: var(--contour); }
-[data-theme="terrain"] .dep-node { border-radius: 18px; }
+[data-theme="terrain"] .dep-node { border-radius: var(--radius-md); }
 [data-theme="terrain"] .dep-node:hover { border-color: var(--muted); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .dep-node.focus { border: 1px solid var(--highlight); background: linear-gradient(var(--highlight-soft), var(--highlight-soft)), var(--surface); }
 [data-theme="terrain"] .dep-title { font-size: 15px; font-weight: 650; }
@@ -330,14 +340,14 @@
 @keyframes tr-run { 0% { box-shadow: 0 0 0 0 var(--st-wip); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 [data-theme="terrain"] .dep-lane { border-color: var(--contour); border-radius: var(--radius-lg); }
 [data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }
-[data-theme="terrain"] .guide :is(code, pre) { font-family: var(--font-mono); border-radius: 10px; }
+[data-theme="terrain"] .guide :is(code, pre) { font-family: var(--font-mono); border-radius: var(--radius-sm); }
 [data-theme="terrain"] .integration { border-radius: var(--radius-lg); padding: 16px 20px; }
 [data-theme="terrain"] .integration h3 { font-size: 17px; font-weight: 650; }
 [data-theme="terrain"] .integration-state { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 [data-theme="terrain"] .integration .dot.ok { background: var(--st-wip-ink); }
 [data-theme="terrain"] .integration .dot.error { background: var(--st-blocked); }
 [data-theme="terrain"] .integration-config { border-top-style: dashed; }
-[data-theme="terrain"] .integration-icon { border-radius: 10px; border-color: var(--contour); }
+[data-theme="terrain"] .integration-icon { border-radius: var(--radius-sm); border-color: var(--contour); }
 [data-theme="terrain"] .milkdown {
   --crepe-color-primary: var(--text);
   --crepe-color-inline-code: var(--p1);
@@ -347,7 +357,7 @@
   --crepe-shadow-2: var(--shadow-lift);
 }
 [data-theme="terrain"] :is(.split-handle:hover, .split-handle[data-separator="active"])::after { background: var(--highlight); }
-[data-theme="terrain"] .mono { border-radius: 8px; }
+[data-theme="terrain"] .mono { border-radius: var(--radius-sm); }
 
 /* ---------- Motion ---------- */
 /* Each view settles in when you open it. Hover springs a little. Only agents loop: waiting ones, and running ones in the dependency view. */

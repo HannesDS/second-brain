@@ -46,7 +46,7 @@ styled with them works in every theme.
 - Status fills: `--st-todo`, `--st-wip`, `--st-review`, `--st-blocked`, `--st-done`, plus `--st-wip-ink`, `--st-review-ink` for text
 - Context: `--ctx-dm`, `--ctx-personal`
 - Map (Brain Terrain only): `--map-*`, the survey palette in docs/MAP-STYLE.md. Terrain sets them on `.bt-page`, Moss in light and dark mode.
-- Shape: `--radius` (14), `--radius-lg` (22), `--radius-pill`
+- Shape: one radius scale, and every `border-radius` uses it (no px, % or em in rules): `--radius-sm` (8: chips, tags, small controls), `--radius` (14: buttons, inputs, cards), `--radius-md` (18: board cards), `--radius-lg` (22: columns, big cards), `--radius-xl` (28: dialogs, peek edge), `--radius-pill`, `--radius-round` (dots), `--radius-pebble` (primary buttons, slightly uneven). Classic sets the same names smaller (4, 6, 8, 12, 12)
 - Depth: `--shadow`, `--shadow-lift` (hover, selected), `--shadow-float` (peek, drawer)
 - Type: `--font-ui` (Bricolage Grotesque), `--font-mono` (DM Mono)
 - Motion: `--spring` `cubic-bezier(.34,1.56,.64,1)`, `--ease` `cubic-bezier(.4,0,.2,1)`
@@ -131,6 +131,7 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
   (Deep, Light, Rest), then a task in progress or review, one that is due soon, or a project as a ring chip
 - A chosen stretch shows the task with its status marker. The stretch you are in now gets the ochre field
 - Now: an ochre line with "Now HH:MM". Before it the line is solid (walked), after it dashed
+- Terrain draws the line as a path that winds a few pixels, over faint contour lines and two low hills in the card; Classic keeps it straight
 - Cairns on the line: at a time with a label above, or a small lichen marker right after each meeting
 - Stored in `vault/days/YYYY-MM-DD.md` frontmatter: `ways` (by stretch start) and `cairns` (done or a count)
 

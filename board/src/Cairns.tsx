@@ -28,9 +28,14 @@ export function Cairns({ cairns, log, days, meetings, now, running, tick, add, s
     <section className="cairns-section">
       <div className="section-head">
         <h3>Cairns {cairns.length > 0 && <span className="count">{done} of {cairns.length}</span>}<span className="muted hint-inline">Small things that keep you on the trail.</span></h3>
-        <IconButton icon={Plus} label="Add a cairn" showLabel onClick={() => edit()} />
+        {cairns.length > 0 && <IconButton icon={Plus} label="Add a cairn" showLabel onClick={() => edit()} />}
       </div>
-      {!cairns.length && <p className="muted">No cairns today. Add one: breathe, drink water, stretch, shut down.</p>}
+      {!cairns.length && (
+        <div className="cairns-empty">
+          <span className="muted">No cairns today. Add one: breathe, drink water, stretch, shut down.</span>
+          <IconButton icon={Plus} label="Add a cairn" showLabel onClick={() => edit()} />
+        </div>
+      )}
       <div className="cairn-grid">
         {cairns.map((c) => {
           const value = log[c.slug]

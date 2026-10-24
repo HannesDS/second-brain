@@ -1,5 +1,5 @@
 import { Check, ListPlus, Mountain, NotebookText, X } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { IconButton, useEscape } from './ui'
 import { LABELS, URGENT, columnOf, hillRings, prioLabel, unlink, urgency, type Doc } from './lib'
 import {
@@ -8,6 +8,8 @@ import {
 } from './day'
 
 export type Meeting = Span & { event?: CalEvent; note?: Doc; title: string }
+// The trail as Terrain draws it: a path that winds a few pixels around the line, so it reads as walked, not ruled.
+const WIND = 'M0 137 C80 131 170 131 250 137 S420 143 500 137 S670 131 750 137 S920 143 1000 137'
 const KIND_LABEL: Record<Way['kind'], string> = { deep: 'Deep', light: 'Light', rest: 'Rest' }
 
 // The status marker of a task: base camp, climbing, on the ridge, rockfall, summit.
@@ -25,6 +27,8 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
   const hours = Array.from({ length: (span.end - span.start) / 60 + 1 }, (_, i) => span.start + i * 60).filter((h, i, all) => all.length <= 12 || i % 2 === 0)
   const timed = meetings.filter((m) => m.event)
   const nowOn = now >= span.start && now <= span.end
+  const clip = useId()
+  const walked = (Math.min(Math.max(now, span.start), span.end) - span.start) / (span.end - span.start)
   // Overlapping meetings get their own lane: the first on the line, the others below it, where no stretch can be.
   const ends: number[] = []
   const lane = meetings.map((m) => {
@@ -40,6 +44,11 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
         <div className="trail" aria-label={`Your day from ${hhmm(span.start)} to ${hhmm(span.end)}`}>
           <div className="trail-line" />
           {now > span.start && <div className="trail-walked" style={{ width: x(now) }} />}
+          <svg className="trail-path" viewBox="0 0 1000 286" preserveAspectRatio="none" aria-hidden>
+            <clipPath id={clip}><rect width={walked * 1000} height="286" /></clipPath>
+            <path className="ahead" d={WIND} />
+            <path className="walked" d={WIND} clipPath={`url(#${clip})`} />
+          </svg>
           {nowOn && <><div className="trail-now" style={{ left: x(now) }} /><div className="trail-now-label" style={{ left: x(now) }}>Now {hhmm(now)}</div></>}
 
           {meetings.map((m, i) => (
