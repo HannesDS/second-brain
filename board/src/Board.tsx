@@ -180,8 +180,8 @@ const Card = memo(function Card({ task, project, act, chained, agent, inHand }: 
         {agent && (isActive(agent)
           ? <button className={`card-agent state ${agent.state}`} title="Open this agent's session" {...stop(() => act?.agent(agent))}>
             <Bot size={12} strokeWidth={1.8} aria-hidden />{STATE_LABEL[agent.state]}</button>
-          : <button className="card-agent last" title={`Last agent: ${STATE_LABEL[agent.state] ?? agent.state}, ${ago(agent.updated)}. Open its session`} aria-label="Open the last agent's session" {...stop(() => act?.agent(agent))}>
-            <Bot size={14} strokeWidth={1.8} aria-hidden /></button>)}
+          : <button className={`card-agent state ${agent.state} last`} title={`Last agent, ${ago(agent.updated)}. Open its session`} {...stop(() => act?.agent(agent))}>
+            <Bot size={12} strokeWidth={1.8} aria-hidden />{STATE_LABEL[agent.state] ?? agent.state}</button>)}
         <div className="spacer" />
         {d.pr && <IconLink icon={GitPullRequest} label="Pull request" href={d.pr} />}
         {act && <span className="hover-actions">{!isFocus(task) && <IconButton icon={Pin} label="Pin to the top" stop onClick={() => act.focus(task)} />}<IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}

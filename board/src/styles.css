@@ -974,9 +974,9 @@ h2 { font-weight: 600; }
 .card-agent { border: 0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .card .card-bottom .id { font-size: 11px; color: var(--muted); margin: 0; white-space: nowrap; }
 .card .card-agent { white-space: nowrap; flex: none; }
-/* The last agent on a done session: faint, so it's there to go back to without competing with live ones. */
-.card-agent.last { background: none; color: var(--muted); padding: 0 2px; opacity: 0.45; }
-.card-agent.last:hover, .card-agent.last:focus-visible { opacity: 1; color: var(--text); }
+/* The last agent, once its session stopped: the same pill, faint, so it's there to go back to without competing with live ones. */
+.card-agent.last { opacity: 0.55; }
+.card-agent.last:hover, .card-agent.last:focus-visible { opacity: 1; }
 /* A full bottom row wraps instead of pushing the actions off a narrow card; they stay on the right. */
 .card .card-bottom { flex-wrap: wrap; row-gap: 2px; }
 .card .card-bottom .hover-actions { margin-left: auto; }
