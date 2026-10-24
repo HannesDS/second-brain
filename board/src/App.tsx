@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
-  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, Pencil, Plus, RefreshCw,
-  Mountain, Plug, Sparkles, Square, Sun, Waypoints, X, type LucideIcon,
+  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Pencil, Plus, RefreshCw,
+  Mountain, Plug, Sparkles, Sun, Waypoints, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
 import BrainTerrain from './BrainTerrain'
 import type { GraphNode } from './graph'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
-import { Editor } from './Notes'
+import { Dictate, Editor, plantThought } from './Notes'
+import { SymbolDefs } from './symbols'
 import { IconButton, ModeSwitch } from './ui'
 import { THEME_LABEL, useMode, useTheme } from './theme'
 import Calendar, { guessProject } from './Calendar'
@@ -147,6 +148,8 @@ export default function App() {
     api('tasks', 'POST', { data: { title: 'Untitled', project: inProject ? `[[${inProject}]]` : '' } }).then(({ id }) => peek({ kind: 'task', id }), fail)
   }
   const write = (path: string) => (path.startsWith('tasks/') ? peek({ kind: 'task', id: path.slice(6, -3) }) : peek({ kind: 'doc', id: path }))
+  // A thought you just captured opens, and asks the agent where it belongs.
+  const planted = (path: string) => { setCaptured(path); flash('Thought saved'); write(path) }
   const copy = (text: string, what: string) => navigator.clipboard.writeText(text).then(() => flash(`${what} copied`), fail)
   const copyStart = (t: Doc) => copy(startCommand(t, projects[unlink(t.data.project)], vault.root), 'Start command')
   const prep = (title: string, date: string, prefix = 'Prep: ') => {
@@ -202,6 +205,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <SymbolDefs />
       <aside className="sidebar">
         <div className="brand">Brain Terrain</div>
         {/* Like a workspace switcher: the context filters everything below it. */}
@@ -277,7 +281,7 @@ export default function App() {
             {!graph && <div className="search"><input type="search" value={dayQuery} placeholder="Find a card…" aria-label="Find a card on your board" onChange={(e) => setDayQuery(e.target.value)} /></div>}</div>
             {graph ? deps
             : <BoardColumns tasks={dayTasks} vault={vault} agents={shown} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
-        {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
+        {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} captured={captured} asked={() => setCaptured('')} planted={planted} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (
           <main className="board-page">
@@ -310,7 +314,7 @@ export default function App() {
       </div>
 
       {capturing && <Capture close={() => setCapturing(false)} fail={fail}
-        saved={(path) => { setCapturing(false); setCaptured(path); flash('Thought saved'); write(path) }} />}
+        saved={(path) => { setCapturing(false); planted(path) }} />}
       {editing?.kind === 'project' && <ProjectPanel key={editing.doc?.name ?? 'new'} doc={editing.doc}
         close={() => setEditing(undefined)} fail={fail} />}
       {peeks.length > 0 && (() => {
@@ -510,7 +514,7 @@ function Capture({ close, saved, fail }: { close: () => void; saved: (path: stri
     if (!text.trim()) return close()
     if (saving) return
     setSaving(true)
-    api('notes', 'POST', { title: text.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 60), body: `${text.trim()}\n` }).then(({ path }) => saved(path), (e) => { setSaving(false); fail(e) })
+    plantThought(text).then(({ path }) => saved(path), (e) => { setSaving(false); fail(e) })
   }
   return (
     <Panel title="New thought" close={close} onSave={save}>
@@ -522,64 +526,6 @@ function Capture({ close, saved, fail }: { close: () => void; saved: (path: stri
         <Dictate add={(said) => setText((t) => t.trim() ? `${t.trimEnd()}\n${said}` : said)} busy={setDictating} />
       </div>
     </Panel>
-  )
-}
-
-// Speak a thought: one recording, transcribed by the local Whisper the meetings use, added to the text.
-// Errors show here, not in a toast: the panel would cover it, and an install hint needs time to read.
-function Dictate({ add, busy }: { add: (text: string) => void; busy: (on: boolean) => void }) {
-  const [state, setState] = useState<'idle' | 'starting' | 'recording' | 'transcribing'>('idle')
-  const [error, setError] = useState('')
-  const recorder = useRef<MediaRecorder>(undefined)
-  const gone = useRef(false)
-  useEffect(() => busy(state !== 'idle'), [state, busy])
-  // Closing the panel mid-recording drops the audio and frees the mic.
-  useEffect(() => () => {
-    gone.current = true
-    const r = recorder.current
-    if (r?.state === 'recording') { r.onstop = () => r.stream.getTracks().forEach((t) => t.stop()); r.stop() }
-  }, [])
-
-  async function start() {
-    setError('')
-    setState('starting')
-    let mic: MediaStream | undefined
-    try {
-      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
-      if (gone.current) return mic.getTracks().forEach((t) => t.stop())
-      const r = new MediaRecorder(mic, { mimeType: 'audio/webm;codecs=opus' })
-      const parts: Blob[] = []
-      r.ondataavailable = (e) => parts.push(e.data)
-      r.onstop = () => {
-        r.stream.getTracks().forEach((t) => t.stop())
-        setState('transcribing')
-        fetch('/api/transcribe', { method: 'POST', body: new Blob(parts, { type: 'audio/webm' }) })
-          .then(async (res) => {
-            const out = await res.json()
-            if (!res.ok) throw new Error(out.error)
-            if (out.text) add(out.text)
-            else setError('Nothing heard. Try again, a little closer to the mic.')
-          })
-          .catch((e) => setError(e.message || 'Transcription failed'))
-          .finally(() => setState('idle'))
-      }
-      r.start()
-      recorder.current = r
-      setState('recording')
-    } catch (e) {
-      mic?.getTracks().forEach((t) => t.stop())
-      setError((e as Error).message)
-      setState('idle')
-    }
-  }
-
-  return (
-    <div className="dictate">
-      {state === 'recording'
-        ? <IconButton icon={Square} label="Stop and transcribe" showLabel active onClick={() => recorder.current?.stop()} />
-        : <IconButton icon={Mic} label={state === 'transcribing' ? 'Transcribing…' : 'Dictate (local Whisper)'} showLabel disabled={state !== 'idle'} onClick={start} />}
-      {error && <span className="dictate-error" role="alert">{error}</span>}
-    </div>
   )
 }
 

@@ -2,7 +2,7 @@
 
 The Brain Terrain view draws the vault as a survey map. It uses the Terrain design system (docs/DESIGN.md), Moss theme.
 Code: `board/src/BrainTerrain.tsx` (drawing), `board/src/graph.ts` (layout, walk), `board/graph.ts` (data); colours are the `--map-*` tokens in `terrain.css`.
-Reference designs: https://claude.ai/artifact/EJY3WZnjtQmD6x9e9yDWfk (map sheet, key, today's walk). Symbols: `Symbols()` in `board/src/BrainTerrain.tsx`, the only copy.
+Reference designs: https://claude.ai/artifact/EJY3WZnjtQmD6x9e9yDWfk (map sheet, key, today's walk). Symbols: `Symbols()` in `board/src/symbols.tsx`, the only copy; the app renders them once (`SymbolDefs`) and Thoughts uses them too (`MapSymbol` on light grounds).
 
 Rule of thumb: hairline symbols in one ink, colour only where it means something. No fills, shadows or illustrations beyond this list.
 

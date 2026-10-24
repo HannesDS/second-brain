@@ -315,7 +315,7 @@
 
 /* Brain Terrain: a survey sheet in the Moss palette, in light and dark mode alike (docs/MAP-STYLE.md).
    The page takes Moss's role tokens too, so the search, key and card sit on the map like printed margins. */
-[data-theme="terrain"] .bt-page {
+[data-theme="terrain"] :is(.bt-page, .th-sheet) {
   --map-ground: #161F19; --map-grid: #223027; --map-shade: #0E140F;
   --map-h1: #1C2820; --map-h2: #202E25; --map-h3: #25352B; --map-h4: #2B3D31; --map-h5: #314537; --map-h6: #384E3F;
   --map-contour: #3E5245; --map-contour-index: #58705F;
@@ -355,6 +355,30 @@
 }
 [data-theme="terrain"] :is(.split-handle:hover, .split-handle[data-separator="active"])::after { background: var(--highlight); }
 [data-theme="terrain"] .mono { border-radius: var(--radius-sm); }
+
+/* ---------- Thoughts: the clearing ---------- */
+[data-theme="terrain"] .clearing-title h1 { font-size: 40px; font-weight: 800; letter-spacing: -0.035em; }
+[data-theme="terrain"] .clearing-map { border-radius: 28px; }
+[data-theme="terrain"] .seed { border-radius: 18px 22px 18px 20px; }
+[data-theme="terrain"] :is(.act, .rooted-row) { border-radius: 18px; }
+[data-theme="terrain"] .belongs-ask { border-radius: 18px 18px 18px 6px; }
+[data-theme="terrain"] .capture-bar { transition: border-color .2s, box-shadow .35s var(--spring); }
+[data-theme="terrain"] .capture-bar:focus-within, [data-theme="terrain"] .clearing-search:focus-within { border-color: var(--highlight); box-shadow: 0 0 0 4px var(--highlight-soft), var(--shadow-lift); }
+[data-theme="terrain"] .capture-bar textarea { font-family: var(--font-ui); font-weight: 500; letter-spacing: -0.01em; }
+/* The bar and the search pill carry the focus halo; the field inside stays bare. */
+[data-theme="terrain"] :is(.clearing-search input, .capture-bar textarea):is(*, :focus) { background: none; border: none; box-shadow: none; }
+[data-theme="terrain"] .seed:hover { border-color: var(--highlight); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .seed-title { letter-spacing: -0.015em; }
+[data-theme="terrain"] .editor-pane.with-peek .belongs { border-radius: 28px 0 0 28px; box-shadow: var(--shadow-float); animation: tr-peek .5s var(--spring) .1s backwards; }
+[data-theme="terrain"] .act-body > input { border-radius: var(--radius); background: var(--surface-2); }
+/* Cards settle one after the other, saplings and trees sprout, the lit trail draws itself in. Nothing loops. */
+[data-theme="terrain"] :is(.seed, .act) { animation: tr-settle .45s var(--spring) backwards; }
+[data-theme="terrain"] .th-sprout { transform-box: fill-box; transform-origin: 50% 100%; animation: th-sprout .5s var(--spring) both; }
+@keyframes th-sprout { 0% { opacity: 0; transform: scale(.2); } 70% { opacity: 1; transform: scale(1.12); } 100% { transform: scale(1); } }
+[data-theme="terrain"] .th-lit { stroke-dasharray: 1; animation: th-draw .9s cubic-bezier(.65, 0, .35, 1) .5s both; }
+@keyframes th-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+[data-theme="terrain"] :is(.th-fade, .th-fresh-ring) { animation: tr-fade .8s var(--ease) .9s both; }
+@keyframes tr-fade { from { opacity: 0; } }
 
 /* ---------- Motion ---------- */
 /* Each view settles in when you open it. Hover springs a little. Only agents loop: waiting ones, and running ones in the dependency view. */
