@@ -3,7 +3,7 @@ import { IconButton } from './ui'
 import Landscape from './Landscape'
 import { useEffect, useState } from 'react'
 import { ProjectSelect } from './Home'
-import { agentLabel, ago, api, byProject, isActive, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
+import { agentLabel, ago, api, byProject, dayRange, isActive, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
 export type Actions = {
@@ -30,8 +30,7 @@ export default function Today({ vault, tasks, agents, tabs, seen, act, fail, pre
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calError, setCalError] = useState('')
   useEffect(() => {
-    const from = new Date(); from.setHours(0, 0, 0, 0)
-    const to = new Date(from.getTime() + 864e5)
+    const { from, to } = dayRange(new Date())
     api(`calendar?from=${from.toISOString()}&to=${to.toISOString()}`).then((r) => { setEvents(r.events); setCalError(r.error) }, fail)
   }, [])
 

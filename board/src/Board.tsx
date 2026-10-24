@@ -6,7 +6,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Bot, GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
+import { Ban, Bot, GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
 import { STATE_LABEL, type Actions } from './Today'
 import { PICKUP_PX, aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
@@ -170,7 +170,7 @@ const Card = memo(function Card({ task, project, act, chained, agent, inHand }: 
       </div>
       <div className="title">{d.title ?? task.name}</div>
       {task.error && <div className="blocked">Invalid frontmatter, fix in Obsidian</div>}
-      {d.blocked_by && <div className="blocked">⛔ {unlink(d.blocked_by)}</div>}
+      {d.blocked_by && <div className="blocked"><Ban size={12} strokeWidth={1.8} aria-label="Blocked by" /> {unlink(d.blocked_by)}</div>}
       <div className="card-bottom">
         <span className="id">{task.name}</span>
         {act && chained && <IconButton icon={Workflow} label="Dependencies: see this ticket's chain" stop onClick={() => act.deps(task)} />}

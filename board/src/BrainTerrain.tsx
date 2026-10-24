@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Maximize, Minus, Plus, Search, X } from 'lucide-react'
+import { ArrowRight, Maximize, Minus, Plus, Search, Sparkles, X } from 'lucide-react'
 import { BLOB } from './Landscape'
 import { step } from './combobox'
 import {
-  KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, timedStops, unfiled, walkOf,
+  KINDS, citeParts, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, timedStops, unfiled, walkOf,
   type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind, type Point,
 } from './graph'
 import { load as loadLocal, save as saveLocal } from './Home'
@@ -40,7 +40,7 @@ const LEGEND: [PlaceKind, string, string][] = [
   ['meeting', 'hut', 'Meetings: huts'], ['report', 'view', 'Teach reports: viewpoints'], ['lake', 'lake', 'Learning: lakes'],
 ]
 
-// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Ready and unknown statuses are to do.
+// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Unknown statuses are to do.
 const symbolOf = (n: GraphNode) => (n.kind === 'task' ? (['wip', 'review', 'blocked', 'done'].includes(n.status) ? n.status : 'todo')
   : n.kind === 'thought' ? (unfiled(n) ? 'sapling' : 'tree') : n.kind === 'meeting' ? 'hut' : n.kind === 'report' ? 'view' : 'lake')
 
@@ -473,16 +473,26 @@ const rotation = (h: Hill) => ([...h.project].reduce((s, c) => s + c.charCodeAt(
 
 // Find a place: by meaning (the RAG index) and plain text, within the docs on the map, or by title
 // right away while that answer comes. Everything it finds lights up on the map; picking a result flies there.
+// In Ask mode the local LLM (Ollama) answers from the best of those docs instead, and the places it cites light up.
 type Hit = { path: string; snippet: string }
+type Reply = { q: string; answer: string; sources: { path: string; title: string }[] }
 function Finder({ nodes, go, found, fail }: { nodes: GraphNode[]; go: (id: string) => void; found: (ids?: Set<string>) => void; fail: (e: Error) => void }) {
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const [searched, setSearched] = useState<{ q: string; hits: Hit[] }>()
+  const [mode, setMode] = useState<'find' | 'ask'>('find')
+  const [reply, setReply] = useState<Reply>()
+  const [asking, setAsking] = useState<'' | 'loading' | 'failed'>('')
+  // Bumped by every question and reset, so an older answer that arrives late is dropped.
+  const askSeq = useRef(0)
+  const resetAsk = () => { askSeq.current++; setReply(undefined); setAsking('') }
   const id = useId()
   const terms = q.trim().toLowerCase()
-  const searching = terms.length >= 2
+  const searching = mode === 'find' && terms.length >= 2
   // A new list only when the docs on the map change, not on every refetch.
   const within = useMemo(() => nodes.map((n) => n.id).join('\n'), [nodes])
+  // An answer is only good for the docs it was asked about.
+  useEffect(resetAsk, [within])
   useEffect(() => {
     if (!searching) return setSearched(undefined)
     // A slower answer to an earlier query arrives after this cleanup ran, so it's dropped.
@@ -501,20 +511,49 @@ function Finder({ nodes, go, found, fail }: { nodes: GraphNode[]; go: (id: strin
     const seen = new Set<string>()
     return [...titled.filter((x) => x.n.kind === 'project'), ...meant, ...titled].filter((x) => !seen.has(x.n.id) && !!seen.add(x.n.id))
   }, [searching, terms, q, nodes, searched, byId])
-  useEffect(() => found(searching ? new Set(hits.map((h) => h.n.id)) : undefined), [hits, searching, found])
+  const citedNode = (n: number) => (reply ? byId.get(reply.sources[n - 1]?.path) : undefined)
+  // The places the answer cites, in the order it first cites them; citing none leaves the map as it is.
+  const cited = useMemo(() => (reply ? [...new Set(citeParts(reply.answer).filter((p) => typeof p === 'number'))].flatMap((n) => citedNode(n) ?? []) : []), [reply, byId])
+  useEffect(() => found(searching ? new Set(hits.map((h) => h.n.id)) : cited.length ? new Set(cited.map((n) => n.id)) : undefined), [hits, searching, cited, found])
   const pick = (n: GraphNode) => { go(n.id); setQ('') }
-  const shown = hits.slice(0, 8)
+  const shown = searching ? hits.slice(0, 8) : []
+  const switchMode = () => { resetAsk(); setMode(mode === 'find' ? 'ask' : 'find') }
+  // One question at a time: each one keeps the local model busy.
+  const ask = () => {
+    if (terms.length < 2 || asking === 'loading') return
+    const seq = ++askSeq.current
+    setAsking('loading')
+    api('ask', 'POST', { q, within: within.split('\n') }).then(
+      (r) => { if (seq === askSeq.current) { setReply({ q: q.trim(), ...r }); setAsking('') } },
+      () => { if (seq === askSeq.current) { setReply(undefined); setAsking('failed') } })
+  }
+  const cite = (n: number, i: number) => {
+    const node = citedNode(n)
+    return node ? <button key={i} className="bt-cite" title={node.title} onClick={() => go(node.id)}>{n}</button> : `[${n}]`
+  }
   return (
     <div className="bt-find">
-      <Search size={18} strokeWidth={1.8} aria-hidden />
-      <input type="search" value={q} placeholder="Find a place on the map…" aria-label="Find a place on the map"
+      {mode === 'ask' ? <Sparkles size={18} strokeWidth={1.8} aria-hidden /> : <Search size={18} strokeWidth={1.8} aria-hidden />}
+      <input type="search" value={q} placeholder={mode === 'ask' ? 'Ask the docs on the map, then Enter…' : 'Find a place on the map…'}
+        aria-label={mode === 'ask' ? 'Ask a question about the docs on the map' : 'Find a place on the map'}
         role="combobox" aria-expanded={shown.length > 0} aria-controls={`${id}-hits`} aria-activedescendant={shown.length ? `${id}-${active}` : undefined}
         onChange={(e) => { setQ(e.target.value); setActive(0) }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => step(a, e.key === 'ArrowDown' ? 1 : -1, shown.length)) }
+          else if (e.key === 'Enter' && mode === 'ask') { e.preventDefault(); ask() }
           else if (e.key === 'Enter' && shown.length) { e.preventDefault(); pick(shown[Math.max(0, active)].n) }
-          else if (e.key === 'Escape') setQ('')
+          else if (e.key === 'Escape') { setQ(''); resetAsk() }
         }} />
+      <button type="button" className={`bt-mode ${mode === 'ask' ? 'on' : ''}`} aria-pressed={mode === 'ask'} onClick={switchMode}
+        title="Ask: the local LLM answers from the docs on the map and cites them">Ask</button>
+      {mode === 'ask' && (reply || asking) && (
+        <div className="bt-hits bt-answer" role="status">
+          {asking === 'loading' ? <p className="muted">Asking the local model…</p>
+            : asking === 'failed' ? <p className="muted">Asking failed: is Ollama running?</p>
+            : reply?.answer ? <p>{citeParts(reply.answer).map((p, i) => (typeof p === 'number' ? cite(p, i) : p))}</p>
+            : <p className="muted">Nothing on the map about “{reply?.q}”</p>}
+        </div>
+      )}
       {searching && !shown.length && <p className="bt-hits muted" role="status">{searched?.q === q ? `Nothing on the map about “${q.trim()}”` : 'Searching…'}</p>}
       {shown.length > 0 && (
         <ul id={`${id}-hits`} role="listbox" aria-label={`${hits.length} places found`} className="bt-hits">

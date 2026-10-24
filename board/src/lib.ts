@@ -2,8 +2,8 @@ export type Fields = Record<string, any>
 export type Doc = { name: string; data: Fields; body: string; error?: string }
 export type Vault = { root: string; vault: string; projects: Doc[]; tasks: Doc[]; meetings: Doc[] }
 
-export const STATUSES = ['todo', 'ready', 'wip', 'review', 'blocked', 'done']
-export const LABELS: Record<string, string> = { todo: 'To do', ready: 'Ready for agent', wip: 'In progress', review: 'Review', blocked: 'Blocked', done: 'Done', '?': 'Unknown status' }
+export const STATUSES = ['todo', 'wip', 'review', 'blocked', 'done']
+export const LABELS: Record<string, string> = { todo: 'To do', wip: 'In progress', review: 'Review', blocked: 'Blocked', done: 'Done', '?': 'Unknown status' }
 export const PRIORITIES = ['p0', 'p1', 'p2', 'p3']
 // Files keep p0-p3 (short, sortable); people see words.
 export const PRIO_LABEL: Record<string, string> = { p0: 'Urgent', p1: 'High', p2: 'Normal', p3: 'Low' }
@@ -36,13 +36,19 @@ export const TAB = crypto.randomUUID()
 // Loads the vault without undoing a drop the files don't have yet. A load waits for the drops still being
 // written (the server writes a move as soon as it reads it, so each answers or fails); one already on its
 // way when a drop comes is asked again. A failed drop reloads, to show what the files really say: `dropped` hands
-// back that reload, so its own failure can be shown too.
+// back that reload, so its own failure can be shown too. Only the latest load is shown: an older one that
+// answers late would put back what the newer one already replaced.
 export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
   const writing = new Set<Promise<void>>()
   let drops = 0
+  let loads = 0
   const load = (): Promise<void> => {
     const at = drops
-    return Promise.all(writing).then(fetch).then((v) => { if (at === drops) set(v); else return load() })
+    const own = ++loads
+    return Promise.all(writing).then(fetch).then((v) => {
+      if (own !== loads) return
+      if (at === drops) set(v); else return load()
+    })
   }
   return {
     load,
@@ -54,6 +60,20 @@ export function loader<T>(fetch: () => Promise<T>, set: (v: T) => void) {
       return write.then(() => {}, () => load())
     },
   }
+}
+
+// Calls `fn` with the latest value once calls stop for `ms`. `flush` calls it now with what is still waiting,
+// so an editor that closes mid-typing still saves the last words; it hands back what `fn` returned.
+export function debounce<T, R>(fn: (v: T) => R, ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let waiting: { v: T } | undefined
+  const flush = () => {
+    clearTimeout(timer)
+    const w = waiting
+    waiting = undefined
+    return w && fn(w.v)
+  }
+  return Object.assign((v: T) => { waiting = { v }; clearTimeout(timer); timer = setTimeout(flush, ms) }, { flush })
 }
 
 export async function api(url: string, method = 'GET', body?: unknown) {
@@ -104,6 +124,13 @@ export const ago = (iso: string) => {
 
 export const todayISO = () => new Date().toLocaleDateString('sv')
 
+// Midnight to midnight of the day `d` falls on. Not 24 hours: the day the clocks change has 23 or 25.
+export function dayRange(d: Date) {
+  const from = new Date(d); from.setHours(0, 0, 0, 0)
+  const to = new Date(from); to.setDate(to.getDate() + 1)
+  return { from, to }
+}
+
 // Why a task deserves attention today, most urgent first; empty = not today's business.
 export function urgency(t: Doc): { score: number; reasons: string[] } {
   if (t.data.status === 'done') return { score: 0, reasons: [] }
@@ -128,7 +155,7 @@ export const OPEN_WORK = ['wip', 'blocked', 'review']
 
 // A hill's contour rings from the peak outwards: blocked, in progress, review, to do. Shared out by how much
 // open work has each status (at most 7 rings), with at least one ring for every status that has work.
-// Ready and unknown statuses count as to do.
+// Unknown statuses count as to do.
 const RING_ORDER = ['blocked', 'wip', 'review', 'todo']
 export function hillRings(open: string[]) {
   const n = Math.min(7, open.length)

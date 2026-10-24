@@ -282,6 +282,12 @@
 [data-theme="terrain"] .cal-item { border-radius: 10px; }
 [data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
 [data-theme="terrain"] .cal-item.task { border-color: var(--muted); }
+[data-theme="terrain"] .cal-more { background: none; border-color: transparent; }
+[data-theme="terrain"] .cal-time { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .cal-col { background-image: repeating-linear-gradient(to bottom, var(--contour) 0 1px, transparent 1px var(--hour)); }
+[data-theme="terrain"] .cal-col .cal-item { border-radius: 8px; }
+[data-theme="terrain"] .cal-now { background: var(--ochre); }
+[data-theme="terrain"] .cal-hour { font-family: var(--font-mono); }
 [data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .term-tab.on { border-color: var(--text); }
@@ -298,7 +304,6 @@
 /* Same elevation markers as the board columns. The run ring sits on the node: clip-path would cut it off. */
 [data-theme="terrain"] .dep-node .dep-marker { width: 12px; height: 12px; border-radius: 0; background: var(--muted); clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
 [data-theme="terrain"] .dep-node.todo .dep-marker { clip-path: circle(30% at 50% 60%); }
-[data-theme="terrain"] .dep-node.ready .dep-marker { background: var(--p2); }
 [data-theme="terrain"] .dep-node.wip .dep-marker { background: var(--st-wip-ink); }
 [data-theme="terrain"] .dep-node.review .dep-marker { background: var(--st-review-ink); }
 [data-theme="terrain"] .dep-node.blocked .dep-marker { background: var(--p0); }
@@ -320,6 +325,8 @@
   color-scheme: dark; color: var(--text);
 }
 [data-theme="terrain"] .bt-find { border-radius: var(--radius-pill); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .bt-cite { border-radius: var(--radius-pill); border-color: transparent; }
+[data-theme="terrain"] .bt-cite:hover, [data-theme="terrain"] .bt-cite:focus-visible { background: var(--highlight); color: var(--highlight-ink); }
 [data-theme="terrain"] .bt-find:focus-within { border-color: var(--highlight); box-shadow: 0 0 0 4px var(--highlight-soft), var(--shadow-lift); }
 [data-theme="terrain"] .bt-hits, [data-theme="terrain"] .bt-legend, [data-theme="terrain"] .bt-zoom { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .bt-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-float); animation: tr-peek .5s var(--spring) both; }
@@ -348,7 +355,8 @@
 /* ---------- Motion ---------- */
 /* Each view settles in when you open it. Hover springs a little. Only agents loop: waiting ones, and running ones in the dependency view. */
 @keyframes tr-settle { from { opacity: 0; transform: translateY(12px); } }
-[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) both; }
+/* backwards, not both: a transform left on the page after the animation traps its fixed popovers inside it. */
+[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) backwards; }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="terrain"] *, [data-theme="terrain"] *::before { animation: none !important; transition: none !important; }
 }

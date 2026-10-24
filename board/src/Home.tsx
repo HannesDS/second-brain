@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { PRIORITIES, api, list, prioLabel, unlink, type Doc, type Vault } from './lib'
+import { LABELS, PRIORITIES, api, list, prioLabel, unlink, type Doc, type Vault } from './lib'
 import { MessagesSquare, Play, RotateCcw, X } from 'lucide-react'
 import Split from './Split'
 import { IconButton } from './ui'
 
-const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, ready: 3, todo: 4 }
-const rank = (t: Doc) => RANK[t.data.status] ?? 4
+const RANK: Record<string, number> = { wip: 0, review: 1, blocked: 2, todo: 3 }
+const rank = (t: Doc) => RANK[t.data.status] ?? RANK.todo
 const prio = (t: Doc) => { const i = PRIORITIES.indexOf(t.data.priority); return i < 0 ? 2 : i }
 
 // localStorage can throw (private mode, blocked storage); the board works without it.
@@ -92,7 +92,7 @@ export function TodoList({ tasks, projects, selected, select, open, done, write,
             <span className="todo-title">{t.data.title ?? t.name}</span>
             <span className="todo-meta">
               <span className={`prio ${t.data.priority}`}>{prioLabel(t.data.priority)}</span>
-              <span className={`status ${t.data.status}`}>{t.data.status}</span>
+              <span className={`status ${t.data.status}`}>{LABELS[t.data.status] ?? t.data.status}</span>
               {t.data.type && <span>{t.data.type}</span>}
               {t.data.due && <span>due {t.data.due}</span>}
               {reasons?.[t.name]?.filter((r) => !/^p\d$|^in progress$|^in review$/.test(r)).map((r) => <span key={r} className="reason">{r}</span>)}

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { edgeState, filterGraph, hull, layout, mapOf, nodeState, smoothPath, timedStops, walkOf, type GraphNode, type KnowledgeGraph } from './graph'
+import { citeParts, edgeState, filterGraph, hull, layout, mapOf, nodeState, smoothPath, timedStops, walkOf, type GraphNode, type KnowledgeGraph } from './graph'
 
 const node = (id: string, kind: GraphNode['kind'], project = '', context = ''): GraphNode => ({ id, kind, name: id, title: id, project, contexts: context ? [context] : [], status: '', priority: '' })
 const g: KnowledgeGraph = {
@@ -195,4 +195,9 @@ test('walk times: start, end and arrivals first, then every stop whose label fit
   const stops = [stop(1, 0, 'a'), stop(2, 130, 'a'), stop(3, 190, 'a'), stop(4, 1000, 'b'), stop(5, 4000, 'b')]
   expect([...timedStops(stops, 1, 10)].sort()).toEqual([0, 1, 2, 3, 4])
   expect([...timedStops(stops, 0.2, 10)].sort()).toEqual([0, 3, 4])
+})
+
+test('an answer splits into text and the sources it cites', () => {
+  expect(citeParts('Tokens [1]. Both [2, 3][1]')).toEqual(['Tokens ', 1, '. Both ', 2, 3, 1])
+  expect(citeParts('Not in these docs.')).toEqual(['Not in these docs.'])
 })

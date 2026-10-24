@@ -15,7 +15,7 @@ Issues are tasks in the vault: one markdown file per task at `~/Projects/second-
 
 ## When a skill says "publish to the issue tracker"
 
-Write a new task file as above. For tickets that are agent-grabbable, use `status: ready`: the workbench's autopilot picks up ready tickets whose blockers are done, most urgent first, a few at a time, each in its own worktree. Use `status: todo` for anything I should look at first.
+Write a new task file as above, with `status: todo`. I start autopilot on a ticket myself from the board.
 
 ## When a skill says "fetch the relevant ticket"
 
