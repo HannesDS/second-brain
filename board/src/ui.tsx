@@ -1,5 +1,6 @@
-import type { LucideIcon } from 'lucide-react'
-import type { MouseEvent } from 'react'
+import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
+import type { KeyboardEvent, MouseEvent } from 'react'
+import { MODES, MODE_LABEL, type Mode } from './theme'
 
 // One button style for every small action: a Lucide icon, the label as tooltip and for screen readers,
 // optionally shown as text. `stop` keeps the click from reaching a clickable card underneath.
@@ -24,5 +25,32 @@ export function IconLink({ icon: Icon, label, href, showLabel }: { icon: LucideI
       <Icon size={16} strokeWidth={1.8} aria-hidden />
       {showLabel && <span>{label}</span>}
     </a>
+  )
+}
+
+const MODE_ICON: Record<Mode, LucideIcon> = { light: Sun, dark: Moon, system: Monitor }
+
+// Light, dark or match the system: a radio group, so Tab lands on the chosen one and arrows move the choice.
+export function ModeSwitch({ mode, set }: { mode: Mode; set: (m: Mode) => void }) {
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
+    if (!step) return
+    e.preventDefault()
+    const next = MODES[(MODES.indexOf(mode) + step + MODES.length) % MODES.length]
+    set(next)
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-value="${next}"]`)?.focus()
+  }
+  return (
+    <div className="mode-switch" role="radiogroup" aria-label="Colour mode" onKeyDown={onKey}>
+      {MODES.map((m) => {
+        const Icon = MODE_ICON[m]
+        return (
+          <button key={m} type="button" role="radio" data-value={m} aria-checked={m === mode} aria-label={MODE_LABEL[m]} title={MODE_LABEL[m]}
+            tabIndex={m === mode ? 0 : -1} onClick={() => set(m)}>
+            <Icon size={16} strokeWidth={1.8} aria-hidden />
+          </button>
+        )
+      })}
+    </div>
   )
 }

@@ -5,6 +5,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { api, tabKind, type TabKind } from './lib'
+import { useDark } from './theme'
 
 const TAB_ICON: Record<TabKind, LucideIcon> = { autopilot: Rocket, resumed: RotateCw, terminal: SquareTerminal }
 const TAB_KIND: Record<TabKind, string> = { autopilot: 'Autopilot', resumed: 'Resumed session', terminal: 'Terminal' }
@@ -48,18 +49,27 @@ export default function Terminals({ all, refresh, active, go, fail, show }: {
   )
 }
 
+// The terminal's colours come from the tokens, read when it opens and again when the mode changes.
+function termTheme() {
+  const css = getComputedStyle(document.documentElement)
+  const v = (n: string) => css.getPropertyValue(n).trim()
+  return { background: v('--surface'), foreground: v('--text'), cursor: v('--accent'), selectionBackground: v('--border') }
+}
+
 export function XTerm({ term }: { term: Term }) {
   const host = useRef<HTMLDivElement>(null)
+  const xtermRef = useRef<Terminal>(undefined)
+  const dark = useDark()
+  useEffect(() => { if (xtermRef.current) xtermRef.current.options.theme = termTheme() }, [dark])
   useEffect(() => {
-    const css = getComputedStyle(document.documentElement)
-    const v = (n: string) => css.getPropertyValue(n).trim()
     const xterm = new Terminal({
       fontFamily: '"MesloLGS NF", "MesloLGS Nerd Font", ui-monospace, Menlo, monospace',
       fontSize: 13,
       cursorBlink: true,
       scrollback: 5000,
-      theme: { background: v('--surface'), foreground: v('--text'), cursor: v('--accent'), selectionBackground: v('--border') },
+      theme: termTheme(),
     })
+    xtermRef.current = xterm
     const fit = new FitAddon()
     xterm.loadAddon(fit)
     xterm.open(host.current!)

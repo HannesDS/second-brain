@@ -9,8 +9,8 @@ import BrainTerrain from './BrainTerrain'
 import type { GraphNode } from './graph'
 import { Peek, TaskPage, TerminalPeek, type PeekItem } from './Peek'
 import { Editor } from './Notes'
-import { IconButton } from './ui'
-import { THEME_LABEL, useTheme } from './theme'
+import { IconButton, ModeSwitch } from './ui'
+import { THEME_LABEL, useMode, useTheme } from './theme'
 import Calendar, { guessProject } from './Calendar'
 import Deps, { ViewSwitch, type Graph } from './Deps'
 import Gantt from './Gantt'
@@ -76,6 +76,7 @@ export default function App() {
   // The thought you just captured: its peek asks the agent for a proposal straight away.
   const [captured, setCaptured] = useState('')
   const [theme, nextTheme] = useTheme()
+  const [mode, setMode] = useMode()
 
   const [vaultLoader] = useState(() => loader<Vault>(() => api('data'), setVault))
   const load = useCallback(() => vaultLoader.load(), [vaultLoader])
@@ -267,6 +268,7 @@ export default function App() {
             </>}
           </nav>
           <div className="spacer" />
+          <ModeSwitch mode={mode} set={setMode} />
           <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
           <IconButton icon={Sparkles} label="Ask Claude" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>

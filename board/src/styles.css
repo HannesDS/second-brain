@@ -18,30 +18,34 @@
   --danger: #d1242f;
   --shadow: 0 1px 0 rgb(31 35 40 / 4%);
   --radius: 6px;
+  --contour-strong: #afb8c1;
+  --card-edge: var(--border);
+  --on-fill: #1f2328;
+  --toggle-on: #ffffff;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d1117;
-    --surface: #0d1117;
-    --surface-2: #151b23;
-    --border: #3d444d;
-    --text: #f0f6fc;
-    --muted: #9198a1;
-    --accent: #4493f8;
-    --accent-text: #ffffff;
-    --focus: #1f6feb;
-    --p0: #f85149;
-    --p1: #db6d28;
-    --p2: #4493f8;
-    --p3: #656c76;
-    --ok: #3fb950;
-    --danger-bg: #25171c;
-    --danger: #f85149;
-    --shadow: none;
-    color-scheme: dark;
-  }
+:root[data-mode="dark"] {
+  --bg: #0d1117;
+  --surface: #0d1117;
+  --surface-2: #151b23;
+  --border: #3d444d;
+  --text: #f0f6fc;
+  --muted: #9198a1;
+  --accent: #4493f8;
+  --accent-text: #ffffff;
+  --focus: #1f6feb;
+  --p0: #f85149;
+  --p1: #db6d28;
+  --p2: #4493f8;
+  --p3: #656c76;
+  --ok: #3fb950;
+  --danger-bg: #25171c;
+  --danger: #f85149;
+  --shadow: none;
+  --contour-strong: #59636e;
+  --toggle-on: #2f3742;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -51,6 +55,8 @@ body {
   color: var(--text);
   font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
 }
+body, .app { transition: background-color .2s, color .2s; }
+@media (prefers-reduced-motion: reduce) { body, .app { transition: none; } }
 a { color: var(--accent); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button {
@@ -146,7 +152,7 @@ nav { display: flex; gap: 4px; }
 .prio.p0 { background: var(--p0); }
 .prio.p1 { background: var(--p1); }
 .prio.p2 { background: var(--p2); }
-@media (prefers-color-scheme: dark) { .prio { color: #111317; } }
+[data-mode="dark"] .prio { color: #111317; }
 .type { background: var(--surface-2); border-radius: 4px; padding: 0 6px; }
 .blocked { margin-top: 6px; font-size: 12px; color: var(--danger); background: var(--danger-bg); border-radius: 6px; padding: 4px 8px; }
 
@@ -689,7 +695,8 @@ button { background: var(--surface-2); border-color: var(--border); font-weight:
 button:hover { background: var(--border); }
 button.primary { background: #1f883d; border-color: rgb(31 35 40 / 15%); color: #fff; }
 button.primary:hover { background: #1c8139; }
-@media (prefers-color-scheme: dark) { button.primary { background: #238636; } button.primary:hover { background: #29903b; } }
+[data-mode="dark"] button.primary { background: #238636; }
+[data-mode="dark"] button.primary:hover { background: #29903b; }
 button.icon, button.link, .tab, .nav, .proj { background: none; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -769,7 +776,7 @@ h2 { font-weight: 600; }
 
 /* Context colours: Data Minded purple, personal = beeld-bit red. */
 :root { --ctx-dm: #543edc; --ctx-personal: #e00000; }
-@media (prefers-color-scheme: dark) { :root { --ctx-dm: #8b7cf0; --ctx-personal: #ff4d4d; } }
+:root[data-mode="dark"] { --ctx-dm: #8b7cf0; --ctx-personal: #ff4d4d; }
 /* Brain Terrain map tokens (Classic). Terrain sets them in terrain.css, in the Moss palette. */
 :root {
   --map-ground: #f6f8fa; --map-grid: #eaeef2; --map-shade: rgb(31 35 40 / 30%);
@@ -778,13 +785,13 @@ h2 { font-weight: 600; }
   --map-ink: #1f2328; --map-note: #59636e; --map-faint: #818b98; --map-trail: #bc4c00;
   --map-water: #0969da; --map-water-ink: #0969da; --map-wood: #1a7f37; --map-walk: #9a6700;
 }
-@media (prefers-color-scheme: dark) { :root {
+:root[data-mode="dark"] {
   --map-ground: #0d1117; --map-grid: #151b23; --map-shade: rgb(0 0 0 / 60%);
   --map-h1: #161b22; --map-h2: #1c2129; --map-h3: #222831; --map-h4: #283039; --map-h5: #2e3742; --map-h6: #353e4a;
   --map-contour: #3d444d; --map-contour-index: #59636e;
   --map-ink: #f0f6fc; --map-note: #9198a1; --map-faint: #656c76; --map-trail: #db6d28;
   --map-water: #4493f8; --map-water-ink: #4493f8; --map-wood: #3fb950; --map-walk: #d29922;
-} }
+}
 .dot.dataminded { background: var(--ctx-dm); }
 .dot.personal { background: var(--ctx-personal); }
 .ctx { font-weight: 600; background: none; border: 1px solid currentColor; padding: 0 8px; }
@@ -796,7 +803,7 @@ h2 { font-weight: 600; }
 .mono { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: -0.02em; }
 .mono.dataminded { background: #080635; color: #8fdb3d; }
 .mono.personal { background: #0a0a0a; color: #fff; font-family: ui-monospace, Menlo, monospace; box-shadow: inset 0 -2px 0 #ff0000; }
-@media (prefers-color-scheme: dark) { .mono.personal { background: #fafafa; color: #0a0a0a; } }
+[data-mode="dark"] .mono.personal { background: #fafafa; color: #0a0a0a; }
 
 /* My day */
 .today-main { display: flex; flex-direction: column; }
@@ -877,6 +884,12 @@ h2 { font-weight: 600; }
 .ib.on svg { fill: currentColor; }
 .ib:disabled { opacity: 0.4; cursor: default; }
 .pin .ib { height: 22px; min-width: 22px; padding: 0 2px; }
+
+/* Colour mode switch in the top bar: light, dark, match system. */
+.mode-switch { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.mode-switch button { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; border-radius: 50%; background: none; color: var(--muted); }
+.mode-switch button:hover { background: none; color: var(--text); }
+.mode-switch button[aria-checked="true"] { background: var(--toggle-on); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 18%); }
 .nav-icon { flex: none; color: var(--muted); }
 .nav.on .nav-icon { color: var(--text); }
 .note-mark { color: var(--muted); flex: none; }

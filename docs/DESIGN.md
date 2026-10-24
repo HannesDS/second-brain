@@ -5,7 +5,7 @@ Switch with the mountain button in the top bar. The choice is stored in `localSt
 
 - Tokens and the Classic look: `board/src/styles.css`
 - The Terrain theme: `board/src/terrain.css` (everything scoped to `<html data-theme="terrain">`)
-- Theme hook and toggle: `board/src/theme.ts`, used in `App.tsx`
+- Theme and mode hooks: `board/src/theme.ts`, used in `App.tsx`; the mode switch is `ModeSwitch` in `board/src/ui.tsx`
 - Signature view: `board/src/Landscape.tsx` (My day, Terrain only)
 - Fonts: `board/public/fonts/` (Bricolage Grotesque, DM Mono, both OFL; local, no CDN)
 - Browsable reference with tokens and component previews: https://claude.ai/artifact/8v6GL9j3nCizf2V8orR9Li
@@ -32,16 +32,16 @@ Three rules carry the whole look:
 | Glacier | `#7FB7C9` | Review, agents waiting. Ink version `#2F6577`. |
 | Clay | `#C4553B` | Blocked, p0. Text version `#B2432B`. |
 
-Never put white text on ochre, lichen or glacier: use Moss. White on Clay is fine.
+Never put white text on ochre, lichen or glacier: use Moss (`--on-fill`). White on Clay is fine.
 
 ## Tokens
 
 Components only use tokens, never raw hex. The role names are shared with Classic, so a component
 styled with them works in every theme.
 
-- Surfaces: `--bg`, `--surface`, `--surface-2`, `--border`, `--contour`
+- Surfaces: `--bg`, `--surface`, `--surface-2`, `--border`, `--contour`, `--contour-strong` (dashed lines, open stretches, empty pips), `--card-edge` (card border)
 - Text: `--text`, `--muted`
-- Action: `--accent`, `--accent-text`, `--focus`, `--highlight`, `--highlight-soft`
+- Action: `--accent`, `--accent-text`, `--focus`, `--highlight`, `--highlight-soft`, `--on-fill` (text on ochre, lichen, glacier), `--toggle-on` (selected segment)
 - Priority: `--p0` to `--p3`
 - Status fills: `--st-todo`, `--st-wip`, `--st-review`, `--st-blocked`, `--st-done`, plus `--st-wip-ink`, `--st-review-ink` for text
 - Context: `--ctx-dm`, `--ctx-personal`
@@ -51,7 +51,34 @@ styled with them works in every theme.
 - Type: `--font-ui` (Bricolage Grotesque), `--font-mono` (DM Mono)
 - Motion: `--spring` `cubic-bezier(.34,1.56,.64,1)`, `--ease` `cubic-bezier(.4,0,.2,1)`
 
-Dark mode ("Moss") follows the system and swaps the same tokens.
+Dark mode ("Moss") swaps the same tokens; see Mode.
+
+## Mode
+
+Mode is separate from the theme: every theme has a light and a dark version.
+
+- Choices: Light, Dark, Match system. **Default Light**, also on a Mac in dark mode. Stored in `localStorage` as `sb.mode`.
+- The resolved mode sits on `<html data-mode="light|dark">`. `index.html` sets it before the app paints, so there is no flash.
+  Match system follows the OS live (`useMode` listens to `prefers-color-scheme`).
+- CSS: dark token blocks are `:root[data-mode="dark"]` (Terrain: `:root[data-theme="terrain"][data-mode="dark"]`), dark component rules
+  `[data-mode="dark"] .x` (Terrain: `[data-theme="terrain"][data-mode="dark"] .x`). Never a `prefers-color-scheme` media query. Each mode sets `color-scheme`, so scrollbars and native inputs follow.
+- Libraries that take colours in JS (xyflow, xterm) follow `useDark()`, not the media query.
+- The switch: a segmented pill top right in the top bar, before the theme button. Sun, Moon, Monitor.
+  Track `--surface-2` with a `--border` edge, 32px round buttons, the selected one on `--toggle-on`. It is a radio group: Tab lands on the choice, arrows move it.
+
+| Token | Fog (light) | Moss (dark) |
+|---|---|---|
+| `--bg` | `#EEF0E8` | `#111814` |
+| `--surface` | `#FFFFFF` | `#1F2B24` |
+| `--surface-2` | `#F6F7F2` | `#273630` |
+| `--border` | `#D5DCCB` | `#3E5245` |
+| `--muted` | `#4A5A4E` | `#AEBDAB` |
+| `--contour-strong` | `#B9C4AC` | `#566B5C` |
+| `--card-edge` | transparent | `#3E5245` (no shadow in dark, so cards get an edge) |
+| `--on-fill` | `#1E2A22` | `#1E2A22` |
+| `--toggle-on` | `#FFFFFF` | `#3A4C40` |
+
+Moss surface on ground is 1.23:1 plus the card edge. Text on surface / surface-2: 12.8 / 11.0, muted 7.5 / 6.4, ochre 6.8 / 5.8.
 
 ## Type
 
@@ -142,7 +169,7 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
 ## Adding a theme
 
 1. Add the name to `THEMES` and `THEME_LABEL` in `theme.ts`.
-2. Create `board/src/<name>.css` with a `:root[data-theme="<name>"]` token block (light and dark), then scoped overrides.
+2. Create `board/src/<name>.css` with a `:root[data-theme="<name>"]` token block and a `:root[data-theme="<name>"][data-mode="dark"]` one, then scoped overrides.
 3. Import it in `main.tsx` after `styles.css`.
 
 Toybox is the next candidate.
