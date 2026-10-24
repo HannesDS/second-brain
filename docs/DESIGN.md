@@ -60,8 +60,8 @@ Mode is separate from the theme: every theme has a light and a dark version.
 - Choices: Light, Dark, Match system. **Default Light**, also on a Mac in dark mode. Stored in `localStorage` as `sb.mode`.
 - The resolved mode sits on `<html data-mode="light|dark">`. `index.html` sets it before the app paints, so there is no flash.
   Match system follows the OS live (`useMode` listens to `prefers-color-scheme`).
-- CSS: dark rules are `:root[data-mode="dark"]` (Terrain: `:root[data-theme="terrain"][data-mode="dark"]`), never a
-  `prefers-color-scheme` media query. Each mode sets `color-scheme`, so scrollbars and native inputs follow.
+- CSS: dark token blocks are `:root[data-mode="dark"]` (Terrain: `:root[data-theme="terrain"][data-mode="dark"]`), dark component rules
+  `[data-mode="dark"] .x` (Terrain: `[data-theme="terrain"][data-mode="dark"] .x`). Never a `prefers-color-scheme` media query. Each mode sets `color-scheme`, so scrollbars and native inputs follow.
 - Libraries that take colours in JS (xyflow, xterm) follow `useDark()`, not the media query.
 - The switch: a segmented pill top right in the top bar, before the theme button. Sun, Moon, Monitor.
   Track `--surface-2` with a `--border` edge, 32px round buttons, the selected one on `--toggle-on`. It is a radio group: Tab lands on the choice, arrows move it.

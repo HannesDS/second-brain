@@ -32,20 +32,20 @@ const MODE_ICON: Record<Mode, LucideIcon> = { light: Sun, dark: Moon, system: Mo
 
 // Light, dark or match the system: a radio group, so Tab lands on the chosen one and arrows move the choice.
 export function ModeSwitch({ mode, set }: { mode: Mode; set: (m: Mode) => void }) {
-  const key = (e: KeyboardEvent<HTMLDivElement>) => {
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
     if (!step) return
     e.preventDefault()
     const next = MODES[(MODES.indexOf(mode) + step + MODES.length) % MODES.length]
     set(next)
-    e.currentTarget.querySelector<HTMLButtonElement>(`[data-mode="${next}"]`)?.focus()
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-value="${next}"]`)?.focus()
   }
   return (
-    <div className="mode-switch" role="radiogroup" aria-label="Colour mode" onKeyDown={key}>
+    <div className="mode-switch" role="radiogroup" aria-label="Colour mode" onKeyDown={onKey}>
       {MODES.map((m) => {
         const Icon = MODE_ICON[m]
         return (
-          <button key={m} type="button" role="radio" data-mode={m} aria-checked={m === mode} aria-label={MODE_LABEL[m]} title={MODE_LABEL[m]}
+          <button key={m} type="button" role="radio" data-value={m} aria-checked={m === mode} aria-label={MODE_LABEL[m]} title={MODE_LABEL[m]}
             tabIndex={m === mode ? 0 : -1} onClick={() => set(m)}>
             <Icon size={16} strokeWidth={1.8} aria-hidden />
           </button>

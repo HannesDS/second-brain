@@ -119,9 +119,8 @@
 [data-theme="terrain"] .ib.on { color: var(--p1); }
 [data-theme="terrain"] a.btn { border-radius: var(--radius); background: var(--surface); border-color: var(--border); }
 [data-theme="terrain"] .ib.with-label.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); border-radius: 16px 13px 17px 12px; }
-[data-theme="terrain"] .mode-switch { border-radius: var(--radius-pill); }
-[data-theme="terrain"] .mode-switch button { border-radius: 50%; border-color: transparent; background: none; transition: background .2s, color .15s, box-shadow .2s; }
-[data-theme="terrain"] .mode-switch button:hover { border-color: transparent; background: none; color: var(--text); }
+[data-theme="terrain"] .mode-switch button { border-radius: 50%; background: none; transition: background .2s, color .15s, box-shadow .2s; }
+[data-theme="terrain"] .mode-switch button:hover { background: none; color: var(--text); }
 [data-theme="terrain"] .mode-switch button[aria-checked="true"] { background: var(--toggle-on); }
 
 /* ---------- Inputs ---------- */
