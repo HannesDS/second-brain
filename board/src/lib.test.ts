@@ -80,7 +80,7 @@ test('hill rings share out open work by status, from the peak outwards, unknown 
 
 const agent = (id: string, updated: string, more: Partial<Agent> = {}): Agent => ({ id, cwd: '/x/other', account: 'dm', state: 'idle', updated, ...more })
 const agentVault: Vault = {
-  root: '', vault: '', meetings: [],
+  root: '', vault: '', meetings: [], cairns: [], days: [],
   projects: [{ name: 'workbench', data: { repos: ['/x/brain'] }, body: '' }, { name: 'portal', data: { repos: ['/x/portal'] }, body: '' }],
   tasks: [{ name: 'T-0001', data: { title: 'Fix it', project: '[[portal]]' }, body: '' }],
 }

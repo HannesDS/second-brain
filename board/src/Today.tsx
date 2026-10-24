@@ -1,11 +1,15 @@
-import { EyeOff, ListPlus, NotebookText, Play, TerminalSquare } from 'lucide-react'
+import { EyeOff, Mountain, Play, TerminalSquare } from 'lucide-react'
 import { IconButton } from './ui'
-import Landscape from './Landscape'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ProjectSelect } from './Home'
+import { Cairns, CairnForm, type Running } from './Cairns'
+import { ChooseWay, Trail, type Meeting } from './Trail'
+import {
+  cairnInContext, cairnMarks, cairnOf, goalOf, hhmm, isDone, isDue, meetingSpans, minuteOf, openStretches, trailSpan,
+  type CalEvent, type Cairn, type Stretch, type Way,
+} from './day'
 import { agentLabel, ago, api, byProject, dayRange, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
-type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
 export type Actions = {
   open: (d: Doc) => void
   project: (id: string) => void
@@ -18,61 +22,102 @@ export type Actions = {
   write: (p: string) => void
 }
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+// A browser notification, only when you allowed them; the toast shows either way.
+const notify = (text: string) => { try { if (Notification.permission === 'granted') new Notification(text) } catch { /* no Notification API */ } }
 
-// My day: today's meetings, what's due, and your board (the real one, so you can drag). Agents show on
-// their cards. Every row and card opens what it shows; secondary actions appear on hover.
-export default function Today({ vault, tasks, act, fail, prep, meetingNote, board }: {
-  vault: Vault; tasks: Doc[]; act: Actions
-  fail: (e: Error) => void; prep: (title: string, date: string) => void; meetingNote: (title: string, date: string, time?: string) => void
+// My day: the trail between today's meetings, the cairns due today, what's due, and your board (the real one,
+// so you can drag). Agents show on their cards. Every row and card opens what it shows; secondary actions appear on hover.
+export default function Today({ vault, tasks, context, act, fail, flash, prep, meetingNote, board }: {
+  vault: Vault; tasks: Doc[]; context: string; act: Actions
+  fail: (e: Error) => void; flash: (msg: string) => void; prep: (title: string, date: string) => void; meetingNote: (title: string, date: string, time?: string) => void
   board: React.ReactNode
 }) {
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calError, setCalError] = useState('')
+  const [now, setNow] = useState(() => new Date())
+  const [choosing, setChoosing] = useState<Stretch>()
+  const [editing, setEditing] = useState<{ cairn?: Cairn }>()
+  const [running, setRunning] = useState<Running>()
   useEffect(() => {
     const { from, to } = dayRange(new Date())
     api(`calendar?from=${from.toISOString()}&to=${to.toISOString()}`).then((r) => { setEvents(r.events); setCalError(r.error) }, fail)
   }, [])
+  // Every second while a timer runs, else twice a minute: enough for the now marker and the nudges.
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), running ? 1000 : 30_000)
+    return () => clearInterval(t)
+  }, [running])
+
+  const today = todayISO()
+  const day = vault.days.find((d) => d.name === today)?.data ?? {}
+  const log: Record<string, unknown> = day.cairns ?? {}
+  const ways: Record<string, Way> = day.ways ?? {}
+  const patchDay = (patch: Record<string, unknown>) => api(`days/${today}`, 'PUT', patch).catch(fail)
 
   // Overdue and due in the next two days, most urgent first.
   const due = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.reasons.some((r) => /overdue|due/.test(r))).sort((x, y) => y.score - x.score)
-  const notesToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
+  const notesToday = vault.meetings.filter((m) => String(m.data.date) === today)
   const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
+  const timed = meetingSpans(events, now).map((m) => ({ ...m, title: m.event.title, note: noteFor(m.event.title) }))
+  // Meeting notes without a calendar event show at their time, half an hour long; they don't cut the stretches.
+  const loose: Meeting[] = notesToday.filter((n) => !timed.some((m) => m.note === n) && /^\d{2}:\d{2}$/.test(String(n.data.time ?? '')))
+    .map((n) => { const [h, mi] = String(n.data.time).split(':').map(Number); return { start: h * 60 + mi, end: h * 60 + mi + 30, title: n.name.replace(/^\d{4}-\d{2}-\d{2} /, ''), note: n } })
+  const span = trailSpan([...timed, ...loose])
+  const stretches = openStretches(timed, span)
+  const minute = minuteOf(now)
+  const cairns = vault.cairns.map(cairnOf).filter((c) => isDue(c, now) && cairnInContext(context, c))
+    .sort((a, b) => (cairnMarks(a, timed)[0] ?? 24 * 60) - (cairnMarks(b, timed)[0] ?? 24 * 60))
+
+  // Nudges: a cairn's time comes, or a meeting ends that a cairn follows. Checked on each tick for what happened
+  // since the last one, so nothing from before the page opened goes off.
+  const last = useRef(minute)
+  useEffect(() => {
+    const from = last.current
+    last.current = minute
+    if (minute <= from) return
+    const passed = (m: number) => m > from && m <= minute
+    for (const c of cairns) {
+      if (isDone(c, log[c.slug], goalOf(c, timed.length))) continue
+      const ended = c.after ? cairnMarks(c, timed).findIndex(passed) : -1
+      if (ended >= 0) { flash(`${timed[ended].title} is over. Time for ${c.name.toLowerCase()}.`); if (c.nudge) notify(`${c.name}: ${timed[ended].title} is over`) }
+      else if (!c.after && c.at && passed(cairnMarks(c, timed)[0])) { flash(`Time for ${c.name.toLowerCase()}.`); if (c.nudge) notify(`Time for ${c.name.toLowerCase()}`) }
+    }
+  }, [minute])
+  // A timer that ran out ticks its cairn.
+  useEffect(() => {
+    if (!running || now.getTime() < running.ends) return
+    const c = cairns.find((x) => x.slug === running.slug)
+    setRunning(undefined)
+    if (c) { patchDay({ cairns: { [c.slug]: 'done' } }); flash(`${c.name}: done`) }
+  }, [now, running])
+
+  const openMeeting = (m: Meeting) => (m.note ? act.write(`meetings/${m.note.name}.md`) : meetingNote(m.title, today, hhmm(m.start)))
+  const planFrom = stretches.find((s) => s.end > minute) ?? stretches[0]
+  const saveCairn = (slug: string, data: Record<string, unknown>, isNew: boolean) => {
+    try { if (data.nudge && Notification.permission === 'default') Notification.requestPermission() } catch { /* no Notification API */ }
+    api(`cairns/${slug}`, isNew ? 'POST' : 'PUT', { data }).then(() => setEditing(undefined), fail)
+  }
+  const removeCairn = (c: Cairn) => {
+    if (confirm(`Delete the cairn ${c.name}? Its file cairns/${c.slug}.md goes; the day files keep what you did.`)) api(`cairns/${c.slug}`, 'DELETE').catch(fail)
+  }
   return (
     <main className="today">
-      <p className="today-date">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-
-      <Landscape projects={vault.projects} tasks={tasks} open={act.project} />
-
-      <section>
-        <h3>Meetings today</h3>
-        {calError && <p className="muted">{calError}</p>}
-        <div className="meeting-strip">
-          {events.map((e) => {
-            const note = noteFor(e.title)
-            const openNote = () => (note ? act.write(`meetings/${note.name}.md`) : meetingNote(e.title, todayISO(), e.allDay ? '' : time(e.start)))
-            return (
-              <div key={e.id} className={`meeting-pill clickable cal-${(e.calendar ?? 0) % 4}`} role="button" tabIndex={0} title={note ? 'Open meeting notes' : 'Start meeting notes'}
-                onClick={openNote} onKeyDown={(k) => k.key === 'Enter' && openNote()}>
-                <span className="time">{e.allDay ? 'all day' : time(e.start)}</span>
-                <span className="meeting-title">{e.title}</span>
-                {note && <NotebookText size={14} className="note-mark" aria-label="Has notes" />}
-                <span className="hover-actions">
-                  <IconButton icon={ListPlus} label="Add a prep todo" stop onClick={() => prep(e.title, todayISO())} />
-                </span>
-              </div>
-            )
-          })}
-          {notesToday.filter((m) => !events.some((e) => noteFor(e.title) === m)).map((m) => (
-            <div key={m.name} className="meeting-pill clickable" role="button" tabIndex={0} onClick={() => act.write(`meetings/${m.name}.md`)}>
-              <span className="time">{m.data.time || 'note'}</span>
-              <span className="meeting-title">{m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}</span>
-              <NotebookText size={14} className="note-mark" aria-hidden />
-            </div>
-          ))}
-          {!events.length && !notesToday.length && !calError && <span className="muted">No meetings today.</span>}
+      <div className="today-head">
+        <div>
+          <p className="today-date">{now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          <p className="today-sum">{timed.length} meetings · {stretches.length} open stretches · {cairns.length} cairns</p>
         </div>
-      </section>
+        {planFrom && <IconButton icon={Mountain} label="Plan my way" showLabel primary onClick={() => setChoosing(planFrom)} />}
+      </div>
+      {calError && <p className="muted">{calError}</p>}
+
+      <Trail span={span} now={minute} meetings={[...timed, ...loose].sort((a, b) => a.start - b.start)} stretches={stretches} ways={ways}
+        cairns={cairns} log={log} tasks={tasks} projects={vault.projects} openMeeting={openMeeting} prep={(title) => prep(title, today)} choose={setChoosing} />
+
+      <Cairns cairns={cairns} log={log} days={vault.days} meetings={timed.length} now={now} running={running}
+        tick={(c, value) => patchDay({ cairns: { [c.slug]: value } })} add={(c) => patchDay({ add: { [c.slug]: 1 } })}
+        start={(c) => setRunning({ slug: c.slug, ends: Date.now() + c.minutes * 60_000 })} stop={() => setRunning(undefined)}
+        edit={(cairn) => setEditing({ cairn })} remove={removeCairn} />
 
       {due.length > 0 && (
         <section>
@@ -91,6 +136,10 @@ export default function Today({ vault, tasks, act, fail, prep, meetingNote, boar
         <h3>Your board <span className="muted hint-inline">drag cards to change status</span></h3>
         {board}
       </section>
+
+      {choosing && <ChooseWay stretch={choosing} way={ways[hhmm(choosing.start)]} tasks={tasks} projects={vault.projects}
+        save={(way) => patchDay({ ways: { [hhmm(choosing.start)]: way } })} close={() => setChoosing(undefined)} />}
+      {editing && <CairnForm cairn={editing.cairn} taken={vault.cairns.map((c) => c.name)} save={saveCairn} close={() => setEditing(undefined)} />}
     </main>
   )
 }

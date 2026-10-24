@@ -22,6 +22,15 @@
   --card-edge: var(--border);
   --on-fill: #1f2328;
   --toggle-on: #ffffff;
+  --highlight: #bf8700;
+  --highlight-soft: rgb(212 167 44 / 15%);
+  --contour: #d1d9e0;
+  --st-todo: #d1d9e0;
+  --st-wip: #aceebb;
+  --st-wip-ink: #1a7f37;
+  --st-review: #54aeff;
+  --st-review-ink: #0969da;
+  --st-blocked: #cf222e;
   color-scheme: light;
 }
 
@@ -45,6 +54,15 @@
   --shadow: none;
   --contour-strong: #59636e;
   --toggle-on: #2f3742;
+  --highlight: #d29922;
+  --highlight-soft: rgb(210 153 34 / 15%);
+  --contour: #3d444d;
+  --st-todo: #3d444d;
+  --st-wip: #2ea043;
+  --st-wip-ink: #3fb950;
+  --st-review: #388bfd;
+  --st-review-ink: #4493f8;
+  --st-blocked: #f85149;
   color-scheme: dark;
 }
 
@@ -807,11 +825,6 @@ h2 { font-weight: 600; }
 
 /* My day */
 .today-main { display: flex; flex-direction: column; }
-.meeting-strip { display: flex; gap: 6px; flex-wrap: wrap; }
-.meeting-pill { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; background: var(--surface-2); max-width: 100%; }
-.meeting-pill.cal-0 { border-left: 3px solid var(--accent); }
-.meeting-pill.cal-1 { border-left: 3px solid var(--ok); }
-.meeting-title { font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
 .mini-col { display: flex; flex-direction: column; gap: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 8px 8px; min-width: 0; }
 .mini-col h3 { margin: 10px 2px 2px; }
@@ -841,7 +854,7 @@ h2 { font-weight: 600; }
 
 .today { padding: 16px 24px 32px; max-width: 1180px; width: 100%; display: flex; flex-direction: column; gap: 6px; }
 .today h1 { font-size: 22px; margin: 4px 0 4px; }
-.today > section > h3, .today .mini-col > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 14px 2px 8px; display: flex; gap: 6px; align-items: center; }
+.today > section > h3, .today .section-head > h3, .today .mini-col > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 14px 2px 8px; display: flex; gap: 6px; align-items: center; }
 .page-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; flex-wrap: wrap; }
 .page-head h2 { margin: 0; }
 .board-page { display: flex; flex-direction: column; padding: 14px 20px 0; min-height: 0; }
@@ -852,7 +865,7 @@ h2 { font-weight: 600; }
 .clickable:focus-visible { outline: 2px solid var(--focus); }
 /* Secondary actions stay out of the way until you point at (or tab into) the row. */
 .hover-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
-:is(.mini-card, .card, .agent, .meeting-pill, .todo-list li):is(:hover, :focus-within, .lifted) .hover-actions { opacity: 1; }
+:is(.mini-card, .card, .agent, .trail-meeting, .cairn, .todo-list li):is(:hover, :focus-within, .lifted) .hover-actions { opacity: 1; }
 @media (hover: none) { .hover-actions { opacity: 1; } }
 .link-plain { border: none; background: none; padding: 0; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .link-plain:hover { text-decoration: underline; }
@@ -993,3 +1006,134 @@ h2 { font-weight: 600; }
 /* A full bottom row wraps instead of pushing the actions off a narrow card; they stay on the right. */
 .card .card-bottom { flex-wrap: wrap; row-gap: 2px; }
 .card .card-bottom .hover-actions { margin-left: auto; }
+
+/* ---------- My day: the trail ---------- */
+.today-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.today-sum { margin: 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trail-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
+.trail { position: relative; min-width: 960px; height: 286px; margin: 0 28px; }
+.trail .time { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trail-line { position: absolute; left: 0; right: 0; top: 136px; border-top: 2px dashed var(--contour-strong); }
+.trail-walked { position: absolute; left: 0; top: 135px; height: 4px; border-radius: 4px; background: var(--text); }
+.trail-now { position: absolute; top: 48px; height: 196px; width: 2px; margin-left: -1px; background: var(--highlight); z-index: 2; pointer-events: none; }
+.trail-now-label { position: absolute; top: 24px; transform: translateX(-50%); padding: 2px 10px; border-radius: 999px; background: var(--highlight); color: var(--on-fill);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; z-index: 2; }
+.trail-meeting { position: absolute; top: 113px; min-width: 64px; z-index: 1; display: flex; flex-direction: column; gap: 1px;
+  padding: 5px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.trail-meeting.note-only { border-style: dashed; }
+.trail-meeting .time { display: inline-flex; align-items: center; gap: 4px; }
+.trail-meeting-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trail-meeting .hover-actions { position: absolute; top: 2px; right: 2px; background: var(--surface-2); border-radius: var(--radius); }
+.trail-stretch { position: absolute; top: 172px; min-height: 70px; padding: 8px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  background: none; border: 1.5px dashed var(--contour-strong); border-radius: var(--radius); color: var(--text); overflow: hidden; }
+.trail-stretch:hover { background: var(--surface-2); border-color: var(--muted); }
+.trail-stretch.chosen { border-style: solid; border-color: var(--border); background: var(--surface); }
+.trail-stretch.here { border: 1.5px solid var(--highlight); background: var(--highlight-soft); }
+.stretch-way { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; max-width: 100%; min-width: 0; }
+.stretch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trail-cairn-at { position: absolute; top: 78px; width: 0; }
+.trail-cairn-label { position: absolute; left: -48px; width: 96px; text-align: center; display: flex; flex-direction: column; gap: 2px; font-size: 12px; font-weight: 600; }
+.trail-cairn { position: absolute; top: 48px; left: -11px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text); background: var(--surface);
+  display: grid; place-items: center; z-index: 1; }
+.trail-cairn.done { background: var(--text); color: var(--surface); }
+.trail-cairn.small { top: 128px; width: 18px; height: 18px; margin-left: -9px; left: auto; border-color: var(--st-wip-ink); }
+.trail-cairn.small.done { background: var(--st-wip); border-color: var(--st-wip); color: var(--on-fill); }
+.trail-hours { position: absolute; left: 0; right: 0; top: 260px; height: 16px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.trail-hours span { position: absolute; transform: translateX(-50%); }
+.trail-hours span:first-child { transform: none; }
+.trail-hours span:last-child { transform: translateX(-100%); }
+.trail-key { display: flex; flex-wrap: wrap; gap: 18px; font-size: 11px; color: var(--muted); padding: 8px 4px 0; text-transform: uppercase; letter-spacing: .04em; }
+.trail-key span { display: inline-flex; align-items: center; gap: 6px; }
+.trail-key .k { display: inline-block; box-sizing: border-box; }
+.trail-key .k.cairn { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text); }
+.trail-key .k.cairn-after { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--st-wip-ink); }
+.trail-key .k.open { width: 18px; height: 10px; border-radius: 4px; border: 1.5px dashed var(--contour-strong); }
+.trail-key .k.walked { width: 18px; height: 3px; border-radius: 3px; background: var(--text); }
+
+/* Status markers: a dot per status (Terrain draws the elevation shapes). */
+.marker { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); display: inline-block; }
+.marker.wip { background: var(--st-wip-ink); }
+.marker.review { background: var(--st-review-ink); }
+.marker.blocked { background: var(--p0); }
+.marker.done { background: var(--text); }
+
+/* Choose your way, Add a cairn */
+.popover.choose-way, .popover.cairn-form { top: 5vh; width: min(560px, 94vw); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 24px; margin: 0; }
+.choose-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.choose-head h2 { margin: 2px 0; font-size: 24px; }
+.choose-head p { margin: 0; font-size: 14px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.choose-group { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.segmented { display: inline-flex; align-self: flex-start; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.segmented button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--muted); }
+.segmented button:hover { background: none; color: var(--text); }
+.segmented button.on { background: var(--toggle-on); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 12%); }
+.way-option { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.way-option.on { border: 1.5px solid var(--highlight); background: var(--highlight-soft); }
+.way-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.way-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.way-text .time { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.hill-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.hill-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; font-weight: 600; }
+.hill-chip.on { border: 1.5px solid var(--highlight); background: var(--highlight-soft); }
+.hill-chip .ring { fill: none; stroke: var(--st-todo); }
+.hill-chip .ring.wip { stroke: var(--st-wip-ink); }
+.hill-chip .ring.review { stroke: var(--st-review); }
+.hill-chip .ring.blocked { stroke: var(--st-blocked); }
+.hill-chip .peak { fill: var(--text); }
+.hill-chip .peak.hot { fill: var(--highlight); }
+.kind-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kind-option { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 8px 12px; text-align: left; }
+.kind-option.on, .when-option.on { border: 2px solid var(--text); background: var(--surface-2); }
+.inline-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.inline-field input { width: 90px; }
+.when { gap: 8px; }
+.when-option { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
+.when-option input[type="radio"] { width: auto; margin: 0; accent-color: var(--text); }
+.when-option select { margin-left: auto; }
+.day-picks { display: flex; gap: 4px; margin-left: auto; }
+.day-pick { width: 28px; height: 28px; padding: 0; border-radius: 50%; font-size: 11px; border: 1.5px solid var(--contour-strong); background: none; color: var(--muted); }
+.day-pick.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.form-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.check-line { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.check-line input { width: 18px; height: 18px; margin: 0; accent-color: var(--text); }
+.frontmatter { margin: 0; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+
+/* ---------- My day: cairns ---------- */
+.section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.cairn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.cairn { display: flex; flex-direction: column; gap: 10px; min-height: 180px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.cairn.done { background: var(--surface-2); box-shadow: none; }
+.cairn-head { display: flex; align-items: center; gap: 12px; }
+.cairn-icon { width: 40px; height: 40px; flex: none; border-radius: var(--radius); display: grid; place-items: center; background: var(--surface-2); color: var(--text); }
+.cairn.done .cairn-icon { background: var(--st-wip); color: var(--on-fill); }
+.cairn-name { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.cairn-title { font-size: 15px; font-weight: 650; }
+.cairn-name .time { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.cairn-detail { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.4; }
+.pips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pip { display: inline-block; box-sizing: border-box; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--contour-strong); }
+.pip.on { background: var(--st-review); border-color: var(--st-review); }
+.cairn-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+.week { display: flex; gap: 5px; }
+.week-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; }
+.week-dot.done { background: var(--st-wip-ink); }
+.week-dot.missed { border: 1.5px solid var(--contour-strong); }
+.week-dot.today { border: 2px solid var(--text); }
+.week-dot.today-done { background: var(--st-wip-ink); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text); }
+.cairn.done .week-dot.today-done { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--text); }
+.week-dot.future { border: 1.5px dashed var(--border); }
+.week-dot.off { transform: scale(.4); background: var(--border); }
+.cairn-foot button { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; }
+.cairn-done { background: none; color: var(--st-wip-ink); border-color: var(--st-wip); font-weight: 600; }
+.cairn-timer { display: flex; align-items: center; gap: 16px; }
+.timer-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.breathe-phase { font-size: 15px; font-weight: 650; }
+.timer-text .time { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Box breathing: the contour rings grow for 4 s, hold, shrink for 4 s, hold. */
+.breathe { position: relative; width: 64px; height: 64px; flex: none; }
+.breathe-ring { position: absolute; inset: 0; border-radius: 50%; border: 1.6px solid var(--st-wip-ink); animation: breathe 16s var(--ease, ease-in-out) infinite; }
+.breathe-ring.r2 { inset: 12px; border-color: var(--st-review); }
+.breathe-ring.r3 { inset: 24px; border-color: var(--contour-strong); background: var(--highlight); }
+@keyframes breathe { 0%, 100% { transform: scale(.55); } 25%, 50% { transform: scale(1); } 75% { transform: scale(.55); } }
+@media (prefers-reduced-motion: reduce) { .breathe-ring { animation: none; } }

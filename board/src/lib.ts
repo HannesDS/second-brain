@@ -1,6 +1,6 @@
 export type Fields = Record<string, any>
 export type Doc = { name: string; data: Fields; body: string; error?: string }
-export type Vault = { root: string; vault: string; projects: Doc[]; tasks: Doc[]; meetings: Doc[] }
+export type Vault = { root: string; vault: string; projects: Doc[]; tasks: Doc[]; meetings: Doc[]; cairns: Doc[]; days: Doc[] }
 
 export const STATUSES = ['todo', 'wip', 'review', 'blocked', 'done']
 export const LABELS: Record<string, string> = { todo: 'To do', wip: 'In progress', review: 'Review', blocked: 'Blocked', done: 'Done', '?': 'Unknown status' }

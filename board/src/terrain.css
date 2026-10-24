@@ -159,12 +159,12 @@
 [data-theme="terrain"] .note-row.on { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--text); }
 [data-theme="terrain"] :is(.column, .mini-col) { background: var(--surface-2); border-color: var(--border); padding: 12px; }
 [data-theme="terrain"] .column.over { border-color: var(--text); border-style: dashed; background: var(--highlight-soft); }
-[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .event-list li, .project-card, .agent, .meeting-pill, .due-pill) {
+[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .event-list li, .project-card, .agent, .due-pill, .cairn) {
   border-radius: 18px; background: var(--surface); border: 1px solid var(--card-edge); box-shadow: var(--shadow);
   transition: border-color .2s, box-shadow .3s var(--ease); }
 /* No transform on draggable cards: dnd-kit moves them with transform. */
 /* .lifted: the card in hand looks like the hovered card it was picked up as. */
-[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .agent, .meeting-pill, .due-pill, .clickable):is(:hover, .lifted) { border-color: var(--muted); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .agent, .due-pill, .clickable):is(:hover, .lifted) { border-color: var(--muted); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .card { padding: 12px 14px; }
 [data-theme="terrain"] :is(.title, .mini-title, .todo-title, .agent-title) { font-weight: 650; letter-spacing: -0.01em; }
 /* Highlighted cards get a soft ochre field instead of a coloured left border. */
@@ -247,38 +247,29 @@
 [data-theme="terrain"] .today { gap: 10px; padding: 20px 28px 40px; }
 [data-theme="terrain"] .today-date { font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; color: var(--text); margin: 6px 0 2px; }
 [data-theme="terrain"] :is(.today > section > h3, .today .mini-col > h3, .pane h3) { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; }
-[data-theme="terrain"] .meeting-pill { border-left-width: 1px; padding: 8px 14px; border-radius: var(--radius-pill); }
 [data-theme="terrain"] .cal-item.event[class*="cal-"] { border-left-width: 3px; }
-[data-theme="terrain"] .meeting-pill .time { color: var(--text); font-weight: 500; }
 [data-theme="terrain"] .due-pill { border-radius: var(--radius-pill); padding: 6px 14px; }
 [data-theme="terrain"] .due-pill .due-when { color: var(--p1); }
 
-/* The landscape (Landscape.tsx) only shows in Terrain. */
-.landscape { display: none; }
-[data-theme="terrain"] .landscape { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 14px 18px 12px; margin: 6px 0 4px; animation: tr-settle .7s var(--spring) both; }
-.landscape svg { width: 100%; height: auto; max-height: 320px; display: block; overflow: visible; }
-.landscape .ring { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; transition: stroke-width .2s; }
-.landscape .ring.base { stroke: var(--contour); }
-.landscape .ring.todo { stroke: var(--st-todo); }
-.landscape .ring.wip { stroke: var(--st-wip-ink); }
-.landscape .ring.review { stroke: var(--st-review); }
-.landscape .ring.blocked { stroke: var(--st-blocked); }
-.landscape .peak { fill: var(--surface-2); stroke: var(--text); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-.landscape .peak.hot { fill: var(--ochre); }
-.landscape .hill { cursor: pointer; outline: none; }
-.landscape .hill-rings { transform-box: fill-box; transform-origin: center; transition: scale .5s var(--spring); }
-.landscape .hill:is(:hover, :focus-visible) .hill-rings { scale: 1.06; }
-.landscape .hill:is(:hover, :focus-visible) .ring { stroke-width: 2.4; }
-.landscape .hill-name { font: 700 17px var(--font-ui); fill: var(--text); letter-spacing: -0.01em; }
-.landscape .hill-meta { font: 400 11px var(--font-mono); fill: var(--muted); }
-.landscape-key { display: flex; flex-wrap: wrap; gap: 14px; font: 400 11px var(--font-mono); color: var(--muted); padding: 4px 4px 0; }
-.landscape-key span { display: inline-flex; align-items: center; gap: 6px; }
-.landscape-key .k { width: 14px; height: 0; border: 0; border-top: 2px solid; border-radius: 0; display: inline-block; }
-.landscape-key .k.blocked { border-color: var(--st-blocked); }
-.landscape-key .k.wip { border-color: var(--st-wip-ink); }
-.landscape-key .k.review { border-color: var(--st-review); }
-.landscape-key .k.todo { border-color: var(--st-todo); }
-.landscape-key .k.hot { width: 10px; height: 10px; border: 1.5px solid var(--text); border-radius: 50%; background: var(--ochre); }
+/* The trail and cairns (Trail.tsx, Cairns.tsx): pebble cards, mono labels, elevation markers. */
+[data-theme="terrain"] .today-sum { font-family: var(--font-mono); letter-spacing: .04em; text-transform: uppercase; }
+[data-theme="terrain"] .trail-card { border: 1px solid var(--card-edge); border-radius: var(--radius-lg); animation: tr-settle .7s var(--spring) both; }
+[data-theme="terrain"] :is(.trail-now-label, .trail-key, .eyebrow) { font-family: var(--font-mono); font-weight: 500; }
+[data-theme="terrain"] .trail-meeting { border-radius: 12px; }
+[data-theme="terrain"] .trail-stretch { border-radius: 16px; transition: border-color .2s, background .2s; }
+[data-theme="terrain"] .trail-cairn-label .time, [data-theme="terrain"] .trail-hours { font-family: var(--font-mono); }
+[data-theme="terrain"] .cairn { border: 1px solid var(--card-edge); border-radius: 18px; }
+[data-theme="terrain"] .cairn.done { border-color: var(--border); }
+[data-theme="terrain"] .cairn-name .time { font-family: var(--font-mono); }
+[data-theme="terrain"] :is(.popover.choose-way, .popover.cairn-form) { border-radius: 28px; box-shadow: var(--shadow-float); padding: 28px; }
+[data-theme="terrain"] .choose-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+[data-theme="terrain"] :is(.way-option, .hill-chip) { transition: border-color .15s, background .15s; }
+[data-theme="terrain"] .way-option { border-radius: 16px; }
+[data-theme="terrain"] .way-text .time { font-family: var(--font-mono); }
+[data-theme="terrain"] .frontmatter { font-family: var(--font-mono); }
+[data-theme="terrain"] .marker { width: 12px; height: 12px; border-radius: 0; clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
+[data-theme="terrain"] .marker.todo { clip-path: circle(30% at 50% 60%); }
+[data-theme="terrain"] :is(.today-head .ib.primary, .cairn-foot .primary) { border-radius: 16px 13px 17px 12px; }
 
 /* ---------- Calendar, notes, terminals, guide ---------- */
 [data-theme="terrain"] .cal-grid { border-radius: var(--radius-lg); background: var(--surface); }
