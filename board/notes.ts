@@ -20,9 +20,16 @@ export function vaultPath(rel: string) {
   return full
 }
 
+// The first line you actually wrote, for the list: no headings, embeds or empty template bullets.
+export function excerpt(body: string) {
+  const line = body.split('\n').map((l) => l.replace(/^\s*(?:[-*]\s+(?:\[[ x]\]\s*)?|\d+\.\s+|>\s*)/, '').trim())
+    .find((l) => l && !l.startsWith('#') && !l.startsWith('![[') && !l.startsWith('---'))
+  return (line ?? '').replace(/[*_`]|\[\[|\]\]/g, '').slice(0, 120)
+}
+
 export function listNotes() {
   return ['inbox', 'notes', 'meetings'].flatMap((dir) => listDocs(dir).map((d) => ({
-    path: `${dir}/${d.name}.md`, name: d.name, data: d.data,
+    path: `${dir}/${d.name}.md`, name: d.name, data: d.data, excerpt: excerpt(d.body ?? ''),
     mtime: fs.statSync(path.join(VAULT, dir, `${d.name}.md`)).mtime.toISOString(),
   }))).sort((a, b) => noteDate(b).localeCompare(noteDate(a)) || b.mtime.localeCompare(a.mtime))
 }

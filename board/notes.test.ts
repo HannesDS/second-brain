@@ -5,7 +5,7 @@ import { afterAll, expect, test, vi } from 'vitest'
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-notes-'))
 vi.stubEnv('SECOND_BRAIN_VAULT', scratch)
-const { applyFiling, createNote } = await import('./notes')
+const { applyFiling, createNote, excerpt } = await import('./notes')
 const { readDoc } = await import('../lib/vault.mjs')
 
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }))
@@ -23,4 +23,10 @@ test('a meeting note can link another meeting', () => {
   fs.writeFileSync(path.join(scratch, 'meetings', 'm.md'), '---\ndate: 2026-10-23\n---\nNotes\n')
   expect(applyFiling('meetings/m.md', [{ kind: 'link-meeting', meeting: 'other' }])).toEqual(['linked to other'])
   expect(readDoc(path.join(scratch, 'meetings', 'm.md')).data.meetings).toEqual(['[[other]]'])
+})
+
+test('the list shows the first line you wrote, not the template around it', () => {
+  expect(excerpt('## Summary\n\n\n## Context\n\nWe want to **review** the [[portal]] ladder.\n')).toBe('We want to review the portal ladder.')
+  expect(excerpt('- [ ] \n- first point\n')).toBe('first point')
+  expect(excerpt('## Summary\n\n![[transcripts/x]]\n')).toBe('')
 })

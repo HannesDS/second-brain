@@ -27,7 +27,8 @@ export default function Landscape({ projects, tasks, open }: { projects: Doc[]; 
   const row = hills.map((_, i) => i).sort((a, b) => Math.abs(a - (hills.length - 1) / 2) - Math.abs(b - (hills.length - 1) / 2))
   const order = [...hills.keys()].sort((a, b) => row.indexOf(a) - row.indexOf(b))
   const step = W / hills.length
-  const fit = Math.min(1.5, (step * 0.46) / 100)
+  // Sized as if there were at least four, so one project (a scoped view) doesn't swell to fill the card.
+  const fit = Math.min(1.5, ((W / Math.max(hills.length, 4)) * 0.46) / 100)
   return (
     <section className="landscape" aria-label="Work landscape">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={hills.map((h) => `${h.name}: ${h.open} open`).join(', ')}>

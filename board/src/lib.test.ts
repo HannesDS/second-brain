@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test, vi } from 'vitest'
-import { activeByTask, agentLabel, byProject, dayRange, debounce, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
+import { activeByTask, agentLabel, byProject, noteTitle, tabKind, dayRange, debounce, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -176,4 +176,19 @@ test('a task shows its active session, and one waiting for you wins over one wor
   ])
   expect(byTask.get('T-0001')?.id).toBe('b')
   expect([...byTask.keys()]).toEqual(['T-0001'])
+})
+
+test('a note name reads as its title, with the date and time apart', () => {
+  const year = new Date().getFullYear()
+  expect(noteTitle(`${year}-10-23 1622 Create a ticket`)).toEqual({ title: 'Create a ticket', when: '23 Oct · 16:22' })
+  expect(noteTitle(`${year}-10-22 Portal standup`)).toEqual({ title: 'Portal standup', when: '22 Oct' })
+  expect(noteTitle('2025-07-20 Coaching')).toEqual({ title: 'Coaching', when: '20 Jul 2025' })
+  expect(noteTitle(`${year}-10-23 0848`)).toEqual({ title: 'Untitled', when: '23 Oct · 08:48' })
+  expect(noteTitle('Guide')).toEqual({ title: 'Guide', when: '' })
+})
+
+test('a tab title loses its emoji mark and says what started it', () => {
+  expect(tabKind('🚀 T-0113 FIX ALL')).toEqual({ kind: 'autopilot', text: 'T-0113 FIX ALL' })
+  expect(tabKind('↻ belding-android')).toEqual({ kind: 'resumed', text: 'belding-android' })
+  expect(tabKind('zsh')).toEqual({ kind: 'terminal', text: 'zsh' })
 })

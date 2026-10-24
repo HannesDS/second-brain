@@ -145,6 +145,10 @@
 [data-theme="terrain"] .side-section { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; padding: 16px 12px 4px; }
 [data-theme="terrain"] .badge { background: var(--glacier); color: var(--moss); font-family: var(--font-mono); font-weight: 500; }
 [data-theme="terrain"] .side-foot { border-top: 1px dashed var(--border); }
+[data-theme="terrain"] .context-switch { border-radius: var(--radius-pill); background: var(--surface-2); }
+[data-theme="terrain"] .context-switch button { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .context-switch button.on { background: var(--surface); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .side-count { font-family: var(--font-mono); font-size: 11px; }
 [data-theme="terrain"] .topbar { background: transparent; border-bottom: 1px solid var(--border); min-height: 60px; padding: 10px 24px; }
 [data-theme="terrain"] .crumb h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.025em; }
 [data-theme="terrain"] .project-crumb { background: var(--surface); border-radius: var(--radius-pill); box-shadow: var(--shadow); }
@@ -152,6 +156,7 @@
 /* ---------- Surfaces: panes, columns, cards ---------- */
 [data-theme="terrain"] :is(.pane, .column, .mini-col, .editor-pane, .new-agent, .meeting-bar, .proposal) { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .pane { background: var(--surface); border-color: var(--border); }
+[data-theme="terrain"] .note-row.on { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--text); }
 [data-theme="terrain"] :is(.column, .mini-col) { background: var(--surface-2); border-color: var(--border); padding: 12px; }
 [data-theme="terrain"] .column.over { border-color: var(--text); border-style: dashed; background: var(--highlight-soft); }
 [data-theme="terrain"] :is(.card, .mini-card, .todo-list li, .event-list li, .project-card, .agent, .meeting-pill, .due-pill) {

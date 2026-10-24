@@ -124,6 +124,17 @@ export const ago = (iso: string) => {
 
 export const todayISO = () => new Date().toLocaleDateString('sv')
 
+// A thought or meeting file is named "2026-10-23 1622 Title" or "2026-10-23 Title": people read the title,
+// and the date and time as a short label next to it.
+export function noteTitle(name: string): { title: string; when: string } {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2})(\d{2}))?(?: (.*))?$/.exec(name)
+  if (!m) return { title: name, when: '' }
+  const [, y, mo, d, h, mi, rest] = m
+  const date = new Date(Number(y), Number(mo) - 1, Number(d))
+  const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(date.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) })
+  return { title: rest?.trim() || 'Untitled', when: h ? `${day} · ${h}:${mi}` : day }
+}
+
 // Midnight to midnight of the day `d` falls on. Not 24 hours: the day the clocks change has 23 or 25.
 export function dayRange(d: Date) {
   const from = new Date(d); from.setHours(0, 0, 0, 0)
@@ -232,6 +243,14 @@ export function tabsOf(agents: Agent[], terms: { id: string; agent?: string; tas
     if (tab) tabs.set(a.id, tab.id)
   }
   return tabs
+}
+
+// The server marks a terminal tab's title with what started it: 🚀 autopilot, ↻ a resumed session. The UI shows icons.
+export type TabKind = 'autopilot' | 'resumed' | 'terminal'
+export function tabKind(title: string): { kind: TabKind; text: string } {
+  if (title.startsWith('🚀 ')) return { kind: 'autopilot', text: title.slice(3) }
+  if (title.startsWith('↻ ')) return { kind: 'resumed', text: title.slice(2) }
+  return { kind: 'terminal', text: title }
 }
 
 // Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.

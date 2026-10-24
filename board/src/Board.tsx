@@ -10,7 +10,7 @@ import { Ban, Bot, GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-r
 import { STATE_LABEL, type Actions } from './Today'
 import { PICKUP_PX, aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
-import { linked } from './chains'
+import { blockersOf, linked } from './chains'
 import { LABELS, STATUSES, activeByTask, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Agent, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
@@ -166,11 +166,12 @@ const Card = memo(function Card({ task, project, act, chained, agent, inHand }: 
         </button>
         <span className="spacer" />
         <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
-        {act && <span className={`star ${isFocus(task) ? 'on' : ''}`}><IconButton icon={Star} label={isFocus(task) ? 'Unstar' : 'Star: keep at the top'} active={isFocus(task)} stop onClick={() => act.focus(task)} /></span>}
+        {/* A starred card shows its star; starring one is a hover action, so the project name keeps the room. */}
+        {act && isFocus(task) && <span className="star on"><IconButton icon={Star} label="Unstar" active stop onClick={() => act.focus(task)} /></span>}
       </div>
       <div className="title">{d.title ?? task.name}</div>
       {task.error && <div className="blocked">Invalid frontmatter, fix in Obsidian</div>}
-      {d.blocked_by && <div className="blocked"><Ban size={12} strokeWidth={1.8} aria-label="Blocked by" /> {unlink(d.blocked_by)}</div>}
+      {d.blocked_by && <div className="blocked"><Ban size={12} strokeWidth={1.8} aria-label="Blocked by" /> {blockersOf(task).join(', ') || unlink(d.blocked_by)}</div>}
       <div className="card-bottom">
         <span className="id">{task.name}</span>
         {act && chained && <IconButton icon={Workflow} label="Dependencies: see this ticket's chain" stop onClick={() => act.deps(task)} />}
@@ -179,7 +180,7 @@ const Card = memo(function Card({ task, project, act, chained, agent, inHand }: 
           <Bot size={12} strokeWidth={1.8} aria-hidden />{STATE_LABEL[agent.state]}</button>}
         <div className="spacer" />
         {d.pr && <IconLink icon={GitPullRequest} label="Pull request" href={d.pr} />}
-        {act && <span className="hover-actions"><IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}
+        {act && <span className="hover-actions">{!isFocus(task) && <IconButton icon={Star} label="Star: keep at the top" stop onClick={() => act.focus(task)} />}<IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}
       </div>
     </article>
   )

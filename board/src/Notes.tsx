@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Crepe } from '@milkdown/crepe'
-import { NotebookText } from 'lucide-react'
+import { ChevronDown, ChevronUp, Circle, NotebookText, Plus, Square } from 'lucide-react'
 import '@milkdown/crepe/theme/common/style.css'
-import { SPEAKERS, ago, api, debounce, list, unlink, type Doc, type Speaker, type Vault } from './lib'
+import { SPEAKERS, ago, api, debounce, list, noteTitle, unlink, type Doc, type Speaker, type Vault } from './lib'
+import { IconButton } from './ui'
 import { ProjectSelect, load, save } from './Home'
 
-type Note = { path: string; name: string; data: Record<string, any>; mtime: string }
+type Note = { path: string; name: string; data: Record<string, any>; mtime: string; excerpt: string }
 type Action = Record<string, any> & { kind: string; reason: string }
+// A captured thought is named after its first line: then the preview would only repeat the title.
+const sameStart = (a: string, b: string) => a.slice(0, 24).toLowerCase() === b.slice(0, 24).toLowerCase()
 const FILTERS = [['', 'All'], ['inbox/', 'Inbox'], ['notes/', 'Filed'], ['meetings/', 'Meetings']]
 
 // Thoughts and meeting notes: write freely (saved as you type), then let the agent propose where it goes.
@@ -18,21 +21,36 @@ export default function Notes({ vault, projects, path, go, capture, fail, flash 
   const refresh = () => api('notes').then(setNotes, fail)
   // The vault changes when a thought is captured or filed elsewhere, so the list follows it.
   useEffect(() => { refresh() }, [path, vault])
+  const shown = notes.filter((n) => n.path.startsWith(filter))
 
   return (
     <main className="notes">
       <nav className="pane note-list" aria-label="Thoughts">
-        <button className="primary" onClick={capture}>+ New thought</button>
-        <div className="note-filter" role="group" aria-label="Show">
-          {FILTERS.map(([f, label]) => <button key={f} className={filter === f ? 'tab on' : 'tab'} aria-pressed={filter === f} onClick={() => setFilter(f)}>{label}</button>)}
+        <div className="note-list-head">
+          <IconButton icon={Plus} label="New thought" showLabel primary onClick={capture} />
+          <div className="note-filter view-switch" role="group" aria-label="Show">
+            {FILTERS.map(([f, label]) => <button key={f} className={filter === f ? 'tab on' : 'tab'} aria-pressed={filter === f} onClick={() => setFilter(f)}>{label}</button>)}
+          </div>
         </div>
-        {notes.filter((n) => n.path.startsWith(filter)).map((n) => (
-          <button key={n.path} className={n.path === path ? 'proj on' : 'proj'} onClick={() => go(n.path)}>
-            {n.path.startsWith('meetings/') ? <NotebookText size={14} strokeWidth={1.8} className="note-mark" aria-hidden /> : <span className={`dot ${n.data.status === 'inbox' ? 'inbox' : 'filed'}`} title={n.data.status ?? ''} />}
-            <span className="proj-name">{n.name}</span>
-            <span className="muted">{ago(n.mtime)}</span>
-          </button>
-        ))}
+        <ul className="note-rows">
+          {shown.map((n) => {
+            const { title, when } = noteTitle(n.name)
+            const inbox = n.data.status === 'inbox'
+            return (
+              <li key={n.path}>
+                <button className={n.path === path ? 'note-row on' : 'note-row'} aria-current={n.path === path ? 'true' : undefined} onClick={() => go(n.path)}>
+                  <span className="note-row-title">
+                    {n.path.startsWith('meetings/') ? <NotebookText size={14} strokeWidth={1.8} className="note-mark" aria-label="Meeting" />
+                      : <span className={`dot ${inbox ? 'inbox' : 'filed'}`} title={inbox ? 'Not filed yet' : 'Filed'} />}
+                    <span className="note-row-name">{title}</span>
+                  </span>
+                  <span className="note-row-meta"><span className="note-when">{when || ago(n.mtime)}</span>{n.excerpt && !sameStart(n.excerpt, title) && <span className="note-excerpt">{n.excerpt}</span>}</span>
+                </button>
+              </li>
+            )
+          })}
+          {!shown.length && <li className="muted note-none">{filter === 'inbox/' ? 'Inbox zero: every thought is filed.' : 'Nothing here yet.'}</li>}
+        </ul>
       </nav>
       {path ? <Editor key={path} vault={vault} projects={projects} path={path} fail={fail} flash={flash} onFiled={refresh} /> : (
         <section className="pane empty-note">
@@ -132,9 +150,10 @@ export function Editor({ vault, projects, path, fail, flash, onFiled, bare, auto
   return (
     <section className={bare ? 'editor-bare' : 'pane editor-pane'}>
       {!bare && <div className="editor-head">
-        <h2>{name}</h2>
-        <span className="muted">{isMeeting ? 'meeting' : path.startsWith('inbox/') ? 'thought, not filed' : 'thought'} · {saved}{!isMeeting && meta.project ? ` · ${meta.project}` : ''}</span>
-        <div className="spacer" />
+        <div className="editor-title">
+          <h2 title={name}>{noteTitle(name).title}</h2>
+          <span className="muted">{[noteTitle(name).when, isMeeting ? 'Meeting' : path.startsWith('inbox/') ? 'Thought, not filed yet' : 'Thought', !isMeeting && meta.project ? unlink(meta.project) : '', saved].filter(Boolean).join(' · ')}</span>
+        </div>
         {canFile && <button className="primary" disabled={filing} onClick={() => propose()}
           title={isMeeting ? 'Summary, action points and tasks from your notes and the transcript' : 'Let the agent propose where this thought belongs'}>
           {filing ? 'Thinking…' : isMeeting ? 'Process meeting' : 'File it'}</button>}
@@ -207,7 +226,7 @@ function MeetingBar({ vault, projects, name, meta, setField, fail }: {
       <div className="meeting-actions">
         <Recorder name={name} onChunk={loadTranscript} fail={fail} />
         <button className="icon" onClick={() => setOpen(!open)} aria-expanded={open}>
-          Transcript {transcript ? `(${transcript.split(/\s+/).length} words)` : ''} {open ? '▴' : '▾'}
+          Transcript {transcript ? `(${transcript.split(/\s+/).length} words)` : ''} {open ? <ChevronUp size={14} strokeWidth={1.8} aria-hidden /> : <ChevronDown size={14} strokeWidth={1.8} aria-hidden />}
         </button>
         {tasks.map((t) => <span key={t} className="chip">{t} {vault.tasks.find((x) => x.name === t)?.data.title?.slice(0, 40)}</span>)}
       </div>
@@ -323,14 +342,14 @@ function Recorder({ name, onChunk, fail }: { name: string; onChunk: () => void; 
   return rec ? (
     <>
       <span className="recorder on">
-        <button className="rec-btn on" onClick={() => { rec.stop(); setRec(undefined) }}>■ Stop</button>
+        <button className="rec-btn on" onClick={() => { rec.stop(); setRec(undefined) }}><Square size={12} strokeWidth={1.8} fill="currentColor" aria-hidden /> Stop</button>
         <span className="rec-dot" aria-hidden /> {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}
       </span>
       {speaking}
     </>
   ) : (
     <span className="recorder">
-      <button className="rec-btn" onClick={start} title="Transcribe this meeting locally with Whisper (audio never leaves your Mac)">● Transcribe</button>
+      <button className="rec-btn" onClick={start} title="Transcribe this meeting locally with Whisper (audio never leaves your Mac)"><Circle size={12} strokeWidth={1.8} fill="currentColor" aria-hidden /> Transcribe</button>
       <label className="muted" title="For online meetings: also transcribe the other participants. Share the call's tab with 'Share tab audio', or for a desktop app (Teams, Zoom) the entire screen with 'Share system audio'. Use headphones, or the mic hears the others too.">
         <input type="checkbox" checked={withCall} onChange={(e) => { setWithCall(e.target.checked); save('meeting-call-audio', e.target.checked) }} /> + others (call audio)
       </label>

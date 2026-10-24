@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { marked } from 'marked'
 import {
-  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, PanelRightOpen, Pencil, Plus, RefreshCw,
+  Bot, CalendarDays, ChevronRight, FolderKanban, GanttChart, HelpCircle, KanbanSquare, Lightbulb, Mic, Pencil, Plus, RefreshCw,
   Mountain, Plug, Sparkles, Square, Sun, Waypoints, X, type LucideIcon,
 } from 'lucide-react'
 import BoardColumns from './Board'
@@ -189,6 +189,9 @@ export default function App() {
   const teach = (t: Doc) => { setSeed({ task: t.name, message: teachPrompt(t, vault.vault), at: Date.now() }); peek({ kind: 'project', id: unlink(t.data.project) }) }
   const waiting = shown.filter((a) => a.state === 'needs-input').length
   const openCount = (p: Doc) => vault.tasks.filter((t) => unlink(t.data.project) === p.name && t.data.status !== 'done').length
+  // The menu lists the projects you work on in this context; a finished one only while you're in it.
+  const sideProjects = scoped.projects.filter((p) => p.data.status !== 'done' || p.name === scope)
+    .sort((a, b) => String(a.data.name ?? a.name).localeCompare(String(b.data.name ?? b.name)))
   const [pageLabel, PageIcon] = PAGE[page]
   const filtered = view.tasks.filter((t) => !prios.length || prios.includes(t.data.priority))
   const deps = <Deps tasks={view.tasks} all={vault.tasks} focus={graph?.focus} agents={agents} open={openTask} showAll={() => setGraph({})} />
@@ -197,6 +200,14 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">Brain Terrain</div>
+        {/* Like a workspace switcher: the context filters everything below it. */}
+        <div className="context-switch" role="group" aria-label="Context">
+          {['', ...CONTEXTS].map((c) => (
+            <button key={c || 'all'} className={context === c ? 'on' : ''} aria-pressed={context === c} onClick={() => setContext(c)}>
+              {c ? CONTEXT_LABEL[c] : 'All'}
+            </button>
+          ))}
+        </div>
         <Search vault={vault} openTask={openTask} write={write} />
         <div className="side-actions">
           <IconButton icon={Plus} label="Task" showLabel primary onClick={() => openTask()} />
@@ -215,11 +226,14 @@ export default function App() {
           <button className={`side-section-link ${page === 'projects' ? 'on' : ''}`} onClick={() => go('projects')} title="All projects as cards">Projects</button>
           <IconButton icon={Plus} label="New project" onClick={() => setEditing({ kind: 'project' })} />
         </div>
-        <nav className="side-projects" aria-label="Context">
-          {['', ...CONTEXTS].map((c) => (
-            <button key={c || 'all'} className={context === c ? 'nav on' : 'nav'} aria-pressed={context === c} onClick={() => setContext(c)}>
-              <span className={`dot ${c || 'all'}`} />
-              <span className="proj-name">{c ? CONTEXT_LABEL[c] : 'All contexts'}</span>
+        {/* Picking a project scopes every view to it; picking it again shows all projects. */}
+        <nav className="side-projects" aria-label="Projects">
+          {sideProjects.map((p) => (
+            <button key={p.name} className={scope === p.name ? 'nav on' : 'nav'} aria-pressed={scope === p.name} title={scope === p.name ? 'Show all projects again' : 'Show only this project in every view'}
+              onClick={() => setScope(scope === p.name ? '' : p.name)}>
+              <span className={`dot ${p.data.context ?? ''}`} />
+              <span className="proj-name">{p.data.name ?? p.name}</span>
+              {openCount(p) > 0 && <span className="side-count">{openCount(p)}</span>}
             </button>
           ))}
         </nav>
@@ -228,7 +242,9 @@ export default function App() {
           <button className={`nav ${page === 'integrations' ? 'on' : ''}`} onClick={() => go('integrations')}><Plug size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />Integrations</button>
           <button className={`nav ${page === 'guide' ? 'on' : ''}`} onClick={() => go('guide')}><HelpCircle size={16} strokeWidth={1.8} className="nav-icon" aria-hidden />Guide</button>
           <div className="sync-line">
-            <span title={sync.error || ''}>Notion: {sync.notion || '…'}</span>
+            <button className="link-plain sync-state" title={[sync.notion, sync.error].filter(Boolean).join('\n')} onClick={() => go('integrations')}>
+              <span className={`dot ${sync.notion === 'ok' ? 'filed' : sync.notion === 'error' ? 'inbox' : ''}`} />Notion {sync.notion ? sync.notion.split(':')[0] : '…'}
+            </button>
             <IconButton icon={RefreshCw} label="Sync Notion and GitHub now" onClick={() => api('sync', 'POST').then(setSync, fail)} />
           </div>
         </div>
@@ -238,22 +254,18 @@ export default function App() {
         <header className="topbar">
           <nav className="crumbs" aria-label="You are here">
             <span className="crumb"><PageIcon size={18} strokeWidth={1.8} aria-hidden /><h1>{pageLabel}</h1></span>
-            {!['projects', 'integrations', 'guide'].includes(page) && <>
+            {scopeProject && !['projects', 'integrations', 'guide'].includes(page) && <>
               <ChevronRight size={16} className="crumb-sep" aria-hidden />
               <span className="crumb project-crumb">
-                <span className={`dot ${scopeProject?.data.context ?? 'all'}`} />
-                <select value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Project filter" title="Show only this project in every view">
-                  <option value="">All projects</option>
-                  {scoped.projects.filter((p) => p.data.status !== 'done' || p.name === scope).map((p) => <option key={p.name} value={p.name}>{p.data.name ?? p.name}{openCount(p) ? ` (${openCount(p)})` : ''}</option>)}
-                </select>
-                {scopeProject && <IconButton icon={PanelRightOpen} label="Project overview: tasks, chat, new agent" onClick={() => peek({ kind: 'project', id: scope })} />}
-                {scopeProject && <IconButton icon={X} label="Show all projects" onClick={() => setScope('')} />}
+                <span className={`dot ${scopeProject.data.context ?? ''}`} />
+                <button className="link-plain project-crumb-name" onClick={() => peek({ kind: 'project', id: scope })} title="Project overview: tasks, chat, new agent">{scopeProject.data.name ?? scope}</button>
+                <IconButton icon={X} label="Show all projects" onClick={() => setScope('')} />
               </span>
             </>}
           </nav>
           <div className="spacer" />
           <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
-          <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
+          <IconButton icon={Sparkles} label="Ask Claude" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
         {page === 'today' && <Today vault={view} tasks={view.tasks} agents={shown} tabs={tabs} seen={markSeen} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
           board={<><ViewSwitch graph={graph} set={setGraph} />{graph ? deps
@@ -318,8 +330,8 @@ export default function App() {
         )
       })()}
       {asking && (
-        <aside className="drawer" aria-label="Assistant">
-          <span className="drawer-close"><IconButton icon={X} label="Close the assistant" onClick={() => setAsking(false)} /></span>
+        <aside className="drawer" aria-label="Ask Claude">
+          <span className="drawer-close"><IconButton icon={X} label="Close Ask Claude" onClick={() => setAsking(false)} /></span>
           <Chat clearTask={() => {}} />
         </aside>
       )}
@@ -427,7 +439,7 @@ function Projects({ vault, go, edit }: { vault: Vault; go: (id: string) => void;
           <article key={p.name} className={`project-card ${p.data.status}`} tabIndex={0} onClick={() => go(p.name)} onKeyDown={(e) => e.key === 'Enter' && go(p.name)}>
             <div className="card-top">
               <span className={`mono ${p.data.context}`} title={p.data.account === 'personal' ? 'beeld-bit (personal account)' : 'Data Minded (dm account)'}>{p.data.account === 'personal' ? 'bb' : 'DM'}</span>
-              <span className={`ctx ${p.data.context}`}>{p.data.context}</span>
+              <span className="muted">{CONTEXT_LABEL[p.data.context] ?? p.data.context}</span>
               <div className="spacer" />
               <IconButton icon={Pencil} label="Edit project" stop onClick={() => edit(p)} />
             </div>
@@ -439,7 +451,8 @@ function Projects({ vault, go, edit }: { vault: Vault; go: (id: string) => void;
               })}
             </div>
             <div className="muted">
-              {STATUSES.filter((s) => s !== 'done').map((s) => `${mine.filter((t) => t.data.status === s).length} ${LABELS[s].toLowerCase()}`).join(' · ')}
+              {STATUSES.filter((s) => s !== 'done').map((s) => [s, mine.filter((t) => t.data.status === s).length] as const).filter(([, n]) => n)
+                .map(([s, n]) => `${n} ${LABELS[s].toLowerCase()}`).join(' · ') || 'Nothing open'}
             </div>
             {next && <div className="muted">Next due: {next.data.due} · {next.data.title}</div>}
           </article>
@@ -495,7 +508,7 @@ function Capture({ close, saved, fail }: { close: () => void; saved: (path: stri
   return (
     <Panel title="New thought" close={close} onSave={save}>
       <div className="capture">
-        <Field label="An idea, a finding, a blog draft: anything. ⌘↵ saves.">
+        <Field label="An idea, a finding, a blog draft: saved as-is, then filed. ⌘↵ saves.">
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save() } }} />
         </Field>
