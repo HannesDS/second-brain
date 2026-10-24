@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import { Fold, IconButton, useEscape } from './ui'
 import { LABELS, URGENT, columnOf, hillRings, prioLabel, unlink, urgency, type Doc } from './lib'
 import {
-  WAY_KINDS, cairnMarks, duration, goalOf, hhmm, isDone, projectName, wayTitle,
+  WAY_KINDS, cairnMarks, duration, goalOf, hhmm, isDone, plural, projectName, wayTitle,
   type CalEvent, type Cairn, type Span, type Stretch, type Way,
 } from './day'
 
@@ -41,7 +41,7 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
   const inMeeting = meetings.find((m) => m.start <= now && now < m.end)
   const inStretch = stretches.find((s) => s.start <= now && now < s.end)
   const where = inMeeting ? `Now in ${inMeeting.title}` : inStretch ? `Now on ${wayTitle(ways[hhmm(inStretch.start)], tasks, projects) || 'an open stretch'}` : ''
-  const summary = [where, `${timed.length} ${timed.length === 1 ? 'meeting' : 'meetings'}`, `${stretches.length} open ${stretches.length === 1 ? 'stretch' : 'stretches'}`].filter(Boolean).join(' · ')
+  const summary = [where, plural(timed.length, 'meeting'), plural(stretches.length, 'open stretch', 'open stretches')].filter(Boolean).join(' · ')
   return (
     <Fold id="trail" className="trail-section" title="Your trail" summary={summary}
       extra={<span className="muted hint-inline">Meetings are fixed. Open stretches are yours to choose.</span>}>
@@ -49,6 +49,13 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
         <div className="trail" aria-label={`Your day from ${hhmm(span.start)} to ${hhmm(span.end)}`}>
           <div className="trail-line" />
           {now > span.start && <div className="trail-walked" style={{ width: x(now) }} />}
+          <svg className="trail-terrain" viewBox="0 0 1200 290" preserveAspectRatio="xMidYMid slice" aria-hidden>
+            <path d="M-20 250C180 214 380 268 600 236S980 200 1220 240" />
+            <path d="M-20 274C200 240 400 290 620 260S1000 228 1220 266" strokeDasharray="6 5" />
+            <path d="M-20 40C160 10 300 70 470 34S760 0 900 24" />
+            <g transform="translate(1080 70)"><ellipse rx="92" ry="46" /><ellipse rx="62" ry="30" /><ellipse rx="32" ry="15" /></g>
+            <g transform="translate(140 150)"><ellipse rx="70" ry="30" strokeDasharray="6 5" /><ellipse rx="38" ry="16" /></g>
+          </svg>
           <svg className="trail-path" viewBox="0 0 1000 286" preserveAspectRatio="none" aria-hidden>
             <clipPath id={clip}><rect width={walked * 1000} height="286" /></clipPath>
             <path className="ahead" d={WIND} />
@@ -57,7 +64,7 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
           {nowOn && <><div className="trail-now" style={{ left: x(now) }} /><div className="trail-now-label" style={{ left: x(now) }}>Now {hhmm(now)}</div></>}
 
           {meetings.map((m, i) => (
-            <div key={m.event?.id ?? m.title} className={`trail-meeting clickable lane-${lane[i]} ${m.event ? `cal-${(m.event.calendar ?? 0) % 4}` : 'note-only'}`}
+            <div key={m.event?.id ?? m.note?.name ?? m.title} className={`trail-meeting clickable lane-${lane[i]} ${m.event ? '' : 'note-only'}`}
               style={{ left: x(m.start), width: w(m) }} role="button" tabIndex={0} title={`${hhmm(m.start)} ${m.title}\n${m.note ? 'Open meeting notes' : 'Start meeting notes'}`}
               onClick={() => openMeeting(m)} onKeyDown={(k) => k.key === 'Enter' && openMeeting(m)}>
               <span className="time">{hhmm(m.start)}{m.note && <NotebookText size={12} strokeWidth={1.8} className="note-mark" aria-label="Has notes" />}</span>

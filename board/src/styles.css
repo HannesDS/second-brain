@@ -175,7 +175,7 @@ nav { display: flex; gap: 4px; }
 .title { font-weight: 600; margin-top: 4px; }
 .id { margin-left: auto; font-variant-numeric: tabular-nums; }
 .project { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prio { font-weight: 700; font-size: 11px; padding: 0 6px; border-radius: var(--radius-sm); color: #fff; background: var(--p3); }
+.prio { font-weight: 700; font-size: 11px; padding: 0 6px; border-radius: var(--radius-sm); color: var(--accent-text); background: var(--p3); }
 .prio.p0 { background: var(--p0); }
 .prio.p1 { background: var(--p1); }
 .prio.p2 { background: var(--p2); }
@@ -326,7 +326,7 @@ tbody tr:hover { background: var(--surface-2); }
 .nav:hover { background: var(--surface); }
 .nav.on { background: var(--surface); font-weight: 700; box-shadow: var(--shadow); }
 .nav-icon { width: 18px; text-align: center; color: var(--muted); }
-.badge { margin-left: auto; background: var(--p0); color: #fff; border-radius: var(--radius-pill); font-size: 12px; font-weight: 700; padding: 0 7px; }
+.badge { margin-left: auto; background: var(--p0); color: var(--accent-text); border-radius: var(--radius-pill); font-size: 12px; font-weight: 700; padding: 0 7px; }
 .side-section { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 12px 10px 2px; }
 .prio-filter { display: flex; gap: 4px; padding: 0 6px; }
 .prio-chip { flex: 1; padding: 2px 0; font-size: 12px; font-weight: 700; border-radius: var(--radius-sm); opacity: 0.55; }
@@ -443,7 +443,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .cal-day { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cal-day.other { background: var(--surface-2); color: var(--muted); }
 /* is-today, not today: .today is My day's page and would lay its padding onto the cell. */
-.cal-day.is-today .cal-num { background: var(--p0); color: #fff; border-radius: var(--radius-pill); padding: 0 7px; }
+.cal-day.is-today .cal-num { background: var(--p0); color: var(--accent-text); border-radius: var(--radius-pill); padding: 0 7px; }
 .cal-num { align-self: flex-end; font-size: 13px; font-variant-numeric: tabular-nums; }
 .cal-item { text-align: left; font-size: 12px; padding: 2px 6px; border-radius: var(--radius-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--border); flex: none; }
 .cal-more { flex: none; align-self: flex-start; font-size: 12px; padding: 0 6px; border: none; background: none; color: var(--muted); }
@@ -1023,7 +1023,7 @@ h2 { font-weight: 600; }
 .trail { position: relative; min-width: 960px; height: 286px; margin: 0 28px; }
 .trail .time { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .trail-line { position: absolute; left: 0; right: 0; top: 136px; border-top: 2px dashed var(--contour-strong); }
-.trail-path { display: none; }
+.trail-path, .trail-terrain { display: none; }
 .trail-walked { position: absolute; left: 0; top: 135px; height: 4px; border-radius: var(--radius-sm); background: var(--text); }
 .trail-now { position: absolute; top: 48px; height: 196px; width: 2px; margin-left: -1px; background: var(--highlight); z-index: 2; pointer-events: none; }
 .trail-now-label { position: absolute; top: 24px; transform: translateX(-50%); padding: 2px 10px; border-radius: var(--radius-pill); background: var(--highlight); color: var(--on-fill);

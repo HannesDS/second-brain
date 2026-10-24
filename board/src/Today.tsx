@@ -5,7 +5,7 @@ import { ProjectSelect } from './Home'
 import { Cairns, CairnForm, type Running } from './Cairns'
 import { ChooseWay, Trail, type Meeting } from './Trail'
 import {
-  cairnInContext, cairnMarks, cairnOf, goalOf, hhmm, isDone, isDue, meetingSpans, minuteOf, openStretches, trailSpan,
+  cairnInContext, cairnMarks, cairnOf, goalOf, hhmm, isDone, isDue, meetingSpans, minuteOf, openStretches, plural, trailSpan,
   type CalEvent, type Cairn, type Stretch, type Way,
 } from './day'
 import { agentLabel, ago, api, byProject, dayRange, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
@@ -21,8 +21,6 @@ export type Actions = {
   agent: (a: Agent) => void
   write: (p: string) => void
 }
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
 // A browser notification, only when you allowed them; the toast shows either way.
 const notify = (text: string) => { try { if (Notification.permission === 'granted') new Notification(text) } catch { /* no Notification API */ } }
@@ -90,7 +88,8 @@ export default function Today({ vault, tasks, context, act, fail, flash, prep, m
   // A timer that ran out ticks its cairn.
   useEffect(() => {
     if (!running || now.getTime() < running.ends) return
-    const c = cairns.find((x) => x.slug === running.slug)
+    // From all cairns: switching context mid-timer still ticks it.
+    const c = vault.cairns.map(cairnOf).find((x) => x.slug === running.slug)
     setRunning(undefined)
     if (c) { patchDay({ cairns: { [c.slug]: 'done' } }); flash(`${c.name}: done`) }
   }, [now, running])
@@ -119,7 +118,7 @@ export default function Today({ vault, tasks, context, act, fail, flash, prep, m
         cairns={cairns} log={log} tasks={tasks} projects={vault.projects} openMeeting={openMeeting} prep={(title) => prep(title, today)} choose={setChoosing} />
 
       <Cairns cairns={cairns} log={log} days={vault.days} meetings={timed.length} now={now} running={running}
-        tick={(c, value) => patchDay({ cairns: { [c.slug]: value } })} add={(c) => patchDay({ add: { [c.slug]: 1 } })}
+        tick={(c, value) => patchDay({ cairns: { [c.slug]: value } })} add={(c, by = 1) => patchDay({ add: { [c.slug]: by } })}
         start={(c) => setRunning({ slug: c.slug, ends: Date.now() + c.minutes * 60_000 })} stop={() => setRunning(undefined)}
         edit={(cairn) => setEditing({ cairn })} remove={removeCairn} />
 

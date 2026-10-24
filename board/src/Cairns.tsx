@@ -11,7 +11,7 @@ import type { Doc } from './lib'
 // An icon from the name, so a cairn needs no icon field.
 const ICONS: [RegExp, LucideIcon][] = [[/breath/i, Wind], [/water|drink/i, Droplet], [/stretch|walk|move/i, Activity], [/shut|sleep|night/i, Moon]]
 const iconOf = (c: Cairn) => ICONS.find(([re]) => re.test(c.name))?.[1] ?? CircleDot
-export const isBreathe = (c: Cairn) => c.kind === 'timer' && /breath/i.test(c.name)
+const isBreathe = (c: Cairn) => c.kind === 'timer' && /breath/i.test(c.name)
 
 // Box breathing: in 4, hold 4, out 4, hold 4.
 const PHASES = ['Breathe in', 'Hold', 'Breathe out', 'Hold']
@@ -20,7 +20,7 @@ export type Running = { slug: string; ends: number }
 // One card per cairn due today: what it is, when, how far you are, this week, and the one action it needs.
 export function Cairns({ cairns, log, days, meetings, now, running, tick, add, start, stop, edit, remove }: {
   cairns: Cairn[]; log: Record<string, unknown>; days: Doc[]; meetings: number; now: Date; running?: Running
-  tick: (c: Cairn, value: string | number | null) => void; add: (c: Cairn) => void
+  tick: (c: Cairn, value: string | number | null) => void; add: (c: Cairn, by?: number) => void
   start: (c: Cairn) => void; stop: () => void; edit: (c?: Cairn) => void; remove: (c: Cairn) => void
 }) {
   const done = cairns.filter((c) => isDone(c, log[c.slug], goalOf(c, meetings))).length
@@ -45,7 +45,8 @@ export function Cairns({ cairns, log, days, meetings, now, running, tick, add, s
           const detail = c.kind === 'timer' ? `${c.minutes} min${isBreathe(c) ? ', box breathing: in 4, hold 4, out 4, hold 4.' : '.'}`
             : c.after === 'meeting' ? (meetings ? `${n} of ${meetings} meetings. Pops up as a meeting ends.` : 'No meetings today.')
             : c.kind === 'count' ? `${n} of ${c.target}.` : c.after === 'first-meeting' ? 'Once your first meeting ends.' : 'Tick it when it is done.'
-          const action = ok ? { label: 'Done', run: () => tick(c, null) }
+          // Done undoes: a count steps back one, the rest clears.
+          const action = ok ? { label: 'Done', run: () => (c.kind === 'count' || c.after === 'meeting') && value !== 'done' ? add(c, -1) : tick(c, null) }
             : c.kind === 'timer' ? { label: 'Start', run: () => start(c) }
             : c.kind === 'count' || c.after === 'meeting' ? { label: '+1', run: () => add(c) }
             : { label: 'Mark done', run: () => tick(c, 'done') }
@@ -144,8 +145,8 @@ export function CairnForm({ cairn, taken, save, close }: { cairn?: Cairn; taken:
               </button>
             ))}
           </div>
-          {d.kind === 'count' && <label className="inline-field">Target <NumberInput value={d.target} onChange={(target) => set({ target })} /></label>}
-          {d.kind === 'timer' && <label className="inline-field">Minutes <NumberInput value={d.minutes} onChange={(minutes) => set({ minutes })} /></label>}
+          {d.kind === 'count' && <label className="inline-field">Target <NumberInput value={d.target} max={24} onChange={(target) => set({ target })} /></label>}
+          {d.kind === 'timer' && <label className="inline-field">Minutes <NumberInput value={d.minutes} max={120} onChange={(minutes) => set({ minutes })} /></label>}
         </div>
         <fieldset className="choose-group when">
           <legend className="eyebrow">When it shows up</legend>

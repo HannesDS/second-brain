@@ -65,15 +65,15 @@ export function useEscape(close: () => void) {
 }
 
 // A whole number you can type freely: clearing it to type another doesn't snap back. Each valid number
-// (at least `min`) goes out as you type; leaving the field with nothing valid shows the last one again.
-export function NumberInput({ value, min = 1, onChange, ...rest }: {
-  value: number; min?: number; onChange: (n: number) => void
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'min' | 'type'>) {
+// (from `min` to `max`) goes out as you type; leaving the field with nothing valid shows the last one again.
+export function NumberInput({ value, min = 1, max = Infinity, onChange, ...rest }: {
+  value: number; min?: number; max?: number; onChange: (n: number) => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'min' | 'max' | 'type'>) {
   const [text, setText] = useState(String(value))
   useEffect(() => { if (Number(text) !== value) setText(String(value)) }, [value])
   return (
-    <input {...rest} type="number" inputMode="numeric" min={min} value={text}
-      onChange={(e) => { setText(e.target.value); const n = Number(e.target.value); if (e.target.value !== '' && Number.isInteger(n) && n >= min) onChange(n) }}
+    <input {...rest} type="number" inputMode="numeric" min={min} max={Number.isFinite(max) ? max : undefined} value={text}
+      onChange={(e) => { setText(e.target.value); const n = Number(e.target.value); if (e.target.value !== '' && Number.isInteger(n) && n >= min && n <= max) onChange(n) }}
       onBlur={() => setText(String(value))} />
   )
 }

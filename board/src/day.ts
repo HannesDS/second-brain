@@ -16,6 +16,7 @@ export const MIN_STRETCH = 30
 
 export const minuteOf = (d: Date) => d.getHours() * 60 + d.getMinutes()
 export const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 export const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}` : `${m} min`)
 
 // Timed meetings of the day, clipped to it: one that started yesterday begins at 00:00.
