@@ -1021,14 +1021,17 @@ h2 { font-weight: 600; }
 .trail-meeting { position: absolute; top: 113px; min-width: 64px; z-index: 1; display: flex; flex-direction: column; gap: 1px;
   padding: 5px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
 .trail-meeting.note-only { border-style: dashed; }
+.trail-meeting.lane-1 { top: 160px; }
+.trail-meeting.lane-2 { top: 206px; }
 .trail-meeting .time { display: inline-flex; align-items: center; gap: 4px; }
 .trail-meeting-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trail-meeting .hover-actions { position: absolute; top: 2px; right: 2px; background: var(--surface-2); border-radius: var(--radius); }
-.trail-stretch { position: absolute; top: 172px; min-height: 70px; padding: 8px 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+.trail-stretch { position: absolute; top: 172px; min-height: 70px; padding: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
   background: none; border: 1.5px dashed var(--contour-strong); border-radius: var(--radius); color: var(--text); overflow: hidden; }
 .trail-stretch:hover { background: var(--surface-2); border-color: var(--muted); }
 .trail-stretch.chosen { border-style: solid; border-color: var(--border); background: var(--surface); }
 .trail-stretch.here { border: 1.5px solid var(--highlight); background: var(--highlight-soft); }
+.trail-stretch .time { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stretch-way { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; max-width: 100%; min-width: 0; }
 .stretch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trail-cairn-at { position: absolute; top: 78px; width: 0; }
@@ -1045,10 +1048,10 @@ h2 { font-weight: 600; }
 .trail-key { display: flex; flex-wrap: wrap; gap: 18px; font-size: 11px; color: var(--muted); padding: 8px 4px 0; text-transform: uppercase; letter-spacing: .04em; }
 .trail-key span { display: inline-flex; align-items: center; gap: 6px; }
 .trail-key .k { display: inline-block; box-sizing: border-box; }
-.trail-key .k.cairn { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text); }
-.trail-key .k.cairn-after { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--st-wip-ink); }
-.trail-key .k.open { width: 18px; height: 10px; border-radius: 4px; border: 1.5px dashed var(--contour-strong); }
-.trail-key .k.walked { width: 18px; height: 3px; border-radius: 3px; background: var(--text); }
+.trail-key .k-cairn { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text); }
+.trail-key .k-cairn-after { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--st-wip-ink); }
+.trail-key .k-open { width: 18px; height: 10px; border-radius: 4px; border: 1.5px dashed var(--contour-strong); }
+.trail-key .k-walked { width: 18px; height: 3px; border-radius: 3px; background: var(--text); }
 
 /* Status markers: a dot per status (Terrain draws the elevation shapes). */
 .marker { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); display: inline-block; }
@@ -1094,7 +1097,9 @@ h2 { font-weight: 600; }
 .day-picks { display: flex; gap: 4px; margin-left: auto; }
 .day-pick { width: 28px; height: 28px; padding: 0; border-radius: 50%; font-size: 11px; border: 1.5px solid var(--contour-strong); background: none; color: var(--muted); }
 .day-pick.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.form-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.form-pair { display: flex; flex-wrap: wrap; gap: 12px; }
+.form-pair > :first-child { flex: 1 1 140px; }
+.form-pair .segmented { flex-wrap: nowrap; }
 .check-line { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
 .check-line input { width: 18px; height: 18px; margin: 0; accent-color: var(--text); }
 .frontmatter { margin: 0; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); font: 12px/1.6 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); white-space: pre-wrap; }
@@ -1102,9 +1107,11 @@ h2 { font-weight: 600; }
 /* ---------- My day: cairns ---------- */
 .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .cairn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.cairn { display: flex; flex-direction: column; gap: 10px; min-height: 180px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.cairn { position: relative; display: flex; flex-direction: column; gap: 10px; min-height: 180px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .cairn.done { background: var(--surface-2); box-shadow: none; }
 .cairn-head { display: flex; align-items: center; gap: 12px; }
+/* Edit and delete sit over the corner, so the name keeps its width. */
+.cairn-head .hover-actions { position: absolute; top: 10px; right: 10px; background: inherit; border-radius: var(--radius); }
 .cairn-icon { width: 40px; height: 40px; flex: none; border-radius: var(--radius); display: grid; place-items: center; background: var(--surface-2); color: var(--text); }
 .cairn.done .cairn-icon { background: var(--st-wip); color: var(--on-fill); }
 .cairn-name { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
@@ -1117,14 +1124,14 @@ h2 { font-weight: 600; }
 .cairn-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
 .week { display: flex; gap: 5px; }
 .week-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; }
-.week-dot.done { background: var(--st-wip-ink); }
-.week-dot.missed { border: 1.5px solid var(--contour-strong); }
-.week-dot.today { border: 2px solid var(--text); }
-.week-dot.today-done { background: var(--st-wip-ink); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text); }
-.cairn.done .week-dot.today-done { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--text); }
-.week-dot.future { border: 1.5px dashed var(--border); }
-.week-dot.off { transform: scale(.4); background: var(--border); }
-.cairn-foot button { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; }
+.week-dot.wd-done { background: var(--st-wip-ink); }
+.week-dot.wd-missed { border: 1.5px solid var(--contour-strong); }
+.week-dot.wd-today { border: 2px solid var(--text); }
+.week-dot.wd-today-done { background: var(--st-wip-ink); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text); }
+.cairn.done .week-dot.wd-today-done { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 3.5px var(--text); }
+.week-dot.wd-future { border: 1.5px dashed var(--border); }
+.week-dot.wd-off { transform: scale(.4); background: var(--border); }
+.cairn-foot button { display: inline-flex; align-items: center; gap: 4px; min-height: 34px; white-space: nowrap; flex: none; }
 .cairn-done { background: none; color: var(--st-wip-ink); border-color: var(--st-wip); font-weight: 600; }
 .cairn-timer { display: flex; align-items: center; gap: 16px; }
 .timer-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }

@@ -5,7 +5,8 @@ import { unlink, type Doc, type Fields } from './lib'
 export type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
 // Times on the trail are minutes since midnight.
 export type Span = { start: number; end: number }
-export type Stretch = Span & { after?: CalEvent; before?: CalEvent }
+// `after` and `before` are the titles of the meetings around it.
+export type Stretch = Span & { after?: string; before?: string }
 export type Way = { kind: 'deep' | 'light' | 'rest'; task?: string; project?: string }
 export const WAY_KINDS: Way['kind'][] = ['deep', 'light', 'rest']
 
@@ -18,12 +19,12 @@ export const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0'
 export const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}` : `${m} min`)
 
 // Timed meetings of the day, clipped to it: one that started yesterday begins at 00:00.
-export function meetingSpans(events: CalEvent[], day: Date): (Span & { event: CalEvent })[] {
+export function meetingSpans(events: CalEvent[], day: Date): (Span & { event: CalEvent; title: string })[] {
   const from = new Date(day); from.setHours(0, 0, 0, 0)
   const to = new Date(from); to.setDate(to.getDate() + 1)
   return events.filter((e) => !e.allDay).map((event) => {
     const s = new Date(event.start); const e = new Date(event.end)
-    return { event, start: s < from ? 0 : minuteOf(s), end: e >= to ? 24 * 60 : Math.max(minuteOf(e), minuteOf(s)) }
+    return { event, title: event.title, start: s < from ? 0 : minuteOf(s), end: e >= to ? 24 * 60 : Math.max(minuteOf(e), minuteOf(s)) }
   }).sort((a, b) => a.start - b.start)
 }
 
@@ -36,13 +37,13 @@ export function trailSpan(meetings: Span[]): Span {
 
 // Gaps of at least 30 minutes between the meetings, and between them and the ends of the trail.
 // Overlapping meetings count as one block.
-export function openStretches(meetings: (Span & { event?: CalEvent })[], span: Span, min = MIN_STRETCH): Stretch[] {
+export function openStretches(meetings: (Span & { title: string })[], span: Span, min = MIN_STRETCH): Stretch[] {
   const out: Stretch[] = []
   let at = span.start
-  let after: CalEvent | undefined
+  let after: string | undefined
   for (const m of [...meetings].sort((a, b) => a.start - b.start)) {
-    if (m.start - at >= min) out.push({ start: at, end: m.start, after, before: m.event })
-    if (m.end >= at) { at = Math.max(at, m.end); after = m.event }
+    if (m.start - at >= min) out.push({ start: at, end: m.start, after, before: m.title })
+    if (m.end >= at) { at = Math.max(at, m.end); after = m.title }
   }
   if (span.end - at >= min) out.push({ start: at, end: span.end, after })
   return out

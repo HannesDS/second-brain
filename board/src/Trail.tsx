@@ -25,6 +25,14 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
   const hours = Array.from({ length: (span.end - span.start) / 60 + 1 }, (_, i) => span.start + i * 60).filter((h, i, all) => all.length <= 12 || i % 2 === 0)
   const timed = meetings.filter((m) => m.event)
   const nowOn = now >= span.start && now <= span.end
+  // Overlapping meetings get their own lane: the first on the line, the others below it, where no stretch can be.
+  const ends: number[] = []
+  const lane = meetings.map((m) => {
+    const free = ends.findIndex((e) => e <= m.start)
+    const i = free < 0 ? ends.length : free
+    ends[i] = m.end
+    return Math.min(i, 2)
+  })
   return (
     <section className="trail-section">
       <h3>Your trail <span className="muted hint-inline">Meetings are fixed. Open stretches are yours to choose.</span></h3>
@@ -34,8 +42,8 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
           {now > span.start && <div className="trail-walked" style={{ width: x(now) }} />}
           {nowOn && <><div className="trail-now" style={{ left: x(now) }} /><div className="trail-now-label" style={{ left: x(now) }}>Now {hhmm(now)}</div></>}
 
-          {meetings.map((m) => (
-            <div key={m.event?.id ?? m.title} className={`trail-meeting clickable ${m.event ? `cal-${(m.event.calendar ?? 0) % 4}` : 'note-only'}`}
+          {meetings.map((m, i) => (
+            <div key={m.event?.id ?? m.title} className={`trail-meeting clickable lane-${lane[i]} ${m.event ? `cal-${(m.event.calendar ?? 0) % 4}` : 'note-only'}`}
               style={{ left: x(m.start), width: w(m) }} role="button" tabIndex={0} title={`${hhmm(m.start)} ${m.title}\n${m.note ? 'Open meeting notes' : 'Start meeting notes'}`}
               onClick={() => openMeeting(m)} onKeyDown={(k) => k.key === 'Enter' && openMeeting(m)}>
               <span className="time">{hhmm(m.start)}{m.note && <NotebookText size={12} strokeWidth={1.8} className="note-mark" aria-label="Has notes" />}</span>
@@ -89,8 +97,8 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
         </div>
       </div>
       <div className="trail-key">
-        <span><i className="k cairn" />Cairn at a time</span><span><i className="k cairn-after" />Cairn after a meeting</span>
-        <span><i className="k open" />Open stretch</span><span><i className="k walked" />Walked</span>
+        <span><i className="k k-cairn" />Cairn at a time</span><span><i className="k k-cairn-after" />Cairn after a meeting</span>
+        <span><i className="k k-open" />Open stretch</span><span><i className="k k-walked" />Walked</span>
       </div>
     </section>
   )
@@ -123,8 +131,8 @@ export function ChooseWay({ stretch, way, tasks, projects, save, close }: {
   const due = open.map((t) => ({ t, ...urgency(t) })).filter((x) => !going.includes(x.t) && x.reasons.some((r) => /overdue|due/.test(r)))
     .sort((a, b) => b.score - a.score).slice(0, 5)
   const hills = projects.filter((p) => (p.data.status ?? 'active') === 'active')
-  const between = stretch.after && stretch.before ? `Between ${stretch.after.title} and ${stretch.before.title}.`
-    : stretch.after ? `After ${stretch.after.title}.` : stretch.before ? `Before ${stretch.before.title}.` : 'No meetings around it.'
+  const between = stretch.after && stretch.before ? `Between ${stretch.after} and ${stretch.before}.`
+    : stretch.after ? `After ${stretch.after}.` : stretch.before ? `Before ${stretch.before}.` : 'No meetings around it.'
   const row = (t: Doc, meta: string) => {
     const on = pick.task === t.name
     return (

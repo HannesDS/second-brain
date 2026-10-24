@@ -14,14 +14,14 @@ test('the trail runs 08:00 to 18:00, widened to the hour around early or late me
 test('open stretches are the gaps of 30 minutes or more, also before the first and after the last meeting', () => {
   const ms = meetingSpans([ev('a', '09:00', '10:00'), ev('b', '10:20', '11:00'), ev('c', '13:00', '14:00')], friday)
   const s = openStretches(ms, { start: at(8), end: at(18) })
-  expect(s.map((x) => [x.start, x.end, x.after?.title, x.before?.title])).toEqual([
+  expect(s.map((x) => [x.start, x.end, x.after, x.before])).toEqual([
     [at(8), at(9), undefined, 'a'], [at(11), at(13), 'b', 'c'], [at(14), at(18), 'c', undefined],
   ])
 })
 
 test('overlapping meetings count as one block', () => {
   const ms = meetingSpans([ev('a', '09:00', '11:00'), ev('b', '09:30', '10:00')], friday)
-  expect(openStretches(ms, { start: at(9), end: at(12) }).map((x) => [x.start, x.after?.title])).toEqual([[at(11), 'a']])
+  expect(openStretches(ms, { start: at(9), end: at(12) }).map((x) => [x.start, x.after])).toEqual([[at(11), 'a']])
 })
 
 test('all-day events are not on the trail', () => {

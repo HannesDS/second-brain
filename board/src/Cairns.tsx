@@ -64,7 +64,7 @@ export function Cairns({ cairns, log, days, meetings, now, running, tick, add, s
               )}
               <div className="cairn-foot">
                 <div className="week" role="list" aria-label="This week">
-                  {weekDots(c, now, days, meetings).map((d) => <span key={d.date} role="listitem" className={`week-dot ${d.state}`} title={d.label} aria-label={d.label} />)}
+                  {weekDots(c, now, days, meetings).map((d) => <span key={d.date} role="listitem" className={`week-dot wd-${d.state}`} title={d.label} aria-label={d.label} />)}
                 </div>
                 {!timer && <button type="button" className={ok ? 'cairn-done' : 'primary'} onClick={action.run} title={ok ? 'Undo' : undefined}>
                   {ok && <Check size={14} strokeWidth={1.8} aria-hidden />}{action.label}

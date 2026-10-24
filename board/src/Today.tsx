@@ -60,12 +60,13 @@ export default function Today({ vault, tasks, context, act, fail, flash, prep, m
   const due = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.reasons.some((r) => /overdue|due/.test(r))).sort((x, y) => y.score - x.score)
   const notesToday = vault.meetings.filter((m) => String(m.data.date) === today)
   const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
-  const timed = meetingSpans(events, now).map((m) => ({ ...m, title: m.event.title, note: noteFor(m.event.title) }))
-  // Meeting notes without a calendar event show at their time, half an hour long; they don't cut the stretches.
+  const timed = meetingSpans(events, now).map((m) => ({ ...m, note: noteFor(m.title) }))
+  // Meeting notes without a calendar event show at their time, half an hour long.
   const loose: Meeting[] = notesToday.filter((n) => !timed.some((m) => m.note === n) && /^\d{2}:\d{2}$/.test(String(n.data.time ?? '')))
     .map((n) => { const [h, mi] = String(n.data.time).split(':').map(Number); return { start: h * 60 + mi, end: h * 60 + mi + 30, title: n.name.replace(/^\d{4}-\d{2}-\d{2} /, ''), note: n } })
-  const span = trailSpan([...timed, ...loose])
-  const stretches = openStretches(timed, span)
+  const meetings = [...timed, ...loose].sort((a, b) => a.start - b.start)
+  const span = trailSpan(meetings)
+  const stretches = openStretches(meetings, span)
   const minute = minuteOf(now)
   // A cairn tied to meetings has nothing to follow on a day without them.
   const cairns = vault.cairns.map(cairnOf).filter((c) => isDue(c, now) && cairnInContext(context, c) && (!c.after || timed.length > 0))
@@ -114,7 +115,7 @@ export default function Today({ vault, tasks, context, act, fail, flash, prep, m
       </div>
       {calError && <p className="muted">{calError}</p>}
 
-      <Trail span={span} now={minute} meetings={[...timed, ...loose].sort((a, b) => a.start - b.start)} stretches={stretches} ways={ways}
+      <Trail span={span} now={minute} meetings={meetings} stretches={stretches} ways={ways}
         cairns={cairns} log={log} tasks={tasks} projects={vault.projects} openMeeting={openMeeting} prep={(title) => prep(title, today)} choose={setChoosing} />
 
       <Cairns cairns={cairns} log={log} days={vault.days} meetings={timed.length} now={now} running={running}
