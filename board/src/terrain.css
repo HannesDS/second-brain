@@ -325,6 +325,8 @@
   color-scheme: dark; color: var(--text);
 }
 [data-theme="terrain"] .bt-find { border-radius: var(--radius-pill); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .bt-cite { border-radius: var(--radius-pill); border-color: transparent; }
+[data-theme="terrain"] .bt-cite:hover, [data-theme="terrain"] .bt-cite:focus-visible { background: var(--highlight); color: var(--highlight-ink); }
 [data-theme="terrain"] .bt-find:focus-within { border-color: var(--highlight); box-shadow: 0 0 0 4px var(--highlight-soft), var(--shadow-lift); }
 [data-theme="terrain"] .bt-hits, [data-theme="terrain"] .bt-legend, [data-theme="terrain"] .bt-zoom { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); }
 [data-theme="terrain"] .bt-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-float); animation: tr-peek .5s var(--spring) both; }

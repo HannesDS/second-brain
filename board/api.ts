@@ -7,6 +7,7 @@ import type { Plugin } from 'vite'
 import { context as ragContext, refresh as ragRefresh, refreshSoon as ragRefreshSoon } from '../lib/rag.mjs'
 import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, writeDoc } from '../lib/vault.mjs'
 import { AGENTS_DIR, listAgents } from './agents'
+import { ask } from './ask'
 import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { integrations } from './integrations'
@@ -77,8 +78,9 @@ async function handle(req: IncomingMessage) {
     }
     return { ok: true }
   }
-  // POST, because the Brain Terrain sends the paths it shows (too many for a URL).
+  // POST, because the Brain Terrain sends the paths it shows (too many for a URL). Ask answers from them with the local LLM.
   if (method === 'POST' && kind === 'search') return await search(String(body.q ?? ''), Array.isArray(body.within) ? body.within.map(String) : undefined)
+  if (method === 'POST' && kind === 'ask') return await ask(String(body.q ?? ''), Array.isArray(body.within) ? body.within.map(String) : undefined)
   if (method === 'POST' && kind === 'sync') { await syncNow(); return syncStatus }
   if (kind === 'calendars' && method === 'POST') { await addFeed(body.label, body.url); return listFeeds() }
   if (kind === 'calendars' && method === 'DELETE') { removeFeed(Number(id)); return listFeeds() }
