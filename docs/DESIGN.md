@@ -143,6 +143,14 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
 - Navigation: drag to pan, wheel to zoom, "Find a place" flies to a result. The card shows what you picked, Open, and the trails from there
 - Follows the context switch; the project filter flies to that hill. Layout: `mapOf` in `graph.ts`, deterministic, so the map doesn't move between visits
 
+## Thoughts: the clearing
+
+`Notes.tsx`, layout and search in `clearing.ts`. A new thought is a sapling in the clearing; filed, it grows into a tree on its project's hill.
+
+- Main page: header, capture bar (Plant it, then the agent proposes), a small survey sheet (`.th-sheet`, the map palette), search (`/`), waiting cards (dashed edge; the newest ochre, "Just planted"), rooted rows
+- A thought open: slim list, writing column, and "Where it belongs" beside it: a trail map of the proposal, action cards, questions, "Plant N changes". Meetings keep their inline proposal
+- Symbols on light grounds (`.sym`): tree in `--st-wip-ink` on `--surface`, sapling in `--p3`, newest in `--focus`
+
 ## Motion
 
 | Name | Where | Spec |
