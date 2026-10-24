@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Crepe } from '@milkdown/crepe'
+import { NotebookText } from 'lucide-react'
 import '@milkdown/crepe/theme/common/style.css'
 import { ago, api, debounce, list, unlink, type Doc, type Vault } from './lib'
 import { ProjectSelect, load, save } from './Home'
@@ -28,7 +29,7 @@ export default function Notes({ vault, projects, path, go, capture, fail, flash 
         </div>
         {notes.filter((n) => n.path.startsWith(filter)).map((n) => (
           <button key={n.path} className={n.path === path ? 'proj on' : 'proj'} onClick={() => go(n.path)}>
-            {n.path.startsWith('meetings/') ? <span aria-hidden>🗒</span> : <span className={`dot ${n.data.status === 'inbox' ? 'inbox' : 'filed'}`} title={n.data.status ?? ''} />}
+            {n.path.startsWith('meetings/') ? <NotebookText size={14} strokeWidth={1.8} className="note-mark" aria-hidden /> : <span className={`dot ${n.data.status === 'inbox' ? 'inbox' : 'filed'}`} title={n.data.status ?? ''} />}
             <span className="proj-name">{n.name}</span>
             <span className="muted">{ago(n.mtime)}</span>
           </button>

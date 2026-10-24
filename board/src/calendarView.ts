@@ -12,6 +12,14 @@ export function daysOf(view: CalView, anchor: Date) {
   return Array.from({ length }, (_, i) => plus(first, i))
 }
 
+// Whether an event shows on a day: it overlaps the day, so one spanning several days shows on each.
+// The end is exclusive (an all-day event ends at midnight of the next day); one without length shows on its start.
+export function onDay(e: { start: string; end: string }, day: Date) {
+  const from = new Date(e.start).getTime(), to = new Date(e.end).getTime()
+  const dayStart = day.getTime(), dayEnd = plus(day, 1).getTime()
+  return from < dayEnd && (to > dayStart || from >= dayStart)
+}
+
 // The anchor `n` months, weeks or days on. A month step lands on the 1st, so 31 January doesn't skip February.
 export const step = (view: CalView, anchor: Date, n: number) =>
   view === 'month' ? new Date(anchor.getFullYear(), anchor.getMonth() + n, 1) : plus(anchor, view === 'week' ? 7 * n : n)
