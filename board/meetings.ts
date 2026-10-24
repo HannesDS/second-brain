@@ -23,6 +23,13 @@ export function createMeeting({ title, date, time, project, attendees }: { title
   return { path: rel, name }
 }
 
+// The name of an existing meeting note, as the API gets it. A name with a folder in it could reach a task or project.
+export function meetingName(name: unknown) {
+  const n = String(name ?? '')
+  if (path.basename(n) !== n || !fs.existsSync(path.join(VAULT, 'meetings', `${n}.md`))) throw new Error(`no meeting note "${n}"`)
+  return n
+}
+
 export const transcriptPath = (name: string) => path.join(VAULT, 'transcripts', `${name}.md`)
 
 export function readTranscript(name: string) {
@@ -86,7 +93,8 @@ export async function transcribeChunk(name: string, audio: Buffer, startedAt: st
 // Replaces the content of one "## Heading" section, keeping the rest of the note as it is.
 export function setSection(body: string, heading: string, content: string) {
   const re = new RegExp(`(^## ${heading}[^\\n]*\\n)([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, 'm')
-  if (re.test(body)) return body.replace(re, `$1\n${content.trim()}\n\n`)
+  // A function, so $ signs in the agent's text aren't read as replacement patterns.
+  if (re.test(body)) return body.replace(re, (_, head) => `${head}\n${content.trim()}\n\n`)
   return `${body.trimEnd()}\n\n## ${heading}\n\n${content.trim()}\n`
 }
 
