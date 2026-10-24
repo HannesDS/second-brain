@@ -61,20 +61,43 @@ const GAP_X = 80
 const GAP_Y = 16
 const LANE_PAD = 28
 
-// Left-to-right layout: x by layer, lanes stacked top to bottom (loose tickets last), and inside a lane
-// each column's tickets stacked by id. Returns top-left positions and each lane's box for its backdrop.
+// Tickets that connect through blockers, one group per chain: ticket -> the group's first ticket.
+export function groupsOf(tasks: Task[]) {
+  const group = new Map(tasks.map((t) => [t.name, t.name]))
+  const find = (n: string): string => (group.get(n) === n ? n : find(group.get(n)!))
+  for (const e of edgesOf(tasks)) {
+    const [a, b] = [find(e.from), find(e.to)].sort()
+    group.set(b, a)
+  }
+  return new Map(tasks.map((t) => [t.name, find(t.name)]))
+}
+
+// The chains that still have work open; a chain with every ticket done is history.
+export function openChains<T extends Task>(tasks: T[]) {
+  const groups = groupsOf(tasks)
+  const open = new Set(tasks.filter((t) => t.data.status !== 'done').map((t) => groups.get(t.name)))
+  return tasks.filter((t) => open.has(groups.get(t.name)))
+}
+
+// Left-to-right layout: x by layer, one lane per feature (its parent) or else per chain, and inside a lane
+// each column's tickets stacked by id. A lane is named by its `head`: the parent, or the chain's last ticket.
+// Lanes go newest head first. Returns top-left positions, each lane's box for its backdrop, and the size.
 export function layout(tasks: Task[]) {
   const layer = layers(tasks)
+  const groups = groupsOf(tasks)
   const lanes = new Map<string, Task[]>()
   for (const t of [...tasks].sort((a, b) => a.name.localeCompare(b.name))) {
-    const lane = laneOf(t, tasks)
+    const lane = laneOf(t, tasks) || `chain:${groups.get(t.name)}`
     lanes.set(lane, [...(lanes.get(lane) ?? []), t])
   }
-  const order = [...lanes.keys()].sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b))
+  const headOf = (lane: string) => lane.startsWith('chain:')
+    ? lanes.get(lane)!.reduce((a, b) => (layer.get(b.name)! >= layer.get(a.name)! ? b : a)).name
+    : lane
+  const order = [...lanes.keys()].map((lane) => ({ lane, head: headOf(lane) })).sort((a, b) => b.head.localeCompare(a.head))
   const pos = new Map<string, { x: number; y: number }>()
-  const boxes: { lane: string; y: number; height: number }[] = []
+  const boxes: { lane: string; head: string; y: number; height: number }[] = []
   let y = 0
-  for (const lane of order) {
+  for (const { lane, head } of order) {
     const rows = new Map<number, number>()
     for (const t of lanes.get(lane)!) {
       const l = layer.get(t.name)!
@@ -83,8 +106,8 @@ export function layout(tasks: Task[]) {
       pos.set(t.name, { x: l * (NODE_W + GAP_X), y: y + LANE_PAD + row * (NODE_H + GAP_Y) })
     }
     const height = LANE_PAD + Math.max(...rows.values()) * (NODE_H + GAP_Y)
-    boxes.push({ lane, y, height })
+    boxes.push({ lane, head, y, height })
     y += height + GAP_Y
   }
-  return { pos, lanes: boxes, width: (Math.max(0, ...layer.values()) + 1) * (NODE_W + GAP_X) - GAP_X }
+  return { pos, lanes: boxes, width: (Math.max(0, ...layer.values()) + 1) * (NODE_W + GAP_X) - GAP_X, height: Math.max(0, y - GAP_Y) }
 }

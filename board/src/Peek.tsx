@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowLeft, Copy, ExternalLink, GitPullRequest, GraduationCap, Maximize2, MessagesSquare, Minimize2, NotebookText, Play, Rocket, Square, Star, TerminalSquare, X,
+  ArrowLeft, Copy, ExternalLink, GitPullRequest, GraduationCap, Maximize2, MessagesSquare, Minimize2, NotebookText, Play, Pin, Rocket, Square, TerminalSquare, X,
 } from 'lucide-react'
 import { ProjectSelect } from './Home'
 import { Editor } from './Notes'
@@ -85,7 +85,7 @@ export function TaskPage({ task, vault, projects, act, agents, openAgent, peek, 
         {d.pr && (report
           ? <IconLink icon={GraduationCap} label="Teach me" showLabel href={`${location.origin}/api/reports/${report}`} />
           : <IconButton icon={GraduationCap} label="Teach me" showLabel onClick={() => teach(task)} />)}
-        <IconButton icon={Star} label={isFocus(task) ? 'In top 3' : 'Top 3'} showLabel active={isFocus(task)} onClick={() => act.focus(task)} />
+        <IconButton icon={Pin} label={isFocus(task) ? 'Pinned' : 'Pin to the top'} showLabel active={isFocus(task)} onClick={() => act.focus(task)} />
         <div className="spacer" />
         {d.notion && <IconLink icon={ExternalLink} label="Notion" showLabel href={d.notion} />}
         {d.pr && <IconLink icon={GitPullRequest} label={`PR ${String(d.pr).split('/').pop()}`} showLabel href={d.pr} />}

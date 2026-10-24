@@ -24,7 +24,7 @@ import { place, step, type Place } from './combobox'
 
 import {
   CONTEXTS, CONTEXT_LABEL, FOCUS_MAX, LABELS, PRIORITIES, PRIO_LABEL, STATUSES, api, isFocus, list,
-  TAB, contextOf, inContext, loader, obsidian, projectOf, scopeVault, startCommand, tabsOf, teachPrompt, unlink,
+  TAB, contextOf, inContext, loader, matchesTask, obsidian, projectOf, scopeVault, startCommand, tabsOf, teachPrompt, unlink,
   type Agent, type Doc, type Fields, type Vault,
 } from './lib'
 
@@ -64,6 +64,8 @@ export default function App() {
   const [peeks, setPeeks] = useState<PeekItem[]>([])
   const [wide, setWide] = useState<boolean>(() => loadLocal('sb.peekWide', false))
   const [prios, setPrios] = useState<string[]>([])
+  // My day's search above the board: narrows its cards.
+  const [dayQuery, setDayQuery] = useState('')
   // Board and My day share it, so a card's dependencies button shows the chain right where you are.
   const [graph, setGraph] = useState<Graph>()
   const [editing, setEditing] = useState<{ kind: 'task' | 'project'; doc?: Doc }>()
@@ -163,7 +165,7 @@ export default function App() {
     terminal({ kind: 'resume', agent: a.id })
   }
   const toggleFocus = (t: Doc) => {
-    if (!isFocus(t) && vault.tasks.filter(isFocus).length >= FOCUS_MAX) return flash(`You can star ${FOCUS_MAX}: unstar one first`)
+    if (!isFocus(t) && vault.tasks.filter(isFocus).length >= FOCUS_MAX) return flash(`You can pin ${FOCUS_MAX}: unpin one first`)
     api(`tasks/${t.name}`, 'PUT', { data: { focus: !isFocus(t) } }).catch(fail)
   }
   const act: Actions = {
@@ -194,7 +196,8 @@ export default function App() {
     .sort((a, b) => String(a.data.name ?? a.name).localeCompare(String(b.data.name ?? b.name)))
   const [pageLabel, PageIcon] = PAGE[page]
   const filtered = view.tasks.filter((t) => !prios.length || prios.includes(t.data.priority))
-  const deps = <Deps tasks={view.tasks} all={vault.tasks} focus={graph?.focus} agents={agents} open={openTask} showAll={() => setGraph({})} />
+  const dayTasks = view.tasks.filter((t) => matchesTask(t, dayQuery.trim(), projects))
+  const deps = <Deps tasks={view.tasks} all={vault.tasks} focus={graph?.focus} agents={agents} open={openTask} showAll={() => setGraph({})} compact={page === 'today'} />
 
   return (
     <div className="app">
@@ -267,9 +270,11 @@ export default function App() {
           <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
           <IconButton icon={Sparkles} label="Ask Claude" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
-        {page === 'today' && <Today vault={view} tasks={view.tasks} agents={shown} tabs={tabs} seen={markSeen} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
-          board={<><ViewSwitch graph={graph} set={setGraph} />{graph ? deps
-            : <BoardColumns tasks={view.tasks} vault={vault} agents={shown} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
+        {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
+          board={<><div className="board-tools"><ViewSwitch graph={graph} set={setGraph} />
+            {!graph && <div className="search"><input type="search" value={dayQuery} placeholder="Find a card…" aria-label="Find a card on your board" onChange={(e) => setDayQuery(e.target.value)} /></div>}</div>
+            {graph ? deps
+            : <BoardColumns tasks={dayTasks} vault={vault} agents={shown} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (
@@ -282,7 +287,7 @@ export default function App() {
                     onClick={() => setPrios(prios.includes(p) ? prios.filter((x) => x !== p) : [...prios, p])}>{PRIO_LABEL[p]}</button>
                 ))}
               </div>
-              <span className="muted">{filtered.filter((t) => t.data.status !== 'done').length} open · starred cards stay on top · drag to change status</span>
+              <span className="muted">{filtered.filter((t) => t.data.status !== 'done').length} open · pinned cards stay on top · drag to change status</span>
               <span className="spacer" />
               <ViewSwitch graph={graph} set={setGraph} />
             </div>

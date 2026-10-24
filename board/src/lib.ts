@@ -219,6 +219,21 @@ export function activeByTask(agents: Agent[]) {
   return byTask
 }
 
+// The session each task card shows: its active one, else the last one that worked on it, so you can go back to it.
+export function agentByTask(agents: Agent[]) {
+  const active = activeByTask(agents)
+  const last = new Map<string, Agent>()
+  for (const a of agents) if (a.task && !active.has(a.task) && (last.get(a.task)?.updated ?? '') < a.updated) last.set(a.task, a)
+  return new Map([...last, ...active])
+}
+
+// A task matches when each word of the query is in its id, title or project name.
+export function matchesTask(t: Doc, query: string, projects: Record<string, Doc>) {
+  const p = projects[unlink(t.data.project)]
+  const text = `${t.name} ${t.data.title ?? ''} ${p?.data.name ?? unlink(t.data.project)}`.toLowerCase()
+  return query.toLowerCase().split(/\s+/).every((w) => text.includes(w))
+}
+
 // Sessions per project, both in order of history: the most recently active first.
 export function byProject(agents: Agent[], vault: Vault) {
   const groups = new Map<string, { project?: Doc; agents: Agent[] }>()
@@ -253,8 +268,8 @@ export function tabKind(title: string): { kind: TabKind; text: string } {
   return { kind: 'terminal', text: title }
 }
 
-// Top 3: tasks you starred (`focus: true` in the file). Capped so it stays a real choice.
+// Top 3: tasks you pinned to the top (`focus: true` in the file, `starred` in the code). Capped so it stays a real choice.
 export const FOCUS_MAX = 3
-// Starred in the file. It counts everywhere but in Done, where tasks sort by when they were finished.
+// Pinned in the file. It counts everywhere but in Done, where tasks sort by when they were finished.
 export const starred = (d: Fields) => d.focus === true
 export const isFocus = (t: Doc) => starred(t.data) && t.data.status !== 'done'
