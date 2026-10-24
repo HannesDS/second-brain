@@ -1,6 +1,6 @@
 import { Background, Controls, Handle, Position, ReactFlow, type Edge, type Node, type NodeProps } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { NODE_H, NODE_W, chainOf, edgesOf, layout, linked } from './chains'
+import { NODE_H, NODE_W, chainOf, edgesOf, layout, linked, openChains } from './chains'
 import { LABELS, columnOf, type Agent, type Doc } from './lib'
 
 type TaskData = { task: Doc; focus: boolean; running: boolean; open: (d: Doc) => void }
@@ -41,22 +41,24 @@ export function ViewSwitch({ graph, set }: { graph: Graph; set: (g: Graph) => vo
 }
 
 // Dependency view: tickets left to right in the order they can land, like a commit graph of features.
-// With `focus` it shows that ticket's chain; without, every chain in `tasks` (the current scope).
-export default function Deps({ tasks, all, focus, agents, open, showAll }: {
-  tasks: Doc[]; all: Doc[]; focus?: string; agents: Agent[]; open: (d: Doc) => void; showAll: () => void
+// With `focus` it shows that ticket's chain; without, every chain in `tasks` (the current scope). `compact`
+// is My day: only chains with open work, and the wheel scrolls the page instead of zooming.
+export default function Deps({ tasks, all, focus, agents, open, showAll, compact }: {
+  tasks: Doc[]; all: Doc[]; focus?: string; agents: Agent[]; open: (d: Doc) => void; showAll: () => void; compact?: boolean
 }) {
   const target = focus ? all.find((t) => t.name === focus) : undefined
   const chained = linked(tasks)
-  const shown = target ? chainOf(all, target.name) : tasks.filter((t) => chained.has(t.name))
+  const chains = tasks.filter((t) => chained.has(t.name))
+  const shown = target ? chainOf(all, target.name) : compact ? openChains(chains) : chains
   const running = new Set(agents.filter((a) => a.task && a.state === 'working').map((a) => a.task))
-  const { pos, lanes, width } = layout(shown)
+  const { pos, lanes, width, height } = layout(shown)
   const status = new Map(shown.map((t) => [t.name, t.data.status]))
   const nodes: (TaskNode | LaneNode)[] = [
-    ...lanes.filter((l) => l.lane).map((l): LaneNode => {
-      const parent = all.find((t) => t.name === l.lane)
+    ...lanes.map((l): LaneNode => {
+      const head = all.find((t) => t.name === l.head)
       return {
         id: `lane:${l.lane}`, type: 'lane', position: { x: -20, y: l.y }, style: { width: width + 40, height: l.height },
-        data: { label: `${l.lane} ${parent?.data.title ?? ''}` }, zIndex: -1,
+        data: { label: `${l.head} ${head?.data.title ?? ''}` }, zIndex: -1,
       }
     }),
     ...shown.map((t): TaskNode => ({
@@ -73,17 +75,18 @@ export default function Deps({ tasks, all, focus, agents, open, showAll }: {
     <div className="deps">
       <div className="deps-head">
         {target && <><strong>Chain of <span className="id">{target.name}</span></strong><span className="dep-head-title">{target.data.title}</span></>}
-        <span className="muted">{target ? 'what it waits on and what waits on it' : 'every chain in this scope'} · click a ticket to open it</span>
+        <span className="muted">{target ? 'what it waits on and what waits on it' : compact ? 'chains with open work' : 'every chain in this scope'} · click a ticket to open it</span>
         <div className="spacer" />
         {focus && <button onClick={showAll}>All chains</button>}
       </div>
       {focus && !target && <p className="muted">No ticket {focus}.</p>}
-      {!focus && !shown.length && <p className="muted">No tickets wait on each other here yet. Set “Blocked by” on a task to link it.</p>}
-      {/* Remounting when the set of tickets changes (another chain, project or context) fits the view again. */}
+      {!focus && !shown.length && <p className="muted">{chains.length ? 'Every chain here is done.' : 'No tickets wait on each other here yet. Set “Blocked by” on a task to link it.'}</p>}
+      {/* Remounting when the set of tickets changes (another chain, project or context) fits the view again.
+          The box is as tall as the chains need, up to most of the screen. */}
       {shown.length > 0 && (
-        <div className="deps-host">
+        <div className="deps-host" style={{ height: `min(62vh, ${height + 64}px)` }}>
           <ReactFlow key={focus ?? shown.map((t) => t.name).join()} className="deps-flow" nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="system" fitView
-            fitViewOptions={{ maxZoom: 1 }} minZoom={0.2} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} elementsSelectable={false}
+            fitViewOptions={{ maxZoom: 1 }} minZoom={0.2} zoomOnScroll={!compact} preventScrolling={!compact} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} elementsSelectable={false}
             onNodeClick={(_, n) => n.type === 'task' && open((n as TaskNode).data.task)} proOptions={{ hideAttribution: true }}>
             <Background gap={24} size={1} />
             <Controls showInteractive={false} />

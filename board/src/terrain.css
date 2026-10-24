@@ -113,7 +113,7 @@
 [data-theme="terrain"] :is(button.primary, .ib.primary) { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600;
   border-radius: 16px 13px 17px 12px; /* pebble: slightly uneven on purpose */ }
 [data-theme="terrain"] :is(button.primary, .ib.primary):hover { background: var(--accent); color: var(--accent-text); filter: none; transform: scale(1.03); box-shadow: 0 0 0 4px var(--highlight-soft); }
-[data-theme="terrain"] :is(button.icon, button.link, .tab, .nav, .proj, .link-plain, .star, .more, .side-section-link, .kg-hit) { background: none; border-color: transparent; }
+[data-theme="terrain"] :is(button.icon, button.link, .tab, .nav, .proj, .link-plain, .pin, .more, .side-section-link, .kg-hit) { background: none; border-color: transparent; }
 [data-theme="terrain"] .ib { border-radius: 10px; height: 32px; min-width: 32px; transition: background .15s, color .15s, transform .35s var(--spring); }
 [data-theme="terrain"] .ib:hover { background: var(--surface-2); color: var(--text); }
 [data-theme="terrain"] .ib.with-label { border-radius: var(--radius); border-color: var(--border); background: var(--surface); }

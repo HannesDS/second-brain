@@ -445,11 +445,12 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 
 /* Dependencies: tickets as a left-to-right graph (React Flow) */
 .view-switch { display: flex; gap: 4px; }
-.today .view-switch { margin-bottom: 10px; }
+.board-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.board-tools .search { flex: 0 1 280px; margin-left: auto; }
 .deps { display: flex; flex-direction: column; gap: 8px; padding-bottom: 16px; }
 .deps-head { display: flex; align-items: center; gap: 8px; min-height: 32px; }
 .dep-head-title { color: var(--muted); }
-.deps-host { height: 62vh; min-height: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.deps-host { min-height: 220px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .deps-flow {
   --xy-background-color: var(--surface);
   --xy-background-pattern-dots-color: var(--border);
@@ -849,8 +850,8 @@ h2 { font-weight: 600; }
 .link-plain { border: none; background: none; padding: 0; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .link-plain:hover { text-decoration: underline; }
 .link-plain.strong { font-weight: 700; }
-.star { border: none; background: none; padding: 0 2px; font-size: 15px; line-height: 1; color: var(--muted); }
-.star.on, .star:hover { color: #e3a008; }
+.pin { border: none; background: none; padding: 0 2px; font-size: 15px; line-height: 1; color: var(--muted); }
+.pin.on, .pin:hover { color: var(--highlight); }
 .mini-card.focus, .card.focus { border-left: 3px solid #e3a008; }
 .note-mark { font-size: 12px; }
 .more { font-size: 12px; color: var(--muted); padding: 2px 4px; }
@@ -875,7 +876,7 @@ h2 { font-weight: 600; }
 .ib.on { color: #d4a106; }
 .ib.on svg { fill: currentColor; }
 .ib:disabled { opacity: 0.4; cursor: default; }
-.star .ib { height: 22px; min-width: 22px; padding: 0 2px; }
+.pin .ib { height: 22px; min-width: 22px; padding: 0 2px; }
 .nav-icon { flex: none; color: var(--muted); }
 .nav.on .nav-icon { color: var(--text); }
 .note-mark { color: var(--muted); flex: none; }
@@ -972,4 +973,10 @@ h2 { font-weight: 600; }
 .card .project { font-size: 12px; color: var(--muted); }
 .card-agent { border: 0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .card .card-bottom .id { font-size: 11px; color: var(--muted); margin: 0; white-space: nowrap; }
-.card .card-agent { white-space: nowrap; }
+.card .card-agent { white-space: nowrap; flex: none; }
+/* The last agent on a done session: faint, so it's there to go back to without competing with live ones. */
+.card-agent.last { background: none; color: var(--muted); padding: 0 2px; opacity: 0.45; }
+.card-agent.last:hover, .card-agent.last:focus-visible { opacity: 1; color: var(--text); }
+/* A full bottom row wraps instead of pushing the actions off a narrow card; they stay on the right. */
+.card .card-bottom { flex-wrap: wrap; row-gap: 2px; }
+.card .card-bottom .hover-actions { margin-left: auto; }

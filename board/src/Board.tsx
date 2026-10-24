@@ -6,12 +6,12 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Ban, Bot, GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
+import { Ban, Bot, GitPullRequest, Pin, Play, Rocket, Workflow } from 'lucide-react'
 import { STATE_LABEL, type Actions } from './Today'
 import { PICKUP_PX, aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { blockersOf, linked } from './chains'
-import { LABELS, STATUSES, activeByTask, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Agent, type Doc, type Vault } from './lib'
+import { LABELS, STATUSES, agentByTask, api, byFinished, byOrder, ago, columnOf, isActive, isFocus, prioLabel, starred, todayISO, unlink, type Agent, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
@@ -21,12 +21,12 @@ export default function BoardColumns({ tasks, vault, agents, drop, fail, act, st
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
   const byName = useMemo(() => Object.fromEntries(tasks.map((t) => [t.name, t])), [tasks])
-  // Where a card goes in a column that isn't Done, which ignores stars. Made anew only when the vault
+  // Where a card goes in a column that isn't Done, which ignores pins. Made anew only when the vault
   // changes, so the groups cached while aiming last the whole drag.
   const stars = useMemo(() => new Set(vault.tasks.filter((t) => starred(t.data)).map((t) => t.name)), [vault.tasks])
   const isStarred = useCallback((id: string) => stars.has(id), [stars])
   const chained = useMemo(() => linked(vault.tasks), [vault.tasks])
-  const working = useMemo(() => activeByTask(agents), [agents])
+  const working = useMemo(() => agentByTask(agents), [agents])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [active, setActive] = useState<Doc>()
   const hasUnknown = statuses === STATUSES && tasks.some((t) => columnOf(t) === '?')
@@ -34,7 +34,7 @@ export default function BoardColumns({ tasks, vault, agents, drop, fail, act, st
   const layout = useMemo(() => {
     const docs: Record<string, Doc[]> = Object.fromEntries(cols.map((s) => [s, []]))
     for (const t of tasks) docs[columnOf(t)]?.push(t)
-    // Starred tasks sit at the top of their column; Done shows the latest finished first.
+    // Pinned tasks sit at the top of their column; Done shows the latest finished first.
     for (const [s, c] of Object.entries(docs)) c.sort(s === 'done' ? byFinished : (a, b) => Number(isFocus(b)) - Number(isFocus(a)) || byOrder(a, b))
     return Object.fromEntries(Object.entries(docs).map(([s, c]) => [s, c.map((t) => t.name)])) as Layout
   }, [tasks, cols])
@@ -152,7 +152,8 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: 
 }
 
 // Memoised: while you drag, the board re-renders on every move, but a card only when its task or its agent changes.
-// A card with an agent at work or waiting on it says so; that opens the session.
+// A card with an agent at work or waiting on it says so; one whose last agent is done shows a faint bot.
+// Either opens the session.
 const Card = memo(function Card({ task, project, act, chained, agent, inHand }: {
   task: Doc; project?: Doc; act?: Actions; chained?: boolean; agent?: Agent; inHand?: 'lifted' | 'held'
 }) {
@@ -166,8 +167,8 @@ const Card = memo(function Card({ task, project, act, chained, agent, inHand }: 
         </button>
         <span className="spacer" />
         <span className={`prio ${d.priority}`}>{prioLabel(d.priority)}</span>
-        {/* A starred card shows its star; starring one is a hover action, so the project name keeps the room. */}
-        {act && isFocus(task) && <span className="star on"><IconButton icon={Star} label="Unstar" active stop onClick={() => act.focus(task)} /></span>}
+        {/* A pinned card shows its pin; pinning one is a hover action, so the project name keeps the room. */}
+        {act && isFocus(task) && <span className="pin on"><IconButton icon={Pin} label="Unpin" active stop onClick={() => act.focus(task)} /></span>}
       </div>
       <div className="title">{d.title ?? task.name}</div>
       {task.error && <div className="blocked">Invalid frontmatter, fix in Obsidian</div>}
@@ -176,11 +177,14 @@ const Card = memo(function Card({ task, project, act, chained, agent, inHand }: 
         <span className="id">{task.name}</span>
         {act && chained && <IconButton icon={Workflow} label="Dependencies: see this ticket's chain" stop onClick={() => act.deps(task)} />}
         {d.due && <span className="due">due {d.due}</span>}
-        {agent && <button className={`card-agent state ${agent.state}`} title="Open this agent's session" {...stop(() => act?.agent(agent))}>
-          <Bot size={12} strokeWidth={1.8} aria-hidden />{STATE_LABEL[agent.state]}</button>}
+        {agent && (isActive(agent)
+          ? <button className={`card-agent state ${agent.state}`} title="Open this agent's session" {...stop(() => act?.agent(agent))}>
+            <Bot size={12} strokeWidth={1.8} aria-hidden />{STATE_LABEL[agent.state]}</button>
+          : <button className="card-agent last" title={`Last agent: ${STATE_LABEL[agent.state] ?? agent.state}, ${ago(agent.updated)}. Open its session`} aria-label="Open the last agent's session" {...stop(() => act?.agent(agent))}>
+            <Bot size={14} strokeWidth={1.8} aria-hidden /></button>)}
         <div className="spacer" />
         {d.pr && <IconLink icon={GitPullRequest} label="Pull request" href={d.pr} />}
-        {act && <span className="hover-actions">{!isFocus(task) && <IconButton icon={Star} label="Star: keep at the top" stop onClick={() => act.focus(task)} />}<IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}
+        {act && <span className="hover-actions">{!isFocus(task) && <IconButton icon={Pin} label="Pin to the top" stop onClick={() => act.focus(task)} />}<IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}
       </div>
     </article>
   )

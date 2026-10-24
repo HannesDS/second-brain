@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test, vi } from 'vitest'
-import { activeByTask, agentLabel, byProject, noteTitle, tabKind, dayRange, debounce, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
+import { activeByTask, agentByTask, agentLabel, byProject, noteTitle, tabKind, dayRange, debounce, hillRings, loader, matchesTask, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -176,6 +176,30 @@ test('a task shows its active session, and one waiting for you wins over one wor
   ])
   expect(byTask.get('T-0001')?.id).toBe('b')
   expect([...byTask.keys()]).toEqual(['T-0001'])
+})
+
+test('a card shows its active session, else the last one that worked on the task', () => {
+  const byTask = agentByTask([
+    agent('a', '2026-10-21', { task: 'T-0001', state: 'ended' }),
+    agent('b', '2026-10-22', { task: 'T-0001', state: 'idle' }),
+    agent('c', '2026-10-20', { task: 'T-0001', state: 'ended' }),
+    agent('d', '2026-10-23', { task: 'T-0002', state: 'ended' }),
+    agent('e', '2026-10-21', { task: 'T-0002', state: 'working' }),
+    agent('f', '2026-10-23', { state: 'ended' }),
+  ])
+  expect(byTask.get('T-0001')?.id).toBe('b')
+  expect(byTask.get('T-0002')?.id).toBe('e')
+  expect(byTask.size).toBe(2)
+})
+
+test('a task matches when every word is in its id, title or project name', () => {
+  const t: Doc = { name: 'T-0114', data: { title: 'Agents on board', project: '[[workbench]]' }, body: '' }
+  const projects = { workbench: { name: 'workbench', data: { name: 'Workbench' }, body: '' } }
+  expect(matchesTask(t, '', projects)).toBe(true)
+  expect(matchesTask(t, 'board agents', projects)).toBe(true)
+  expect(matchesTask(t, 't-0114', projects)).toBe(true)
+  expect(matchesTask(t, 'WORKBENCH', projects)).toBe(true)
+  expect(matchesTask(t, 'agents calendar', projects)).toBe(false)
 })
 
 test('a note name reads as its title, with the date and time apart', () => {
