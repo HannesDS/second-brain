@@ -121,6 +121,7 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
 | Agent row | `.agent` | Status dot on the left. Waiting = glacier ring that breathes |
 | Peek and drawer | `.peek`, `.drawer` | Rounded left edge (28), slides in with a spring |
 | Toast | `.toast` | Moss pill, pops in |
+| Foldable section | `Fold` in `ui.tsx` | Chevron before the heading; folded shows a one-line summary. Remembered per section (`sb.fold.<id>`) |
 
 ## Signature view: the trail
 

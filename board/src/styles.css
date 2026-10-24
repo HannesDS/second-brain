@@ -1117,6 +1117,12 @@ h2 { font-weight: 600; }
 /* ---------- My day: cairns ---------- */
 .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 8px; }
 .today .section-head > h3 { margin: 0 2px; }
+.fold-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: none; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.fold-toggle:hover { background: none; color: var(--text); }
+.fold-toggle svg { transition: transform .2s; }
+.fold.folded .fold-toggle svg { transform: rotate(-90deg); }
+.fold-summary { margin: 0 2px; font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .fold-toggle svg { transition: none; } }
 .cairns-empty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 16px; border: 1.5px dashed var(--contour-strong); border-radius: var(--radius); }
 .cairns-empty .muted { font-size: 14px; }
 .cairn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }

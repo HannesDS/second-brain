@@ -1,6 +1,6 @@
 import { Check, ListPlus, Mountain, NotebookText, X } from 'lucide-react'
 import { useId, useState } from 'react'
-import { IconButton, useEscape } from './ui'
+import { Fold, IconButton, useEscape } from './ui'
 import { LABELS, URGENT, columnOf, hillRings, prioLabel, unlink, urgency, type Doc } from './lib'
 import {
   WAY_KINDS, cairnMarks, duration, goalOf, hhmm, isDone, projectName, wayTitle,
@@ -37,9 +37,14 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
     ends[i] = m.end
     return Math.min(i, 2)
   })
+  // Folded, the trail says where you are.
+  const inMeeting = meetings.find((m) => m.start <= now && now < m.end)
+  const inStretch = stretches.find((s) => s.start <= now && now < s.end)
+  const where = inMeeting ? `Now in ${inMeeting.title}` : inStretch ? `Now on ${wayTitle(ways[hhmm(inStretch.start)], tasks, projects) || 'an open stretch'}` : ''
+  const summary = [where, `${timed.length} ${timed.length === 1 ? 'meeting' : 'meetings'}`, `${stretches.length} open ${stretches.length === 1 ? 'stretch' : 'stretches'}`].filter(Boolean).join(' · ')
   return (
-    <section className="trail-section">
-      <h3>Your trail <span className="muted hint-inline">Meetings are fixed. Open stretches are yours to choose.</span></h3>
+    <Fold id="trail" className="trail-section" title="Your trail" summary={summary}
+      extra={<span className="muted hint-inline">Meetings are fixed. Open stretches are yours to choose.</span>}>
       <div className="trail-card">
         <div className="trail" aria-label={`Your day from ${hhmm(span.start)} to ${hhmm(span.end)}`}>
           <div className="trail-line" />
@@ -109,7 +114,7 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
         <span><i className="k k-cairn" />Cairn at a time</span><span><i className="k k-cairn-after" />Cairn after a meeting</span>
         <span><i className="k k-open" />Open stretch</span><span><i className="k k-walked" />Walked</span>
       </div>
-    </section>
+    </Fold>
   )
 }
 

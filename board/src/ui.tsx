@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
+import { ChevronDown, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { MODES, MODE_LABEL, type Mode } from './theme'
 
@@ -75,5 +75,33 @@ export function NumberInput({ value, min = 1, onChange, ...rest }: {
     <input {...rest} type="number" inputMode="numeric" min={min} value={text}
       onChange={(e) => { setText(e.target.value); const n = Number(e.target.value); if (e.target.value !== '' && Number.isInteger(n) && n >= min) onChange(n) }}
       onBlur={() => setText(String(value))} />
+  )
+}
+
+// A section you can fold from its heading, so a page can get out of the way. Remembers per `id` whether it
+// is folded; folded, it shows `summary` instead of its content. `actions` stay at the right of the heading.
+export function Fold({ id, title, extra, summary, actions, className = '', children }: {
+  id: string; title: React.ReactNode; extra?: React.ReactNode; summary?: React.ReactNode; actions?: React.ReactNode
+  className?: string; children: React.ReactNode
+}) {
+  const key = `sb.fold.${id}`
+  const [folded, setFolded] = useState(() => { try { return localStorage.getItem(key) === '1' } catch { return false } })
+  const toggle = () => {
+    setFolded(!folded)
+    try { localStorage.setItem(key, folded ? '0' : '1') } catch { /* not remembered */ }
+  }
+  return (
+    <section className={`fold ${folded ? 'folded' : ''} ${className}`}>
+      <div className="section-head">
+        <h3>
+          <button type="button" className="fold-toggle" aria-expanded={!folded} onClick={toggle}>
+            <ChevronDown size={14} strokeWidth={1.8} aria-hidden />{title}
+          </button>
+          {extra}
+        </h3>
+        {actions}
+      </div>
+      {folded ? summary && <p className="fold-summary">{summary}</p> : children}
+    </section>
   )
 }

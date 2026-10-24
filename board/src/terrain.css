@@ -253,6 +253,7 @@
 [data-theme="terrain"] .due-pill .due-when { color: var(--p1); }
 
 /* The trail and cairns (Trail.tsx, Cairns.tsx): pebble cards, mono labels, elevation markers. */
+[data-theme="terrain"] :is(.fold-toggle, .fold-toggle:hover) { background: none; border: none; font-weight: inherit; }
 [data-theme="terrain"] .today-sum { font-family: var(--font-mono); letter-spacing: .04em; text-transform: uppercase; }
 [data-theme="terrain"] .trail-card { border: 1px solid var(--card-edge); border-radius: var(--radius-lg); animation: tr-settle .7s var(--spring) both; }
 /* Faint terrain behind the trail: contour lines and two low hills, as quiet as the app's backdrop. */

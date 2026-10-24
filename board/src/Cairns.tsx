@@ -1,7 +1,7 @@
 import { Activity, Check, CircleDot, Droplet, Moon, Pencil, Plus, Trash2, Wind, X, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { stringify } from 'yaml'
-import { IconButton, NumberInput, useEscape } from './ui'
+import { Fold, IconButton, NumberInput, useEscape } from './ui'
 import {
   CAIRN_KINDS, WEEKDAYS, cairnData, goalOf, isDone, scheduleOf, slugOf, weekDots,
   type Cairn, type CairnKind,
@@ -25,11 +25,9 @@ export function Cairns({ cairns, log, days, meetings, now, running, tick, add, s
 }) {
   const done = cairns.filter((c) => isDone(c, log[c.slug], goalOf(c, meetings))).length
   return (
-    <section className="cairns-section">
-      <div className="section-head">
-        <h3>Cairns {cairns.length > 0 && <span className="count">{done} of {cairns.length}</span>}<span className="muted hint-inline">Small things that keep you on the trail.</span></h3>
-        {cairns.length > 0 && <IconButton icon={Plus} label="Add a cairn" showLabel onClick={() => edit()} />}
-      </div>
+    <Fold id="cairns" className="cairns-section" title="Cairns"
+      extra={<>{cairns.length > 0 && <span className="count">{done} of {cairns.length}</span>}<span className="muted hint-inline">Small things that keep you on the trail.</span></>}
+      actions={cairns.length > 0 && <IconButton icon={Plus} label="Add a cairn" showLabel onClick={() => edit()} />}>
       {!cairns.length && (
         <div className="cairns-empty">
           <span className="muted">No cairns today. Add one: breathe, drink water, stretch, shut down.</span>
@@ -79,7 +77,7 @@ export function Cairns({ cairns, log, days, meetings, now, running, tick, add, s
           )
         })}
       </div>
-    </section>
+    </Fold>
   )
 }
 
