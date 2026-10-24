@@ -40,7 +40,7 @@ const LEGEND: [PlaceKind, string, string][] = [
   ['meeting', 'hut', 'Meetings: huts'], ['report', 'view', 'Teach reports: viewpoints'], ['lake', 'lake', 'Learning: lakes'],
 ]
 
-// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Ready and unknown statuses are to do.
+// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Unknown statuses are to do.
 const symbolOf = (n: GraphNode) => (n.kind === 'task' ? (['wip', 'review', 'blocked', 'done'].includes(n.status) ? n.status : 'todo')
   : n.kind === 'thought' ? (unfiled(n) ? 'sapling' : 'tree') : n.kind === 'meeting' ? 'hut' : n.kind === 'report' ? 'view' : 'lake')
 

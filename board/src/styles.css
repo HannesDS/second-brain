@@ -449,7 +449,6 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .dep-top { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .dep-top .id { margin: 0; font-size: 11px; }
 .dep-marker { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--p3); }
-.dep-node.ready .dep-marker { background: var(--p2); }
 .dep-node.wip .dep-marker { background: var(--accent); }
 .dep-node.review .dep-marker { background: var(--p1); }
 .dep-node.blocked .dep-marker { background: var(--p0); }
@@ -597,7 +596,6 @@ button.bt-legend-row:hover { background: var(--surface-2); }
 .project-card h3 { margin: 2px 0; font-size: 18px; }
 .status-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
 .seg.todo { background: var(--p3); }
-.seg.ready { background: var(--p2); }
 .seg.wip { background: var(--accent); }
 .seg.review { background: var(--p1); }
 .seg.blocked { background: var(--p0); }

@@ -304,7 +304,6 @@
 /* Same elevation markers as the board columns. The run ring sits on the node: clip-path would cut it off. */
 [data-theme="terrain"] .dep-node .dep-marker { width: 12px; height: 12px; border-radius: 0; background: var(--muted); clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
 [data-theme="terrain"] .dep-node.todo .dep-marker { clip-path: circle(30% at 50% 60%); }
-[data-theme="terrain"] .dep-node.ready .dep-marker { background: var(--p2); }
 [data-theme="terrain"] .dep-node.wip .dep-marker { background: var(--st-wip-ink); }
 [data-theme="terrain"] .dep-node.review .dep-marker { background: var(--st-review-ink); }
 [data-theme="terrain"] .dep-node.blocked .dep-marker { background: var(--p0); }
