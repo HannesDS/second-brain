@@ -194,6 +194,16 @@ export function agentLabel(a: Agent, tasks: Doc[]) {
   return task ? `${task.name} ${task.data.title}` : a.title || a.cwd.split('/').pop() || a.id.slice(0, 8)
 }
 
+// A session you'd want to see now: working, or waiting for you.
+export const isActive = (a: Agent) => a.state === 'working' || a.state === 'needs-input'
+
+// The active session on each task. One that waits for you wins, so the card shows it needs you.
+export function activeByTask(agents: Agent[]) {
+  const byTask = new Map<string, Agent>()
+  for (const a of agents) if (a.task && isActive(a) && byTask.get(a.task)?.state !== 'needs-input') byTask.set(a.task, a)
+  return byTask
+}
+
 // Sessions per project, both in order of history: the most recently active first.
 export function byProject(agents: Agent[], vault: Vault) {
   const groups = new Map<string, { project?: Doc; agents: Agent[] }>()

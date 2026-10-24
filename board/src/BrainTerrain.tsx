@@ -3,12 +3,12 @@ import { ArrowRight, Maximize, Minus, Plus, Search, X } from 'lucide-react'
 import { BLOB } from './Landscape'
 import { step } from './combobox'
 import {
-  KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, unfiled, walkOf,
+  KINDS, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, timedStops, unfiled, walkOf,
   type Box, type GraphEdge, type GraphNode, type Hill, type Kind, type KnowledgeGraph, type LinkKind, type Point,
 } from './graph'
 import { load as loadLocal, save as saveLocal } from './Home'
 import { IconButton } from './ui'
-import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, todayISO, type Agent, type Vault } from './lib'
+import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, isActive, todayISO, type Agent, type Vault } from './lib'
 
 type View = { x: number; y: number; k: number }
 type PlaceKind = Exclude<Kind, 'project'>
@@ -18,6 +18,9 @@ const MAX_K = 4
 const NAMES_AT = 1.3
 // A hill gets one contour per open task, up to this many; every third is an index contour.
 const MAX_CONTOURS = 16
+// The walk draws itself in about this many seconds, after a short pause on load.
+const WALK_TIME = 4
+const WALK_DELAY = 0.3
 const short = (t: string) => (t.length > 34 ? `${t.slice(0, 32)}…` : t)
 // Which names win when they would overlap: what you look at, then open work, then notes, then done work.
 const rank = (n: GraphNode) => (n.kind !== 'task' ? 2 : n.status === 'done' ? 3 : OPEN_WORK.includes(n.status) ? 0 : 1)
@@ -273,7 +276,7 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
   )
   const fadeHill = (h: Hill) => (focus ? !nearFocus.has(h.id) : matches ? !(matches.has(h.id) || matchedHills.has(h.id)) : !!home && h.project !== home)
   // Agents on the map: a cable line from the foot of the task's hill up to the task. Waiting ones pulse.
-  const cables = map && showing('agents') ? agents.filter((a) => a.task && ['working', 'needs-input'].includes(a.state)).flatMap((a) => {
+  const cables = map && showing('agents') ? agents.filter((a) => a.task && isActive(a)).flatMap((a) => {
     const id = `tasks/${a.task}.md`
     const [to, hill] = [where(id), map.hills.find((h) => h.project === byId.get(id)?.project)]
     if (!to || !hill || !visible(id)) return []
@@ -282,6 +285,11 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
     return [{ id: a.id, task: a.task!, waiting: a.state === 'needs-input', from: { x: hill.x + ux * (hill.r + 40), y: hill.y + uy * (hill.r + 40) }, to }]
   }) : []
   const stops = walk?.today ?? []
+  const legTime = Math.min(0.5, WALK_TIME / Math.max(1, stops.length - 1))
+  // "You are here" only on your real last stop today: in one context the walk can end where you no longer are.
+  const lastToday = graph?.walk?.filter((w) => w.what !== 'thought' && w.at.startsWith(today)).at(-1)
+  const hereNow = !!stops.length && stops.at(-1)!.id === lastToday?.id
+  const timed = useMemo(() => timedStops(stops, view.k, markerSize), [stops, view.k, markerSize])
   const line = (ps: Point[]) => ps.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')
 
   return (
@@ -391,27 +399,31 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
               })}
               {stops.length > 0 && (
                 <g className="bt-walk">
-                  {/* Keyed by the first stop, so it draws itself once on load, not on every refetch. */}
                   <path className="bt-walk-casing" d={line(stops)} />
-                  <path key={stops[0].at} className="bt-walk-line" d={line(stops)} pathLength={1} strokeWidth={px(2.4)} />
+                  {/* Drawn leg by leg in time order, every leg the same time, so a long jump doesn't eat the whole
+                      animation. Keyed by its ends: a leg draws once, and a new one draws itself when it comes. */}
+                  {stops.slice(1).map((s, i) => (
+                    <path key={`${stops[i].at}${stops[i].id}>${s.at}${s.id}`} className="bt-walk-line" d={line([stops[i], s])} pathLength={1} strokeWidth={px(2.4)}
+                      style={{ animationDelay: `${WALK_DELAY + i * legTime}s`, animationDuration: `${legTime}s` }} />
+                  ))}
                   {stops.map((s, i) => {
                     const prev = stops[i - 1]
-                    const last = i === stops.length - 1
-                    const arrival = !prev || prev.hill !== s.hill
+                    const end = i === stops.length - 1
+                    const here = end && hereNow
                     // A leg from one hill to another is a context switch: labelled when it's long enough on screen to carry it.
                     const leg = prev && prev.hill && s.hill && prev.hill !== s.hill && Math.hypot(s.x - prev.x, s.y - prev.y) * view.k > 220
                     const angle = prev ? (Math.atan2(s.y - prev.y, s.x - prev.x) * 180) / Math.PI : 0
                     const upright = angle > 90 || angle < -90 ? angle + 180 : angle
                     return (
-                      <g key={`${s.at}${s.id}`}>
+                      <g key={`${s.at}${s.id}`} className="bt-stop-mark" style={{ animationDelay: `${WALK_DELAY + i * legTime}s` }}>
                         {leg && <text className="bt-meta traverse" fontSize={px(10.5)} textAnchor="middle"
                           transform={`translate(${(s.x + prev.x) / 2} ${(s.y + prev.y) / 2}) rotate(${upright}) translate(0 ${px(-6)})`}>context switch</text>}
                         <g transform={`translate(${s.x} ${s.y})`}>
                           {i === 0 && <Sym id="start" s={markerSize} />}
-                          {last && <><circle className="bt-here-pulse" r={markerSize * 0.5} /><Sym id="here" s={markerSize * 1.2} /></>}
-                          {!last && i > 0 && <circle className="bt-stop" r={px(3)} />}
-                          {last && <text className="bt-hill-name here" x={markerSize} y={px(-2)} fontSize={px(10)}>YOU ARE HERE</text>}
-                          {(arrival || last) && <text className="bt-time" x={markerSize * 0.8} y={last ? px(12) : px(-6)} fontSize={px(10.5)}>{time(s.at)}{i === 0 ? ' start' : ''}</text>}
+                          {here && <><circle className="bt-here-pulse" r={markerSize * 0.5} /><Sym id="here" s={markerSize * 1.2} /></>}
+                          {!here && i > 0 && <circle className="bt-stop" r={px(3)} />}
+                          {here && <text className="bt-hill-name here" x={markerSize} y={px(-2)} fontSize={px(10)}>YOU ARE HERE</text>}
+                          {timed.has(i) && <text className="bt-time" x={markerSize * 0.8} y={here ? px(12) : px(-6)} fontSize={px(10.5)}>{time(s.at)}{i === 0 ? ' start' : end && !hereNow ? ' · then elsewhere' : ''}</text>}
                         </g>
                       </g>
                     )

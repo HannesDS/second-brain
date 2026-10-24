@@ -295,6 +295,21 @@ export function walkOf(steps: WalkStep[], at: Map<string, Point>, byId: Map<stri
   const earlier = [...days.keys()].filter((d) => d < today).sort().map((d) => visits(days.get(d)!).map(({ x, y }) => ({ x, y }))).filter((t) => t.length > 1)
   return { today: todays, planted, earlier }
 }
+// Which stops get their time, like spot heights: the start, the end and arrivals on a new hill first, then
+// every other stop where its label doesn't cover one already placed. `k` is the zoom, `mark` the symbol size.
+export function timedStops(stops: Stop[], k: number, mark: number): Set<number> {
+  const out = new Set<number>()
+  const taken: Box[] = []
+  const prio = (i: number) => (i === 0 || i === stops.length - 1 ? 0 : stops[i - 1].hill !== stops[i].hill ? 1 : 2)
+  for (const i of stops.map((_, i) => i).sort((a, b) => prio(a) - prio(b) || a - b)) {
+    const s = stops[i]
+    const box = { x: s.x + mark * 0.8, y: s.y - 18 / k, w: (prio(i) ? 40 : 110) / k, h: 16 / k }
+    if (taken.some((t) => box.x < t.x + t.w && t.x < box.x + box.w && box.y < t.y + t.h && t.y < box.y + box.h)) continue
+    taken.push(box)
+    out.add(i)
+  }
+  return out
+}
 const minutes = (at: string) => Number(at.slice(11, 13)) * 60 + Number(at.slice(14, 16))
 
 // Pushes overlapping circles apart, both halfway, for at most `rounds` rounds (it stops once none overlap).

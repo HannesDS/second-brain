@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test, vi } from 'vitest'
-import { agentLabel, byProject, dayRange, debounce, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
+import { activeByTask, agentLabel, byProject, dayRange, debounce, hillRings, loader, prReport, tabsOf, teachPrompt, todayISO, type Agent, type Doc, type Vault } from './lib'
 
 const task = (body: string): Doc => ({ name: 'T-0081', data: { pr: 'https://github.com/x/y/pull/7' }, body })
 
@@ -164,4 +164,16 @@ test('a day on which the clocks change is still a whole day', () => {
   } finally {
     vi.unstubAllEnvs()
   }
+})
+
+test('a task shows its active session, and one waiting for you wins over one working', () => {
+  const byTask = activeByTask([
+    agent('a', '2026-10-23', { task: 'T-0001', state: 'working' }),
+    agent('b', '2026-10-22', { task: 'T-0001', state: 'needs-input' }),
+    agent('c', '2026-10-21', { task: 'T-0001', state: 'working' }),
+    agent('d', '2026-10-23', { task: 'T-0002', state: 'idle' }),
+    agent('e', '2026-10-23', { state: 'working' }),
+  ])
+  expect(byTask.get('T-0001')?.id).toBe('b')
+  expect([...byTask.keys()]).toEqual(['T-0001'])
 })

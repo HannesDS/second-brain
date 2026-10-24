@@ -388,9 +388,32 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .cal-dow { padding: 6px 8px; font-size: 12px; color: var(--muted); text-align: center; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .cal-day { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cal-day.other { background: var(--surface-2); opacity: 0.6; }
-.cal-day.today .cal-num { background: var(--p0); color: #fff; border-radius: 999px; padding: 0 7px; }
+/* is-today, not today: .today is My day's page and would lay its padding onto the cell. */
+.cal-day.is-today .cal-num { background: var(--p0); color: #fff; border-radius: 999px; padding: 0 7px; }
 .cal-num { align-self: flex-end; font-size: 13px; font-variant-numeric: tabular-nums; }
-.cal-item { text-align: left; font-size: 12px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--border); }
+.cal-item { text-align: left; font-size: 12px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--border); flex: none; }
+.cal-more { flex: none; align-self: flex-start; font-size: 12px; padding: 0 6px; border: none; background: none; color: var(--muted); }
+.cal-more:hover { color: var(--text); text-decoration: underline; }
+/* Week and day: hours down the left, each day's timed events placed on them; all-day things in a strip above. */
+.cal-time { flex: 1; min-height: 360px; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.cal-time-head, .cal-time-body { display: grid; grid-template-columns: 56px repeat(var(--days), minmax(0, 1fr)); scrollbar-gutter: stable; }
+.cal-time-head { overflow: hidden; border-bottom: 1px solid var(--border); }
+.cal-time-body { flex: 1; min-height: 0; overflow-y: auto; }
+.cal-time .cal-dow { border-left: 1px solid var(--border); }
+.cal-time .cal-dow.is-today { color: var(--text); font-weight: 700; }
+.cal-time .cal-dow button { font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-decoration: none; padding: 0; border: none; background: none; }
+.cal-time .cal-dow button:hover { text-decoration: underline; }
+.cal-time .cal-gutter { font-size: 11px; text-align: right; padding-right: 6px; align-self: center; }
+.cal-allday { min-height: 34px; border-right: none; border-bottom: none; border-left: 1px solid var(--border); }
+.cal-hour { height: var(--hour); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; transform: translateY(-0.6em); }
+.cal-time-body .cal-gutter { align-self: start; padding-right: 6px; text-align: right; }
+.cal-col { position: relative; height: calc(24 * var(--hour)); border-left: 1px solid var(--border);
+  background-image: repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px var(--hour)); }
+.cal-col.is-today { background-color: var(--surface-2); }
+/* Time and title flow on one line from the top, so a half-hour block still names the meeting. */
+.cal-col .cal-item { position: absolute; margin: 0; display: flex; align-items: flex-start; white-space: normal; line-height: 1.3; min-height: 18px; box-shadow: inset 0 0 0 1px var(--surface); }
+.cal-col .cal-item.event { background: var(--surface-2); }
+.cal-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--p0); pointer-events: none; z-index: 1; }
 .cal-item.event { background: var(--surface-2); }
 .cal-item.note { background: var(--surface); font-weight: 600; }
 .cal-item.task { background: none; border-style: dashed; }
@@ -487,10 +510,12 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .bt-walk { pointer-events: none; }
 .bt-walk-casing { fill: none; stroke: var(--map-ground); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 /* Its width is set in the drawing, per zoom: the dash that draws it in needs a scaling stroke. */
-.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s var(--ease, ease-in-out) both; }
+.bt-walk-line { fill: none; stroke: var(--map-walk); stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; animation: bt-walk 4s .3s linear both; }
 .bt-walk-line.still { stroke-width: 2.4; stroke-dasharray: none; animation: none; vector-effect: non-scaling-stroke; }
 @keyframes bt-walk { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .bt-stop { fill: var(--map-walk); }
+.bt-stop-mark { animation: bt-appear .25s var(--ease, ease-out) both; }
+@keyframes bt-appear { from { opacity: 0; } }
 .bt-hill-name.here { letter-spacing: .16em; }
 .bt-place { cursor: pointer; transition: opacity .2s; }
 .bt-hit { fill: transparent; stroke: none; }
@@ -555,7 +580,7 @@ button.bt-legend-row:hover { background: var(--surface-2); }
 .bt-compass .rose { fill: none; stroke: var(--muted); stroke-width: 1; }
 .bt-compass .needle { fill: var(--text); }
 .bt-compass text { font: 700 10px var(--font-ui, inherit); fill: var(--text); }
-@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place, .bt-wood { transition: none; } .bt-walk-line, .bt-pulse, .bt-here-pulse { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bt-hill, .bt-trail, .bt-place, .bt-wood { transition: none; } .bt-walk-line, .bt-stop-mark, .bt-pulse, .bt-here-pulse { animation: none; } }
 
 /* Gantt */
 .gantt-host { background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
@@ -901,4 +926,5 @@ h2 { font-weight: 600; }
 .due-pill .due-when { font-size: 12px; font-weight: 700; color: var(--p1); }
 .due-pill.overdue .due-when { color: var(--p0); }
 .card .project { font-size: 12px; color: var(--muted); }
+.card-agent { border: 0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .card .card-bottom .id { font-size: 11px; color: var(--muted); margin: 0; }

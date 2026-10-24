@@ -278,13 +278,22 @@
 /* ---------- Calendar, notes, terminals, guide ---------- */
 [data-theme="terrain"] .cal-grid { border-radius: var(--radius-lg); background: var(--surface); }
 [data-theme="terrain"] .cal-dow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-[data-theme="terrain"] .cal-day.today .cal-num { background: var(--ochre); color: var(--moss); }
+[data-theme="terrain"] .cal-day.is-today .cal-num { background: var(--ochre); color: var(--moss); }
 [data-theme="terrain"] .cal-item { border-radius: 10px; }
 [data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
 [data-theme="terrain"] .cal-item.task { border-color: var(--muted); }
+[data-theme="terrain"] .cal-more { background: none; border-color: transparent; }
+[data-theme="terrain"] .cal-time { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .cal-col { background-image: repeating-linear-gradient(to bottom, var(--contour) 0 1px, transparent 1px var(--hour)); }
+[data-theme="terrain"] .cal-col .cal-item { border-radius: 8px; }
+[data-theme="terrain"] .cal-now { background: var(--ochre); }
+[data-theme="terrain"] .cal-hour { font-family: var(--font-mono); }
 [data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .term-tab.on { border-color: var(--text); }
+/* Calendar and dependency view switches: the buttons above drop .tab's background, so the chosen one needs its own mark. */
+[data-theme="terrain"] .view-switch .tab { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .view-switch .tab.on { background: var(--surface); border-color: var(--text); }
 [data-theme="terrain"] .gantt-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-flow { --xy-background-pattern-dots-color: var(--contour); }

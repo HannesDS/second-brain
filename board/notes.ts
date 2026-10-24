@@ -114,7 +114,7 @@ ${related || '(none)'}
 NOTE (${rel}):
 ${note.body}${meeting?.transcript ? `
 
-TRANSCRIPT (automatic, may contain errors; Dutch and English mixed):
+TRANSCRIPT (automatic, may contain errors; Dutch and English mixed; "Me:" is the user, "Others:" the other participants):
 ${meeting.transcript.slice(-60_000)}` : ''}${answers ? `
 
 THE USER ANSWERED YOUR EARLIER QUESTIONS:

@@ -75,14 +75,18 @@ export function transcribe(audio: Buffer) {
   return job
 }
 
-export async function transcribeChunk(name: string, audio: Buffer, startedAt: string) {
+// Who a clip is from: your microphone, or the call's audio (everyone else).
+export const SPEAKERS = { me: 'Me', others: 'Others' } as const
+export type Speaker = keyof typeof SPEAKERS
+
+export async function transcribeChunk(name: string, audio: Buffer, startedAt: string, speaker?: Speaker) {
   const text = await transcribe(audio)
   if (!text) return ''
   const f = transcriptPath(name)
   fs.mkdirSync(path.dirname(f), { recursive: true })
   if (!fs.existsSync(f)) fs.writeFileSync(f, `---\nmeeting: "[[${name}]]"\n---\n`)
   const stamp = new Date(startedAt || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  fs.appendFileSync(f, `\n**${stamp}** ${text}\n`)
+  fs.appendFileSync(f, `\n**${stamp}** ${speaker ? `${SPEAKERS[speaker]}: ` : ''}${text}\n`)
   return text
 }
 
