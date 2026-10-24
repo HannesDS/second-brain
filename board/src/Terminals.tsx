@@ -68,6 +68,8 @@ export function XTerm({ term }: { term: Term }) {
       cursorBlink: true,
       scrollback: 5000,
       theme: termTheme(),
+      // Claude Code and shells pick their own colours, made for one background. Keep them readable on both modes.
+      minimumContrastRatio: 4.5,
     })
     xtermRef.current = xterm
     const fit = new FitAddon()
