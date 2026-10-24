@@ -203,7 +203,7 @@ export function Chat({ project, task, clearTask, seed }: { project?: Doc; task?:
   return (
     <section className="pane chat">
       <div className="chat-head">
-        <h2>{project ? 'Chat' : 'Assistant'}</h2>
+        <h2>{project ? 'Chat' : 'Ask Claude'}</h2>
         {task && <span className="chip">about {task.name} <IconButton icon={X} label="Stop chatting about this task" onClick={clearTask} /></span>}
         <div className="spacer" />
         {task && <>
@@ -213,15 +213,15 @@ export function Chat({ project, task, clearTask, seed }: { project?: Doc; task?:
         <IconButton icon={RotateCcw} label="New chat" disabled={!!busy} onClick={() => { setMsgs([]); setSessionId(undefined) }} />
       </div>
       <div className="messages" aria-live="polite">
-        {!msgs.length && <p className="muted">{project
+        {!msgs.length && <p className="chat-intro">{project
           ? `Ask anything about ${project.data.name ?? project.name}. Claude runs in the project repo with the ${project.data.account} account. Select a task to Grill or Spar.`
-          : 'Ask anything, or drop a finding ("I just found out X, add it to portal"). The assistant sees your whole vault.'}</p>}
+          : 'Ask Claude a question or give it a job: "what is due this week?", "what did we decide with UHasselt?", "move the portal tasks to next week". It sees your whole vault and can change it. Only want to write something down? Use New thought (⌘⇧K): saved as-is, no AI, filed later.'}</p>}
         {msgs.map((m, i) => <div key={i} className={`msg ${m.role}`}>{m.text}</div>)}
         {busy && <div className="msg info">Claude is working…</div>}
         <div ref={end} />
       </div>
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(input); setInput('') }}>
-        <textarea rows={2} value={input} onChange={(e) => setInput(e.target.value)} placeholder={task ? `Message about ${task.name}…` : 'Message…'}
+        <textarea rows={2} value={input} onChange={(e) => setInput(e.target.value)} placeholder={task ? `Message about ${task.name}…` : project ? `Ask about ${project.data.name ?? project.name}…` : 'Ask Claude…'}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit() } }} />
         {busy
           ? <button type="button" onClick={() => busy.abort()}>Stop</button>

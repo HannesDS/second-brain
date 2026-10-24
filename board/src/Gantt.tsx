@@ -23,7 +23,7 @@ export default function Gantt({ tasks, projects, open, fail }: {
       const start = String(t.data.start || t.data.created || end)
       return {
         id: t.name,
-        name: `${projects[unlink(t.data.project)]?.data.name ?? unlink(t.data.project)} · ${t.data.title}`,
+        name: [projects[unlink(t.data.project)]?.data.name ?? unlink(t.data.project), t.data.title].filter(Boolean).join(' · '),
         start: start <= end ? start : end,
         end,
         progress: t.data.status === 'review' ? 80 : t.data.status === 'wip' ? 40 : 0,
@@ -43,9 +43,12 @@ export default function Gantt({ tasks, projects, open, fail }: {
   return (
     <main className="gantt-page">
       <div className="cal-head">
-        <h2>Timeline</h2>
+        {/* The top bar already says Timeline; this line says what's on it. */}
+        <span className="muted">{dated.length} {dated.length === 1 ? 'task' : 'tasks'} with a start or due date · drag a bar to replan</span>
         <div className="spacer" />
-        {MODES.map((m) => <button key={m} className={m === mode ? 'tab on' : 'tab'} onClick={() => setMode(m)}>{m}</button>)}
+        <div className="view-switch" role="group" aria-label="Scale">
+          {MODES.map((m) => <button key={m} className={m === mode ? 'tab on' : 'tab'} aria-pressed={m === mode} onClick={() => setMode(m)}>{m}</button>)}
+        </div>
       </div>
       {dated.length
         ? <div ref={host} className="gantt-host" />

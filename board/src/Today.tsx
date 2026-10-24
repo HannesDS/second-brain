@@ -1,4 +1,4 @@
-import { EyeOff, ListPlus, NotebookText, TerminalSquare } from 'lucide-react'
+import { EyeOff, ListPlus, NotebookText, Play, TerminalSquare } from 'lucide-react'
 import { IconButton } from './ui'
 import Landscape from './Landscape'
 import { useEffect, useState } from 'react'
@@ -156,7 +156,7 @@ function NewAgent({ vault, start }: { vault: Vault; start: (body: Record<string,
       <textarea rows={2} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="First instruction (optional), e.g. “Grill me on this task”" />
       <div className="row-actions">
         <span className="muted">{account ? `${account} account` : ''}</span>
-        <button type="submit" className="primary">▶ Start agent</button>
+        <button type="submit" className="primary with-icon"><Play size={14} strokeWidth={1.8} aria-hidden /> Start agent</button>
       </div>
     </form>
   )

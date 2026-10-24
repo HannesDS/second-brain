@@ -1,10 +1,13 @@
-import { Plus, X } from 'lucide-react'
+import { Plus, RotateCw, Rocket, SquareTerminal, X, type LucideIcon } from 'lucide-react'
 import { IconButton } from './ui'
 import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { api } from './lib'
+import { api, tabKind, type TabKind } from './lib'
+
+const TAB_ICON: Record<TabKind, LucideIcon> = { autopilot: Rocket, resumed: RotateCw, terminal: SquareTerminal }
+const TAB_KIND: Record<TabKind, string> = { autopilot: 'Autopilot', resumed: 'Resumed session', terminal: 'Terminal' }
 
 export type Term = { id: string; title: string; cwd: string; account: string; agent?: string; task?: string; exited: boolean; started: string }
 
@@ -23,17 +26,24 @@ export default function Terminals({ all, refresh, active, go, fail, show }: {
   return (
     <section className="pane terminals">
       <div className="term-tabs" role="tablist">
-        {terms.map((t) => (
-          <div key={t.id} role="tab" aria-selected={t.id === current?.id} className={`term-tab ${t.id === current?.id ? 'on' : ''} ${t.exited ? 'exited' : ''}`}>
-            <button className="term-tab-title" onClick={() => go(t.id)} title={`${t.cwd} · ${t.account}`}>{t.title}</button>
-            <IconButton icon={X} label={`Close ${t.title}`} onClick={() => close(t)} />
-          </div>
-        ))}
+        {terms.map((t) => {
+          const { kind: k, text } = tabKind(t.title)
+          const Icon = TAB_ICON[k]
+          const kind = TAB_KIND[k]
+          return (
+            <div key={t.id} role="tab" aria-selected={t.id === current?.id} className={`term-tab ${t.id === current?.id ? 'on' : ''} ${t.exited ? 'exited' : ''}`}>
+              <button className="term-tab-title" onClick={() => go(t.id)} title={`${text}\n${kind} · ${t.cwd} · ${t.account}`}>
+                <Icon size={14} strokeWidth={1.8} aria-label={kind} /><span className="term-tab-text">{text}</span>
+              </button>
+              <IconButton icon={X} label={`Close ${text}`} onClick={() => close(t)} />
+            </div>
+          )
+        })}
         <IconButton icon={Plus} label="Shell" showLabel onClick={shell} />
       </div>
       {current
         ? <XTerm key={current.id} term={current} />
-        : <p className="muted empty">No terminals yet. Open one from an agent (<b>open here</b>), a task (<b>▶ Start here</b>), or a project (<b>Terminal</b>).</p>}
+        : <p className="muted empty">No terminals yet. Open one from an agent in the list, from a task (<b>Start agent</b>), or with <b>Shell</b> above.</p>}
     </section>
   )
 }

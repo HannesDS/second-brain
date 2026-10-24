@@ -5,14 +5,15 @@ A walk through the workbench as Hannes, on 2026-10-22, at desktop size (1440×90
 ## How the information is organised (target)
 
 ```
-Context      All · Data Minded · Personal          (top right, filters everything)
+Context      All · Data Minded · Personal          (top of the side menu, filters everything)
 └─ Project   one project, or all                    (side menu; shown in the breadcrumb)
    └─ View   My day · Thoughts · Calendar · Board · Timeline · Agents
       └─ Item  task · thought · meeting · agent      (opens in the side peek, or in the page's own pane on Thoughts and Agents)
 ```
 
-* **The side menu chooses where you are**: a view, and optionally a project. The selected view and project are highlighted.
-* **The top bar says where you are**: `Board › Data Product Portal`. The project chip has an ✕ to go back to all projects, and opens the project overview (its tasks, chat, agents) in the peek.
+* **The side menu chooses where you are**: the context at the top, a view, and optionally a project from the project list (click it again for all projects). The selected view and project are highlighted.
+* **The top bar says where you are**: `Board › Data Product Portal`. Click the project name for its overview (tasks, chat, agents) in the peek; ✕ goes back to all projects.
+* **Thought and Ask Claude are different things**: a thought is saved as-is with no AI, and filed later. Ask Claude is a conversation that answers and can change the vault.
 * **Items open in the side peek**, unless the page has its own pane for them (a note on Notes, an agent or terminal on Agents): you keep your place. The peek closes when you switch view or project.
 * **The same words everywhere**: To do, In progress, Review, Blocked, Done. Not "WIP" on one page and "Now" on another.
 
@@ -46,3 +47,15 @@ Context      All · Data Minded · Personal          (top right, filters everyth
 * Project overview from the breadcrumb opens the peek; switching view closes it.
 * Calendar: events show at once on the second visit (feeds cached per calendar, warmed when the server starts).
 * Thoughts: newest meeting notes first.
+
+## UI sweep (2026-10-24)
+
+Walked every page at 1440×900 and 1024×768 in the Terrain theme. Fixed:
+
+* Side menu: the context is a switch at the top; "Projects" now lists projects (click to scope, + to add), not contexts.
+* Top bar: the project select is gone (the menu does it); the chip shows the scoped project, its name opens the overview.
+* Thoughts: rows show the title (not "2026-10-23 1622 …"), the date and a preview line; the open note's title has room and an ellipsis; text lines up with the title and keeps a readable width.
+* Board cards: the star is a hover action unless starred, so project names fit; ids no longer wrap; "blocked by" reads `T-0078, T-0074`, not `[[T-0078]], [[T-0074`.
+* Agents: terminal tabs scroll in one row with Lucide icons instead of 🚀 and ↻.
+* Projects: the context shows once; only non-zero counts. Timeline: no second "Timeline" title. Notion status in the menu fits and links to Integrations.
+* My day: one scoped project no longer swells into a giant hill. Text glyphs used as icons (▴▾ ■ ● ▶) are Lucide icons.
