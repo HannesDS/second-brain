@@ -9,6 +9,7 @@ import { ID, ROOT, VAULT, listDocs, nextTaskId, readDoc, today, updateDoc, write
 import { AGENTS_DIR, listAgents } from './agents'
 import { ask } from './ask'
 import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calendar'
+import { deleteCairn, recentDays, saveCairn, updateDay } from './days'
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { integrations } from './integrations'
 import { knowledgeGraph } from './graph'
@@ -53,7 +54,7 @@ async function handle(req: IncomingMessage) {
   const method = req.method
 
   if (method === 'GET') {
-    if (kind === 'data') return { root: ROOT, vault: VAULT, projects: listDocs('projects'), tasks: listDocs('tasks'), meetings: listDocs('meetings') }
+    if (kind === 'data') return { root: ROOT, vault: VAULT, projects: listDocs('projects'), tasks: listDocs('tasks'), meetings: listDocs('meetings'), cairns: listDocs('cairns'), days: recentDays() }
     if (kind === 'agents') return listAgents()
     if (kind === 'notes') return listNotes()
     if (kind === 'doc') return readDoc(vaultPath(url.searchParams.get('path') ?? ''))
@@ -105,6 +106,11 @@ async function handle(req: IncomingMessage) {
       return { id: body.data.id }
     }
     if (method === 'PUT') { updateDoc(file('projects', id), body.data, body.body); return { id } }
+  }
+  if (kind === 'days' && method === 'PUT') return updateDay(id, body)
+  if (kind === 'cairns') {
+    if (method === 'DELETE') { deleteCairn(id); return { ok: true } }
+    if (method === 'POST' || method === 'PUT') { saveCairn(id, body.data, method === 'POST'); return { id } }
   }
   if (kind === 'notes' && method === 'POST') return { path: createNote(String(body.title ?? ''), String(body.body ?? '')) }
   if (kind === 'doc' && method === 'PUT') { saveDoc(String(body.path), body.body === undefined ? undefined : String(body.body), body.data ?? {}); return { ok: true } }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Maximize, Minus, Plus, Search, Sparkles, X } from 'lucide-react'
-import { BLOB } from './Landscape'
 import { step } from './combobox'
 import {
   KINDS, citeParts, edgeState, filterGraph, hillBox, mapOf, nodeState, smoothPath, timedStops, unfiled, walkOf,
@@ -12,6 +11,8 @@ import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, isActive, todayISO, type Agent, 
 
 type View = { x: number; y: number; k: number }
 type PlaceKind = Exclude<Kind, 'project'>
+// A hill's outline: a slightly uneven blob, scaled per contour.
+const BLOB = 'M0,-100 C58,-102 106,-58 100,2 C95,64 48,98 -4,100 C-62,102 -108,54 -100,-4 C-93,-60 -54,-98 0,-100Z'
 const MIN_K = 0.12
 const MAX_K = 4
 // Below this zoom a place shows its name only when you point at it, pick it, or it is on a trail from there.

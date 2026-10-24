@@ -272,7 +272,7 @@ export default function App() {
           <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
           <IconButton icon={Sparkles} label="Ask Claude" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
-        {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
+        {page === 'today' && <Today vault={view} tasks={view.tasks} context={context} act={act} fail={fail} flash={flash} prep={prep} meetingNote={meetingNote}
           board={<><div className="board-tools"><ViewSwitch graph={graph} set={setGraph} />
             {!graph && <div className="search"><input type="search" value={dayQuery} placeholder="Find a card…" aria-label="Find a card on your board" onChange={(e) => setDayQuery(e.target.value)} /></div>}</div>
             {graph ? deps

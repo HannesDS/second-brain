@@ -6,7 +6,7 @@ Switch with the mountain button in the top bar. The choice is stored in `localSt
 - Tokens and the Classic look: `board/src/styles.css`
 - The Terrain theme: `board/src/terrain.css` (everything scoped to `<html data-theme="terrain">`)
 - Theme and mode hooks: `board/src/theme.ts`, used in `App.tsx`; the mode switch is `ModeSwitch` in `board/src/ui.tsx`
-- Signature view: `board/src/Landscape.tsx` (My day, Terrain only)
+- Signature view: the trail, `board/src/Trail.tsx` and `board/src/Cairns.tsx` on My day (logic in `board/src/day.ts`)
 - Fonts: `board/public/fonts/` (Bricolage Grotesque, DM Mono, both OFL; local, no CDN)
 - Browsable reference with tokens and component previews: https://claude.ai/artifact/8v6GL9j3nCizf2V8orR9Li
 
@@ -46,7 +46,7 @@ styled with them works in every theme.
 - Status fills: `--st-todo`, `--st-wip`, `--st-review`, `--st-blocked`, `--st-done`, plus `--st-wip-ink`, `--st-review-ink` for text
 - Context: `--ctx-dm`, `--ctx-personal`
 - Map (Brain Terrain only): `--map-*`, the survey palette in docs/MAP-STYLE.md. Terrain sets them on `.bt-page`, Moss in light and dark mode.
-- Shape: `--radius` (14), `--radius-lg` (22), `--radius-pill`
+- Shape: one radius scale, and every `border-radius` uses it (no px, % or em in rules): `--radius-sm` (8: chips, tags, small controls), `--radius` (14: buttons, inputs, cards), `--radius-md` (18: board cards), `--radius-lg` (22: columns, big cards), `--radius-xl` (28: dialogs, peek edge), `--radius-pill`, `--radius-round` (dots), `--radius-pebble` (primary buttons, slightly uneven). Classic sets the same names smaller (4, 6, 8, 12, 12)
 - Depth: `--shadow`, `--shadow-lift` (hover, selected), `--shadow-float` (peek, drawer)
 - Type: `--font-ui` (Bricolage Grotesque), `--font-mono` (DM Mono)
 - Motion: `--spring` `cubic-bezier(.34,1.56,.64,1)`, `--ease` `cubic-bezier(.4,0,.2,1)`
@@ -121,15 +121,29 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
 | Agent row | `.agent` | Status dot on the left. Waiting = glacier ring that breathes |
 | Peek and drawer | `.peek`, `.drawer` | Rounded left edge (28), slides in with a spring |
 | Toast | `.toast` | Moss pill, pops in |
+| Foldable section | `Fold` in `ui.tsx` | Chevron before the heading; folded shows a one-line summary. Remembered per section (`sb.fold.<id>`) |
 
-## Signature view: the landscape
+## Signature view: the trail
 
-`Landscape.tsx` on My day. One hill per active project with open work, the largest first (max 7).
+`Trail.tsx` on My day, in every theme. The day as a line from 08:00 to 18:00 (wider when a meeting falls outside).
 
-- Size: open task count (square root, so one big project doesn't flatten the rest)
-- Rings, from peak outwards: blocked, in progress, review, to do
-- Ochre peak: the project has p0 or p1 work
-- Click or Enter: opens the project overview
+- Meetings: fixed pills on the line, positioned by time. Click opens or starts the meeting note
+- Open stretches: gaps of 30 minutes or more, dashed cards under the line. Click opens "Choose your way": a kind of work
+  (Deep, Light, Rest), then a task in progress or review, one that is due soon, or a project as a ring chip
+- A chosen stretch shows the task with its status marker. The stretch you are in now gets the ochre field
+- Now: an ochre line with "Now HH:MM". Before it the line is solid (walked), after it dashed
+- Terrain draws the line as a path that winds a few pixels, over faint contour lines and two low hills in the card; Classic keeps it straight
+- Cairns on the line: at a time with a label above, or a small lichen marker right after each meeting
+- Stored in `vault/days/YYYY-MM-DD.md` frontmatter: `ways` (by stretch start) and `cairns` (done or a count)
+
+### Cairns
+
+`Cairns.tsx`. Small habits that come back on a schedule, one file each in `vault/cairns/<slug>.md`.
+
+- One card per cairn due today: icon, name, schedule, detail, glacier pips for counts, seven week dots
+  (done lichen, missed outline, today ring, future dashed), one action (Start, +1, Mark done). Done cards go quiet on surface-2
+- Breathe: the timer draws three contour rings that grow and shrink (in 4, hold 4, out 4, hold 4). Reduced motion keeps them still
+- A meeting ending pops a toast for "after each meeting" cairns; a cairn with `nudge: true` also sends a browser notification
 
 ## Brain Terrain: the vault as a map
 
