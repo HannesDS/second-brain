@@ -1,5 +1,5 @@
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
-import type { KeyboardEvent, MouseEvent } from 'react'
+import { useEffect, type KeyboardEvent, type MouseEvent } from 'react'
 import { MODES, MODE_LABEL, type Mode } from './theme'
 
 // One button style for every small action: a Lucide icon, the label as tooltip and for screen readers,
@@ -53,4 +53,13 @@ export function ModeSwitch({ mode, set }: { mode: Mode; set: (m: Mode) => void }
       })}
     </div>
   )
+}
+
+// Escape closes a dialog. It listens first (capture) and stops there, so a peek open underneath stays open.
+export function useEscape(close: () => void) {
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [close])
 }

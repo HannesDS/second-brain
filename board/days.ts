@@ -55,11 +55,17 @@ export function updateDay(date: string, patch: DayPatch) {
   return data
 }
 
+// The fields the form owns: it leaves out the ones a cairn doesn't use, so those go on an edit.
+const CAIRN_FIELDS = ['name', 'kind', 'target', 'minutes', 'days', 'at', 'after', 'context', 'nudge']
+
 export function saveCairn(slug: string, data: Record<string, unknown>, isNew: boolean) {
   const f = cairnFile(slug)
   if (isNew && fs.existsSync(f)) throw new Error(`a cairn called ${slug} already exists`)
-  // Notes written below the frontmatter by hand survive an edit.
-  writeDoc(f, data, fs.existsSync(f) ? readDoc(f).body : '')
+  // Fields and notes added by hand survive an edit.
+  const old = fs.existsSync(f) ? readDoc(f) : { data: {}, body: '' }
+  if ('error' in old && old.error) throw new Error(`${slug}.md has invalid frontmatter: ${old.error}`)
+  const kept = Object.fromEntries(Object.entries(old.data).filter(([k]) => !CAIRN_FIELDS.includes(k)))
+  writeDoc(f, { ...data, ...kept }, old.body)
 }
 
 export function deleteCairn(slug: string) {

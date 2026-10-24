@@ -49,9 +49,9 @@ test('recent days lists the last week of day files that exist', () => {
 test('cairns are saved, edited with their notes kept, and deleted', () => {
   saveCairn('breathe', { name: 'Breathe', kind: 'timer', minutes: 3 }, true)
   expect(() => saveCairn('breathe', { name: 'Breathe' }, true)).toThrow(/already exists/)
-  fs.appendFileSync(path.join(scratch, 'cairns', 'breathe.md'), 'Sit by the window.\n')
+  fs.writeFileSync(path.join(scratch, 'cairns', 'breathe.md'), '---\nname: Breathe\nkind: timer\nminutes: 3\nat: "08:30"\nplace: window\n---\nSit by the window.\n')
   saveCairn('breathe', { name: 'Breathe', kind: 'timer', minutes: 5 }, false)
-  expect(readDoc(path.join(scratch, 'cairns', 'breathe.md'))).toEqual({ data: { name: 'Breathe', kind: 'timer', minutes: 5 }, body: 'Sit by the window.\n' })
+  expect(readDoc(path.join(scratch, 'cairns', 'breathe.md'))).toEqual({ data: { name: 'Breathe', kind: 'timer', minutes: 5, place: 'window' }, body: 'Sit by the window.\n' })
   deleteCairn('breathe')
   expect(fs.existsSync(path.join(scratch, 'cairns', 'breathe.md'))).toBe(false)
 })

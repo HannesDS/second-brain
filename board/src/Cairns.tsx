@@ -1,7 +1,7 @@
 import { Activity, Check, CircleDot, Droplet, Moon, Pencil, Plus, Trash2, Wind, X, type LucideIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { stringify } from 'yaml'
-import { IconButton } from './ui'
+import { IconButton, useEscape } from './ui'
 import {
   CAIRN_KINDS, WEEKDAYS, cairnData, goalOf, isDone, scheduleOf, slugOf, weekDots,
   type Cairn, type CairnKind,
@@ -67,7 +67,7 @@ export function Cairns({ cairns, log, days, meetings, now, running, tick, add, s
                   {weekDots(c, now, days, meetings).map((d) => <span key={d.date} role="listitem" className={`week-dot ${d.state}`} title={d.label} aria-label={d.label} />)}
                 </div>
                 {!timer && <button type="button" className={ok ? 'cairn-done' : 'primary'} onClick={action.run} title={ok ? 'Undo' : undefined}>
-                  {ok && <Check size={14} strokeWidth={2} aria-hidden />}{action.label}
+                  {ok && <Check size={14} strokeWidth={1.8} aria-hidden />}{action.label}
                 </button>}
               </div>
             </article>
@@ -108,11 +108,7 @@ const CONTEXT_LABEL = { all: 'All', dm: 'Data Minded', personal: 'Personal' } as
 export function CairnForm({ cairn, taken, save, close }: { cairn?: Cairn; taken: string[]; save: (slug: string, data: Record<string, unknown>, isNew: boolean) => void; close: () => void }) {
   const [d, setD] = useState<Draft>(cairn ?? BLANK)
   const set = (patch: Partial<Draft>) => setD({ ...d, ...patch })
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [close])
+  useEscape(close)
   const when = d.after ? 'trail' : d.days === 'daily' ? 'daily' : 'days'
   const slug = cairn?.slug ?? slugOf(d.name)
   const clash = !cairn && taken.includes(slug)

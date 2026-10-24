@@ -22,6 +22,8 @@ export type Actions = {
   write: (p: string) => void
 }
 
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
 // A browser notification, only when you allowed them; the toast shows either way.
 const notify = (text: string) => { try { if (Notification.permission === 'granted') new Notification(text) } catch { /* no Notification API */ } }
 
@@ -65,7 +67,8 @@ export default function Today({ vault, tasks, context, act, fail, flash, prep, m
   const span = trailSpan([...timed, ...loose])
   const stretches = openStretches(timed, span)
   const minute = minuteOf(now)
-  const cairns = vault.cairns.map(cairnOf).filter((c) => isDue(c, now) && cairnInContext(context, c))
+  // A cairn tied to meetings has nothing to follow on a day without them.
+  const cairns = vault.cairns.map(cairnOf).filter((c) => isDue(c, now) && cairnInContext(context, c) && (!c.after || timed.length > 0))
     .sort((a, b) => (cairnMarks(a, timed)[0] ?? 24 * 60) - (cairnMarks(b, timed)[0] ?? 24 * 60))
 
   // Nudges: a cairn's time comes, or a meeting ends that a cairn follows. Checked on each tick for what happened
@@ -105,7 +108,7 @@ export default function Today({ vault, tasks, context, act, fail, flash, prep, m
       <div className="today-head">
         <div>
           <p className="today-date">{now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          <p className="today-sum">{timed.length} meetings · {stretches.length} open stretches · {cairns.length} cairns</p>
+          <p className="today-sum">{plural(timed.length, 'meeting')} · {plural(stretches.length, 'open stretch', 'open stretches')} · {plural(cairns.length, 'cairn')}</p>
         </div>
         {planFrom && <IconButton icon={Mountain} label="Plan my way" showLabel primary onClick={() => setChoosing(planFrom)} />}
       </div>

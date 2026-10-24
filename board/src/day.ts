@@ -15,7 +15,7 @@ export const MIN_STRETCH = 30
 
 export const minuteOf = (d: Date) => d.getHours() * 60 + d.getMinutes()
 export const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-export const length = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}` : `${m} min`)
+export const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}` : `${m} min`)
 
 // Timed meetings of the day, clipped to it: one that started yesterday begins at 00:00.
 export function meetingSpans(events: CalEvent[], day: Date): (Span & { event: CalEvent })[] {
@@ -91,7 +91,7 @@ export const cairnInContext = (context: string, c: Cairn) => !context || c.conte
 
 // How many ticks make the day: a count's target, one per meeting for "after each meeting", else one.
 export const goalOf = (c: Cairn, meetings: number) => (c.after === 'meeting' ? meetings : c.kind === 'count' ? c.target : 1)
-// A day's log value: `done`, or how many times. A past day's meeting count is unknown, so any stretch counts there.
+// A day's log value: `done`, or how many times. A past day's meeting count is unknown, so any tick counts there.
 export function isDone(c: Cairn, value: unknown, goal: number) {
   if (value === 'done' || value === true) return true
   const n = Number(value) || 0

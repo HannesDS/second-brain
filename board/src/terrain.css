@@ -246,7 +246,7 @@
 /* ---------- My day ---------- */
 [data-theme="terrain"] .today { gap: 10px; padding: 20px 28px 40px; }
 [data-theme="terrain"] .today-date { font-size: 40px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; color: var(--text); margin: 6px 0 2px; }
-[data-theme="terrain"] :is(.today > section > h3, .today .mini-col > h3, .pane h3) { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; }
+[data-theme="terrain"] :is(.today > section > h3, .today .section-head > h3, .today .mini-col > h3, .pane h3) { font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; }
 [data-theme="terrain"] .cal-item.event[class*="cal-"] { border-left-width: 3px; }
 [data-theme="terrain"] .due-pill { border-radius: var(--radius-pill); padding: 6px 14px; }
 [data-theme="terrain"] .due-pill .due-when { color: var(--p1); }
@@ -266,7 +266,6 @@
 [data-theme="terrain"] :is(.way-option, .hill-chip) { transition: border-color .15s, background .15s; }
 [data-theme="terrain"] .way-option { border-radius: 16px; }
 [data-theme="terrain"] .way-text .time { font-family: var(--font-mono); }
-[data-theme="terrain"] .frontmatter { font-family: var(--font-mono); }
 [data-theme="terrain"] .marker { width: 12px; height: 12px; border-radius: 0; clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
 [data-theme="terrain"] .marker.todo { clip-path: circle(30% at 50% 60%); }
 [data-theme="terrain"] :is(.today-head .ib.primary, .cairn-foot .primary) { border-radius: 16px 13px 17px 12px; }

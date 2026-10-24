@@ -1,9 +1,9 @@
 import { Check, ListPlus, Mountain, NotebookText, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { IconButton } from './ui'
+import { useState } from 'react'
+import { IconButton, useEscape } from './ui'
 import { LABELS, URGENT, columnOf, hillRings, prioLabel, unlink, urgency, type Doc } from './lib'
 import {
-  WAY_KINDS, cairnMarks, goalOf, hhmm, isDone, length, projectName, wayTitle,
+  WAY_KINDS, cairnMarks, duration, goalOf, hhmm, isDone, projectName, wayTitle,
   type CalEvent, type Cairn, type Span, type Stretch, type Way,
 } from './day'
 
@@ -38,7 +38,7 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
             <div key={m.event?.id ?? m.title} className={`trail-meeting clickable ${m.event ? `cal-${(m.event.calendar ?? 0) % 4}` : 'note-only'}`}
               style={{ left: x(m.start), width: w(m) }} role="button" tabIndex={0} title={`${hhmm(m.start)} ${m.title}\n${m.note ? 'Open meeting notes' : 'Start meeting notes'}`}
               onClick={() => openMeeting(m)} onKeyDown={(k) => k.key === 'Enter' && openMeeting(m)}>
-              <span className="time">{hhmm(m.start)}{m.note && <NotebookText size={12} className="note-mark" aria-label="Has notes" />}</span>
+              <span className="time">{hhmm(m.start)}{m.note && <NotebookText size={12} strokeWidth={1.8} className="note-mark" aria-label="Has notes" />}</span>
               <span className="trail-meeting-title">{m.title}</span>
               {m.event && <span className="hover-actions"><IconButton icon={ListPlus} label="Add a prep todo" stop onClick={() => prep(m.title)} /></span>}
             </div>
@@ -68,7 +68,7 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
               return marks.map((at, i) => (
                 <span key={`${c.slug}-${i}`} className={`trail-cairn small ${i < n ? 'done' : ''}`} style={{ left: `calc(${x(at)} + 12px)` }}
                   role="img" aria-label={`${c.name} after meeting ${i + 1}${i < n ? ': done' : ''}`} title={`${c.name}, after ${timed[i]?.title ?? 'a meeting'}`}>
-                  {i < n && <Check size={10} strokeWidth={2.6} aria-hidden />}
+                  {i < n && <Check size={10} strokeWidth={1.8} aria-hidden />}
                 </span>
               ))
             }
@@ -77,7 +77,7 @@ export function Trail({ span, now, meetings, stretches, ways, cairns, log, tasks
               <span key={c.slug} className="trail-cairn-at" style={{ left: x(at) }}>
                 <span className="trail-cairn-label"><span className="time">{hhmm(at)}</span><span>{c.name}</span></span>
                 <span className={`trail-cairn ${done ? 'done' : ''}`} role="img" aria-label={`${c.name}${done ? ': done' : ''}`}>
-                  {done && <Check size={12} strokeWidth={2.4} aria-hidden />}
+                  {done && <Check size={12} strokeWidth={1.8} aria-hidden />}
                 </span>
               </span>
             ))
@@ -116,11 +116,7 @@ export function ChooseWay({ stretch, way, tasks, projects, save, close }: {
 }) {
   const [kind, setKind] = useState<Way['kind']>(way?.kind ?? 'deep')
   const [pick, setPick] = useState<{ task?: string; project?: string }>({ task: way?.task, project: way?.project })
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [close])
+  useEscape(close)
 
   const open = tasks.filter((t) => t.data.status !== 'done')
   const going = open.filter((t) => ['wip', 'review'].includes(t.data.status))
@@ -136,7 +132,7 @@ export function ChooseWay({ stretch, way, tasks, projects, save, close }: {
         <Marker t={t} />
         <span className="way-text"><span className="way-title">{t.data.title ?? t.name}</span><span className="time">{meta}</span></span>
         {URGENT.includes(t.data.priority) && <span className={`prio ${t.data.priority}`}>{prioLabel(t.data.priority)}</span>}
-        {on && <Check size={16} strokeWidth={2} aria-label="Selected" />}
+        {on && <Check size={16} strokeWidth={1.8} aria-label="Selected" />}
       </button>
     )
   }
@@ -146,7 +142,7 @@ export function ChooseWay({ stretch, way, tasks, projects, save, close }: {
       <div className="popover choose-way" role="dialog" aria-label="Choose your way">
         <div className="choose-head">
           <div>
-            <span className="time eyebrow">Open stretch · {hhmm(stretch.start)} – {hhmm(stretch.end)} · {length(stretch.end - stretch.start)}</span>
+            <span className="time eyebrow">Open stretch · {hhmm(stretch.start)} – {hhmm(stretch.end)} · {duration(stretch.end - stretch.start)}</span>
             <h2>Choose your way</h2>
             <p className="muted">{between}</p>
           </div>

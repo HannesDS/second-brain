@@ -1054,7 +1054,7 @@ h2 { font-weight: 600; }
 .marker { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); display: inline-block; }
 .marker.wip { background: var(--st-wip-ink); }
 .marker.review { background: var(--st-review-ink); }
-.marker.blocked { background: var(--p0); }
+.marker.blocked { background: var(--st-blocked); }
 .marker.done { background: var(--text); }
 
 /* Choose your way, Add a cairn */
@@ -1067,7 +1067,7 @@ h2 { font-weight: 600; }
 .segmented { display: inline-flex; align-self: flex-start; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
 .segmented button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--muted); }
 .segmented button:hover { background: none; color: var(--text); }
-.segmented button.on { background: var(--toggle-on); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 12%); }
+.segmented button.on { background: var(--toggle-on); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
 .way-option { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .way-option.on { border: 1.5px solid var(--highlight); background: var(--highlight-soft); }
 .way-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
@@ -1097,7 +1097,7 @@ h2 { font-weight: 600; }
 .form-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .check-line { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
 .check-line input { width: 18px; height: 18px; margin: 0; accent-color: var(--text); }
-.frontmatter { margin: 0; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.frontmatter { margin: 0; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); font: 12px/1.6 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); white-space: pre-wrap; }
 
 /* ---------- My day: cairns ---------- */
 .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1134,6 +1134,6 @@ h2 { font-weight: 600; }
 .breathe { position: relative; width: 64px; height: 64px; flex: none; }
 .breathe-ring { position: absolute; inset: 0; border-radius: 50%; border: 1.6px solid var(--st-wip-ink); animation: breathe 16s var(--ease, ease-in-out) infinite; }
 .breathe-ring.r2 { inset: 12px; border-color: var(--st-review); }
-.breathe-ring.r3 { inset: 24px; border-color: var(--contour-strong); background: var(--highlight); }
+.breathe-ring.r3 { inset: 24px; border-color: var(--st-wip-ink); background: var(--st-wip); }
 @keyframes breathe { 0%, 100% { transform: scale(.55); } 25%, 50% { transform: scale(1); } 75% { transform: scale(.55); } }
 @media (prefers-reduced-motion: reduce) { .breathe-ring { animation: none; } }
