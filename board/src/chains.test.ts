@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest'
-import { blockersOf } from '../queue'
-import { chainOf, edgesOf, laneOf, layers, layout, linked, parentOf } from './chains'
+import { blockersOf, chainOf, edgesOf, laneOf, layers, layout, linked, parentOf } from './chains'
 
 const task = (name: string, blocked_by = '', body = '') => ({ name, data: { status: 'todo', blocked_by }, body })
 const names = (ts: { name: string }[]) => ts.map((t) => t.name)

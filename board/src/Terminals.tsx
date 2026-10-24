@@ -1,25 +1,23 @@
 import { Plus, X } from 'lucide-react'
 import { IconButton } from './ui'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { api } from './lib'
 
-export type Term = { id: string; title: string; cwd: string; account: string; exited: boolean; started: string }
+export type Term = { id: string; title: string; cwd: string; account: string; agent?: string; task?: string; exited: boolean; started: string }
 
 // Terminal tabs. Each tab is a real shell (often `claude --resume …`) that keeps running when you leave the page.
-export default function Terminals({ active, go, fail, show }: {
-  active?: string; go: (id: string) => void; fail: (e: Error) => void; show: (t: Term) => boolean
+// The list comes from the app, which also links each agent to its tab.
+export default function Terminals({ all, refresh, active, go, fail, show }: {
+  all: Term[]; refresh: () => Promise<unknown>; active?: string; go: (id: string) => void; fail: (e: Error) => void; show: (t: Term) => boolean
 }) {
-  const [all, setTerms] = useState<Term[]>([])
   // Tabs outside the current context are hidden, except the one you just opened.
   const terms = all.filter((t) => t.id === active || show(t))
-  const refresh = () => api('terminals').then(setTerms, fail)
-  useEffect(() => { refresh() }, [active])
   const current = terms.find((t) => t.id === active) ?? terms[0]
 
-  const close = (t: Term) => api(`terminals/${t.id}`, 'DELETE').then(() => { refresh(); if (t.id === current?.id) go('') }, fail)
+  const close = (t: Term) => api(`terminals/${t.id}`, 'DELETE').then(() => { refresh().catch(fail); if (t.id === current?.id) go('') }, fail)
   const shell = () => api('terminals', 'POST', { kind: 'shell' }).then(({ id }) => go(id), fail)
 
   return (

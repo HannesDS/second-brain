@@ -1,7 +1,8 @@
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, NotebookText, Square, X } from 'lucide-react'
 import { IconButton } from './ui'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { api, unlink, type Doc, type Vault } from './lib'
+import { blocks, daysOf, heading, onDay, step, VIEWS, type CalView } from './calendarView'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string; calendar: number; label: string }
 type Feed = { index: number; label: string; host: string }
@@ -9,13 +10,18 @@ type Feed = { index: number; label: string; host: string }
 type Picked = { title: string; date: string; time: string; free?: boolean }
 
 const iso = (d: Date) => d.toLocaleDateString('sv')
+const clock = (s: string) => new Date(s).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const MONTH_ITEMS = 3 // per day in the month view; more folds into "+N more", which opens the day
+const HOUR = 48 // px per hour on the week and day grid
+const FIRST_HOUR = 7 // the hour grid opens just above it; earlier hours are a scroll up
 
-// Month view like Notion's meeting-notes calendar: events, meeting notes and due tasks per day.
+// Like Notion's meeting-notes calendar: events, meeting notes and due tasks per day, by month, week or day.
 export default function Calendar({ vault, tasks, open, write, prep, meetingNote, fail }: {
   vault: Vault; tasks: Doc[]; open: (d: Doc) => void; write: (p: string) => void
   prep: (title: string, date: string, prefix?: string) => void; meetingNote: (title: string, date: string, time?: string) => void; fail: (e: Error) => void
 }) {
-  const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d })
+  const [view, setView] = useState<CalView>('month')
+  const [anchor, setAnchor] = useState(() => new Date())
   const [events, setEvents] = useState<CalEvent[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -23,65 +29,99 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
   const [feedsOpen, setFeedsOpen] = useState(false)
   const [reload, setReload] = useState(0)
 
-  // Grid from the Monday on/before the 1st, 6 weeks.
-  const first = new Date(month)
-  first.setDate(1 - ((month.getDay() + 6) % 7))
-  const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(first); d.setDate(first.getDate() + i); return d })
+  const days = daysOf(view, anchor)
 
   useEffect(() => {
-    const to = new Date(days[41]); to.setDate(to.getDate() + 1)
+    const to = new Date(days[days.length - 1]); to.setDate(to.getDate() + 1)
+    let live = true // switching fast: only the last range's answer lands
     setLoading(true)
     api(`calendar?from=${days[0].toISOString()}&to=${to.toISOString()}`)
-      .then((r) => { setEvents(r.events); setError(r.error) }, fail)
-      .finally(() => setLoading(false))
-  }, [month, reload])
+      .then((r) => { if (live) { setEvents(r.events); setError(r.error) } }, fail)
+      .finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [iso(days[0]), view, reload]) // the first day and the view fix the range; a new anchor inside it doesn't refetch
 
-  const shift = (n: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1))
+  const closeFeeds = () => { setFeedsOpen(false); setReload((n) => n + 1) }
+  // Escape closes the popover on top: the calendars dialog, else the picked day or event.
+  // It listens first (capture) and stops there, so a peek open underneath stays open.
+  useEffect(() => {
+    if (!picked && !feedsOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      if (feedsOpen) closeFeeds()
+      else setPicked(undefined)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [picked, feedsOpen])
+
   const today = iso(new Date())
+  const openDay = (d: Date) => { setView('day'); setAnchor(d) }
+  const pickFree = (date: string, time = '') => setPicked({ title: '', date, time, free: true })
+  // A click on the cell itself (or its date), not on one of its items.
+  const onEmpty = (date: string) => (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) pickFree(date)
+  }
+
+  const eventItem = (e: CalEvent, date: string, style?: CSSProperties) => (
+    <button key={e.id} className={`cal-item event cal-${e.calendar % 4}`} style={style} title={`${e.title} (${e.label})`}
+      onClick={() => setPicked({ title: e.title, date, time: e.allDay ? 'all day' : clock(e.start) })}>
+      <span>{!e.allDay && <span className="time">{clock(e.start)}</span>} {e.title}</span>
+    </button>
+  )
+  // Meeting notes and due tasks have no length, so they sit with the all-day events.
+  const undated = (date: string) => [
+    ...vault.meetings.filter((m) => String(m.data.date) === date).map((m) => (
+      <button key={m.name} className="cal-item note" title={m.name} onClick={() => write(`meetings/${m.name}.md`)}>
+        <NotebookText size={12} strokeWidth={1.8} aria-hidden /> {m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}
+      </button>
+    )),
+    ...tasks.filter((t) => t.data.due === date && t.data.status !== 'done').map((t) => (
+      <button key={t.name} className={`cal-item task ${t.data.priority}`} title={t.data.title} onClick={() => open(t)}>
+        <Square size={12} strokeWidth={1.8} aria-hidden /> {t.data.title}
+      </button>
+    )),
+  ]
 
   return (
     <main className="calendar">
       <div className="cal-head">
-        <h2>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>
+        <h2>{heading(view, anchor)}</h2>
         <div className="spacer" />
+        <div className="view-switch" role="group" aria-label="Show">
+          {VIEWS.map((v) => <button key={v} className={v === view ? 'tab on' : 'tab'} aria-pressed={v === view} onClick={() => setView(v)}>{v[0].toUpperCase() + v.slice(1)}</button>)}
+        </div>
         <button onClick={() => setFeedsOpen(true)}>Calendars</button>
-        <IconButton icon={ChevronLeft} label="Previous month" onClick={() => shift(-1)} />
-        <button onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) }}>Today</button>
-        <IconButton icon={ChevronRight} label="Next month" onClick={() => shift(1)} />
+        <IconButton icon={ChevronLeft} label={`Previous ${view}`} onClick={() => setAnchor((a) => step(view, a, -1))} />
+        <button onClick={() => setAnchor(new Date())}>Today</button>
+        <IconButton icon={ChevronRight} label={`Next ${view}`} onClick={() => setAnchor((a) => step(view, a, 1))} />
       </div>
       {loading && <p className="muted">Loading your calendars…</p>}
       {error && <p className="muted">{error}</p>}
-      <div className="cal-grid">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div key={d} className="cal-dow">{d}</div>)}
-        {days.map((d) => {
-          const key = iso(d)
-          const evs = events.filter((e) => iso(new Date(e.start)) === key)
-          const notes = vault.meetings.filter((m) => String(m.data.date) === key)
-          const due = tasks.filter((t) => t.data.due === key && t.data.status !== 'done')
-          return (
-            <div key={key} title="Click an empty spot to add a meeting note or task" onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('cal-num')) setPicked({ title: '', date: key, time: '', free: true }) }} className={`cal-day ${d.getMonth() !== month.getMonth() ? 'other' : ''} ${key === today ? 'today' : ''}`}>
-              <div className="cal-num">{d.getDate()}</div>
-              {evs.map((e) => (
-                <button key={e.id} className={`cal-item event cal-${e.calendar % 4}`} title={`${e.title} (${e.label})`}
-                  onClick={() => setPicked({ title: e.title, date: key, time: e.allDay ? 'all day' : new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) })}>
-                  {!e.allDay && <span className="time">{new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>} {e.title}
-                </button>
-              ))}
-              {notes.map((m) => (
-                <button key={m.name} className="cal-item note" title={m.name} onClick={() => write(`meetings/${m.name}.md`)}>
-                  🗒 {m.name.replace(/^\d{4}-\d{2}-\d{2} /, '')}
-                </button>
-              ))}
-              {due.map((t) => (
-                <button key={t.name} className={`cal-item task ${t.data.priority}`} title={t.data.title} onClick={() => open(t)}>
-                  ☐ {t.data.title}
-                </button>
-              ))}
-            </div>
-          )
-        })}
-      </div>
-      {feedsOpen && <Feeds close={() => { setFeedsOpen(false); setReload((n) => n + 1) }} fail={fail} />}
+      {view === 'month'
+        ? <div className="cal-grid">
+            {days.slice(0, 7).map((d) => <div key={d.getDay()} className="cal-dow">{d.toLocaleDateString('en-GB', { weekday: 'short' })}</div>)}
+            {days.map((d) => {
+              const key = iso(d)
+              const items = [...events.filter((e) => onDay(e, d)).map((e) => eventItem(e, key)), ...undated(key)]
+              const shown = items.length > MONTH_ITEMS ? items.slice(0, MONTH_ITEMS - 1) : items
+              return (
+                <div key={key} title="Click an empty spot to add a meeting note or task" onClick={onEmpty(key)} className={`cal-day ${d.getMonth() !== anchor.getMonth() ? 'other' : ''} ${key === today ? 'is-today' : ''}`}>
+                  <div className="cal-num">{d.getDate()}</div>
+                  {shown}
+                  {shown.length < items.length && <button className="cal-more" onClick={() => openDay(d)}>+{items.length - shown.length} more</button>}
+                </div>
+              )
+            })}
+          </div>
+        : <Hours days={days} today={today} openDay={view === 'week' ? openDay : undefined} pickFree={pickFree} onEmpty={onEmpty}
+            allDay={(key) => [...events.filter((e) => e.allDay && onDay(e, new Date(`${key}T00:00`))).map((e) => eventItem(e, key)), ...undated(key)]}
+            timed={(d) => blocks(events.filter((e) => !e.allDay), d).map((b) => eventItem(b.item, iso(d), {
+              top: b.top / 60 * HOUR, height: b.height / 60 * HOUR,
+              left: `${b.lane / b.lanes * 100}%`, width: `${100 / b.lanes}%`,
+            }))} />}
+      {feedsOpen && <Feeds close={closeFeeds} fail={fail} />}
       {picked && (
         <>
           <div className="scrim" onClick={() => setPicked(undefined)} />
@@ -94,7 +134,7 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
             {picked.free && <label className="muted">Time <input type="time" value={picked.time} onChange={(e) => setPicked({ ...picked, time: e.target.value })} /></label>}
             {(() => {
               const note = vault.meetings.find((m) => String(m.data.date) === picked.date && m.name.toLowerCase().endsWith(picked.title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
-              return note ? <p><button className="link" onClick={() => { write(`meetings/${note.name}.md`); setPicked(undefined) }}>🗒 Open the notes for this meeting</button></p> : null
+              return note ? <p><button className="link" onClick={() => { write(`meetings/${note.name}.md`); setPicked(undefined) }}><NotebookText size={14} strokeWidth={1.8} aria-hidden /> Open the notes for this meeting</button></p> : null
             })()}
             <div className="row-actions">
               <button disabled={!picked.title.trim()} onClick={() => { prep(picked.title, picked.date, picked.free ? '' : undefined); setPicked(undefined) }}>{picked.free ? '+ Task due this day' : '+ Prep todo'}</button>
@@ -104,6 +144,51 @@ export default function Calendar({ vault, tasks, open, write, prep, meetingNote,
         </>
       )}
     </main>
+  )
+}
+
+// Week and day: a gutter of hours with each day's timed events placed on it, and the rest of the day above.
+function Hours({ days, today, openDay, pickFree, onEmpty, allDay, timed }: {
+  days: Date[]; today: string; openDay?: (d: Date) => void; pickFree: (date: string, time?: string) => void
+  onEmpty: (date: string) => (e: React.MouseEvent) => void; allDay: (date: string) => ReactNode[]; timed: (d: Date) => ReactNode[]
+}) {
+  const body = useRef<HTMLDivElement>(null)
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => { body.current?.scrollTo({ top: FIRST_HOUR * HOUR - HOUR / 2 }) }, [])
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t) }, [])
+  // An empty spot on the grid: a note or task at that half hour.
+  const pickAt = (date: string) => (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return
+    const half = Math.floor((e.nativeEvent.offsetY / HOUR) * 2)
+    pickFree(date, `${String(Math.floor(half / 2)).padStart(2, '0')}:${half % 2 ? '30' : '00'}`)
+  }
+  const style = { '--days': days.length, '--hour': `${HOUR}px` } as CSSProperties
+  return (
+    <div className="cal-time" style={style}>
+      <div className="cal-time-head">
+        <div className="cal-gutter" />
+        {days.map((d) => (
+          <div key={iso(d)} className={`cal-dow ${iso(d) === today ? 'is-today' : ''}`}>
+            {openDay
+              ? <button className="link" title="Show this day" onClick={() => openDay(d)}>{d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })}</button>
+              : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })}
+          </div>
+        ))}
+        <div className="cal-gutter muted">all day</div>
+        {days.map((d) => <div key={iso(d)} className="cal-day cal-allday" title="Click an empty spot to add a meeting note or task" onClick={onEmpty(iso(d))}>{allDay(iso(d))}</div>)}
+      </div>
+      <div className="cal-time-body" ref={body}>
+        <div className="cal-gutter">
+          {Array.from({ length: 24 }, (_, h) => <div key={h} className="cal-hour">{h ? `${String(h).padStart(2, '0')}:00` : ''}</div>)}
+        </div>
+        {days.map((d) => (
+          <div key={iso(d)} className={`cal-col ${iso(d) === today ? 'is-today' : ''}`} title="Click an empty spot to add a meeting note or task" onClick={pickAt(iso(d))}>
+            {timed(d)}
+            {iso(d) === iso(now) && <div className="cal-now" style={{ top: (now.getHours() * 60 + now.getMinutes()) / 60 * HOUR }} />}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

@@ -6,17 +6,17 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
-import type { Actions } from './Today'
+import { Ban, Bot, GitPullRequest, Play, Rocket, Star, Workflow } from 'lucide-react'
+import { STATE_LABEL, type Actions } from './Today'
 import { PICKUP_PX, aim, dragOver, dropMoves, leftPickup, rebase, type Layout, type Sticky } from './drag'
 import { IconButton, IconLink } from './ui'
 import { linked } from './chains'
-import { LABELS, STATUSES, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Doc, type Vault } from './lib'
+import { LABELS, STATUSES, activeByTask, api, byFinished, byOrder, columnOf, isFocus, prioLabel, starred, todayISO, unlink, type Agent, type Doc, type Vault } from './lib'
 
 // The board: drag between columns to change status, within a column to reorder. Used full-size on the
 // Board page and trimmed on My day (fewer columns, `limit` cards each), so both show the same thing.
-export default function BoardColumns({ tasks, vault, drop, fail, act, statuses = STATUSES, limit, more }: {
-  tasks: Doc[]; vault: Vault; drop: (v: Vault, write: Promise<unknown>) => Promise<void>; fail: (e: Error) => void; act: Actions
+export default function BoardColumns({ tasks, vault, agents, drop, fail, act, statuses = STATUSES, limit, more }: {
+  tasks: Doc[]; vault: Vault; agents: Agent[]; drop: (v: Vault, write: Promise<unknown>) => Promise<void>; fail: (e: Error) => void; act: Actions
   statuses?: string[]; limit?: number; more?: () => void
 }) {
   const projects = useMemo(() => Object.fromEntries(vault.projects.map((p) => [p.name, p])), [vault.projects])
@@ -26,6 +26,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
   const stars = useMemo(() => new Set(vault.tasks.filter((t) => starred(t.data)).map((t) => t.name)), [vault.tasks])
   const isStarred = useCallback((id: string) => stars.has(id), [stars])
   const chained = useMemo(() => linked(vault.tasks), [vault.tasks])
+  const working = useMemo(() => activeByTask(agents), [agents])
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [active, setActive] = useState<Doc>()
   const hasUnknown = statuses === STATUSES && tasks.some((t) => columnOf(t) === '?')
@@ -116,7 +117,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
           return (
             <Column key={s} status={s} count={all.length}>
               <SortableContext items={shown.map((t) => t.name)} strategy={verticalListSortingStrategy}>
-                {shown.map((t) => <SortableCard key={t.name} task={t} project={projects[unlink(t.data.project)]} act={act} chained={chained.has(t.name)} />)}
+                {shown.map((t) => <SortableCard key={t.name} task={t} project={projects[unlink(t.data.project)]} act={act} chained={chained.has(t.name)} agent={working.get(t.name)} />)}
               </SortableContext>
               {all.length > shown.length && <button className="more" onClick={more}>+{all.length - shown.length} more on the Board</button>}
             </Column>
@@ -125,7 +126,7 @@ export default function BoardColumns({ tasks, vault, drop, fail, act, statuses =
       </div>
       {/* The card in hand looks exactly like the hovered card you picked up, so nothing shifts under the pointer.
           It lives on <body>: dnd-kit places it in window coordinates, which a transformed view would offset. */}
-      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} inHand={hovered ? 'lifted' : 'held'} />}</DragOverlay>, document.body)}
+      {createPortal(<DragOverlay>{active && <Card task={active} project={projects[unlink(active.data.project)]} act={act} chained={chained.has(active.name)} agent={working.get(active.name)} inHand={hovered ? 'lifted' : 'held'} />}</DragOverlay>, document.body)}
     </DndContext>
   )
 }
@@ -140,7 +141,7 @@ function Column({ status, count, children }: { status: string; count: number; ch
   )
 }
 
-function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: boolean }) {
+function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: boolean; agent?: Agent }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.task.name })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
@@ -150,8 +151,11 @@ function SortableCard(props: { task: Doc; project?: Doc; act: Actions; chained: 
   )
 }
 
-// Memoised: while you drag, the board re-renders on every move, but a card only when its task changes.
-const Card = memo(function Card({ task, project, act, chained, inHand }: { task: Doc; project?: Doc; act?: Actions; chained?: boolean; inHand?: 'lifted' | 'held' }) {
+// Memoised: while you drag, the board re-renders on every move, but a card only when its task or its agent changes.
+// A card with an agent at work or waiting on it says so; that opens the session.
+const Card = memo(function Card({ task, project, act, chained, agent, inHand }: {
+  task: Doc; project?: Doc; act?: Actions; chained?: boolean; agent?: Agent; inHand?: 'lifted' | 'held'
+}) {
   const d = task.data
   const stop = (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn() } })
   return (
@@ -166,11 +170,13 @@ const Card = memo(function Card({ task, project, act, chained, inHand }: { task:
       </div>
       <div className="title">{d.title ?? task.name}</div>
       {task.error && <div className="blocked">Invalid frontmatter, fix in Obsidian</div>}
-      {d.blocked_by && <div className="blocked">⛔ {unlink(d.blocked_by)}</div>}
+      {d.blocked_by && <div className="blocked"><Ban size={12} strokeWidth={1.8} aria-label="Blocked by" /> {unlink(d.blocked_by)}</div>}
       <div className="card-bottom">
         <span className="id">{task.name}</span>
         {act && chained && <IconButton icon={Workflow} label="Dependencies: see this ticket's chain" stop onClick={() => act.deps(task)} />}
         {d.due && <span className="due">due {d.due}</span>}
+        {agent && <button className={`card-agent state ${agent.state}`} title="Open this agent's session" {...stop(() => act?.agent(agent))}>
+          <Bot size={12} strokeWidth={1.8} aria-hidden />{STATE_LABEL[agent.state]}</button>}
         <div className="spacer" />
         {d.pr && <IconLink icon={GitPullRequest} label="Pull request" href={d.pr} />}
         {act && <span className="hover-actions"><IconButton icon={Play} label="Start an agent on this task" stop onClick={() => act.start(task)} /><IconButton icon={Rocket} label="Autopilot: an agent solves it on its own" stop onClick={() => act.autopilot(task)} /></span>}

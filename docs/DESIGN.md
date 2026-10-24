@@ -45,6 +45,7 @@ styled with them works in every theme.
 - Priority: `--p0` to `--p3`
 - Status fills: `--st-todo`, `--st-wip`, `--st-review`, `--st-blocked`, `--st-done`, plus `--st-wip-ink`, `--st-review-ink` for text
 - Context: `--ctx-dm`, `--ctx-personal`
+- Map (Brain Terrain only): `--map-*`, the survey palette in docs/MAP-STYLE.md. Terrain sets them on `.bt-page`, Moss in light and dark mode.
 - Shape: `--radius` (14), `--radius-lg` (22), `--radius-pill`
 - Depth: `--shadow`, `--shadow-lift` (hover, selected), `--shadow-float` (peek, drawer)
 - Type: `--font-ui` (Bricolage Grotesque), `--font-mono` (DM Mono)
@@ -102,6 +103,18 @@ Pills in DM Mono. p0 clay with white text, p1 ochre with moss text, p2 quiet fil
 - Rings, from peak outwards: blocked, in progress, review, to do
 - Ochre peak: the project has p0 or p1 work
 - Click or Enter: opens the project overview
+
+## Brain Terrain: the vault as a map
+
+`BrainTerrain.tsx`, its own page. The whole vault drawn like a contour map, so you find things by place.
+
+- Hills: one per project, sized by its docs, drawn with the landscape's rings. An ochre peak means urgent or high work
+- Places on a hill, by elevation: in progress, review and blocked near the summit, to do halfway, done at the foot. Thoughts, meetings and reports sit in the foothills
+- Lowlands: docs outside a project settle next to what they link to. Docs linked to nothing go to the dashed "Uncharted" strip
+- Trails: dashed curves for links, faint dotted ones for docs that read alike. Pointing at or picking a place lights its trails in ochre and fades the rest
+- Names: hills are always named (caps, wide tracking). Places get their name from zoom 1.3, or when you point at them or a trail leads there
+- Navigation: drag to pan, wheel to zoom, "Find a place" flies to a result. The card shows what you picked, Open, and the trails from there
+- Follows the context switch; the project filter flies to that hill. Layout: `mapOf` in `graph.ts`, deterministic, so the map doesn't move between visits
 
 ## Motion
 

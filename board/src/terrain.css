@@ -212,6 +212,7 @@
 [data-theme="terrain"] .agent.working::before { background: var(--st-wip-ink); }
 [data-theme="terrain"] .agent.needs-input { border-color: var(--st-review); }
 [data-theme="terrain"] .agent.needs-input::before { background: var(--st-review); animation: tr-breathe 2s var(--ease) infinite; }
+[data-theme="terrain"] .agent.on { outline: none; border-color: var(--text); }
 [data-theme="terrain"] .state { border-radius: var(--radius-pill); font-weight: 500; text-transform: none; letter-spacing: 0; padding: 1px 8px; }
 [data-theme="terrain"] .state.needs-input { background: var(--st-review); color: var(--moss); }
 [data-theme="terrain"] .state.working { background: var(--st-wip); color: var(--moss); }
@@ -277,13 +278,22 @@
 /* ---------- Calendar, notes, terminals, guide ---------- */
 [data-theme="terrain"] .cal-grid { border-radius: var(--radius-lg); background: var(--surface); }
 [data-theme="terrain"] .cal-dow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-[data-theme="terrain"] .cal-day.today .cal-num { background: var(--ochre); color: var(--moss); }
+[data-theme="terrain"] .cal-day.is-today .cal-num { background: var(--ochre); color: var(--moss); }
 [data-theme="terrain"] .cal-item { border-radius: 10px; }
 [data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
 [data-theme="terrain"] .cal-item.task { border-color: var(--muted); }
+[data-theme="terrain"] .cal-more { background: none; border-color: transparent; }
+[data-theme="terrain"] .cal-time { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .cal-col { background-image: repeating-linear-gradient(to bottom, var(--contour) 0 1px, transparent 1px var(--hour)); }
+[data-theme="terrain"] .cal-col .cal-item { border-radius: 8px; }
+[data-theme="terrain"] .cal-now { background: var(--ochre); }
+[data-theme="terrain"] .cal-hour { font-family: var(--font-mono); }
 [data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .term-tab.on { border-color: var(--text); }
+/* Calendar and dependency view switches: the buttons above drop .tab's background, so the chosen one needs its own mark. */
+[data-theme="terrain"] .view-switch .tab { border-radius: var(--radius-pill); }
+[data-theme="terrain"] .view-switch .tab.on { background: var(--surface); border-color: var(--text); }
 [data-theme="terrain"] .gantt-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .deps-flow { --xy-background-pattern-dots-color: var(--contour); }
@@ -294,7 +304,6 @@
 /* Same elevation markers as the board columns. The run ring sits on the node: clip-path would cut it off. */
 [data-theme="terrain"] .dep-node .dep-marker { width: 12px; height: 12px; border-radius: 0; background: var(--muted); clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
 [data-theme="terrain"] .dep-node.todo .dep-marker { clip-path: circle(30% at 50% 60%); }
-[data-theme="terrain"] .dep-node.ready .dep-marker { background: var(--p2); }
 [data-theme="terrain"] .dep-node.wip .dep-marker { background: var(--st-wip-ink); }
 [data-theme="terrain"] .dep-node.review .dep-marker { background: var(--st-review-ink); }
 [data-theme="terrain"] .dep-node.blocked .dep-marker { background: var(--p0); }
@@ -302,28 +311,26 @@
 [data-theme="terrain"] .dep-node.running .dep-marker { animation: none; }
 [data-theme="terrain"] .dep-node.running { animation: tr-run 2s var(--ease) infinite; }
 
-/* Brain Terrain: projects are summits with a contour ring, edges are contour lines, ochre marks what you point at. */
-[data-theme="terrain"] .kg-host { border-radius: var(--radius-lg); }
-[data-theme="terrain"] .kg-chip { border-radius: var(--radius-pill); }
-[data-theme="terrain"] .kg-hits { border-radius: var(--radius-lg); }
-[data-theme="terrain"] .kg-hit { border-radius: 12px; }
-[data-theme="terrain"] .kg-cite { border-radius: var(--radius-pill); border-color: transparent; }
-[data-theme="terrain"] .kg-cite:hover, [data-theme="terrain"] .kg-cite:focus-visible { background: var(--highlight); color: var(--highlight-ink); }
-[data-theme="terrain"] .kg-search { border-radius: var(--radius-pill); padding-left: 14px; }
-[data-theme="terrain"] .kg-node, [data-theme="terrain"] .kg-chip .kg-dot, [data-theme="terrain"] .kg-kind { --kg: var(--p3); }
-[data-theme="terrain"] .kg-node.project, [data-theme="terrain"] .kg-chip.project .kg-dot, [data-theme="terrain"] .kg-kind.project { --kg: var(--st-done); }
-[data-theme="terrain"] .kg-node.task, [data-theme="terrain"] .kg-chip.task .kg-dot, [data-theme="terrain"] .kg-kind.task { --kg: var(--st-wip-ink); }
-[data-theme="terrain"] .kg-node.thought, [data-theme="terrain"] .kg-chip.thought .kg-dot, [data-theme="terrain"] .kg-kind.thought { --kg: var(--st-review); }
-[data-theme="terrain"] .kg-node.meeting, [data-theme="terrain"] .kg-chip.meeting .kg-dot, [data-theme="terrain"] .kg-kind.meeting { --kg: var(--st-review-ink); }
-[data-theme="terrain"] .kg-node.report, [data-theme="terrain"] .kg-chip.report .kg-dot, [data-theme="terrain"] .kg-kind.report { --kg: var(--st-blocked); }
-[data-theme="terrain"] .kg-node.project::before { content: ''; position: absolute; inset: -7px; border: 1.5px dashed var(--contour); border-radius: 50%; }
-[data-theme="terrain"] .kg-node .kg-dot { transition: transform .35s var(--spring); }
-[data-theme="terrain"] .kg-node:hover .kg-dot { transform: scale(1.25); }
-[data-theme="terrain"] :is(.kg-node.hot, .kg-node.match) .kg-dot { outline-color: var(--highlight); }
-[data-theme="terrain"] .kg-flow .react-flow__edge path { stroke: var(--contour); }
-[data-theme="terrain"] .kg-flow .react-flow__edge.link path { stroke: var(--muted); stroke-opacity: .55; }
-[data-theme="terrain"] .kg-flow .react-flow__edge.hot path { stroke: var(--highlight); stroke-opacity: 1; }
-[data-theme="terrain"] .kg-line { border-top-color: var(--contour); }
+/* Brain Terrain: a survey sheet in the Moss palette, in light and dark mode alike (docs/MAP-STYLE.md).
+   The page takes Moss's role tokens too, so the search, key and card sit on the map like printed margins. */
+[data-theme="terrain"] .bt-page {
+  --map-ground: #161F19; --map-grid: #223027; --map-shade: #0E140F;
+  --map-h1: #1C2820; --map-h2: #202E25; --map-h3: #25352B; --map-h4: #2B3D31; --map-h5: #314537; --map-h6: #384E3F;
+  --map-contour: #3E5245; --map-contour-index: #58705F;
+  --map-ink: #EEF0E8; --map-note: #A9B8A6; --map-faint: #8D9B8F; --map-trail: #E07A5F;
+  --map-water: #7FB7C9; --map-water-ink: #8CC3D4; --map-wood: #B8D4A0; --map-walk: #E3A44A;
+  --bg: #161F19; --surface: #1E2A22; --surface-2: #233128; --border: #34463A; --text: #EEF0E8; --muted: #A9B8A6;
+  --accent: #E3A44A; --accent-text: #1E2A22; --focus: #E3A44A; --contour: #2A3A2F;
+  --shadow-lift: 0 14px 32px -18px rgb(0 0 0 / 70%); --shadow-float: -18px 0 48px -12px rgb(0 0 0 / 60%);
+  color-scheme: dark; color: var(--text);
+}
+[data-theme="terrain"] .bt-find { border-radius: var(--radius-pill); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .bt-cite { border-radius: var(--radius-pill); border-color: transparent; }
+[data-theme="terrain"] .bt-cite:hover, [data-theme="terrain"] .bt-cite:focus-visible { background: var(--highlight); color: var(--highlight-ink); }
+[data-theme="terrain"] .bt-find:focus-within { border-color: var(--highlight); box-shadow: 0 0 0 4px var(--highlight-soft), var(--shadow-lift); }
+[data-theme="terrain"] .bt-hits, [data-theme="terrain"] .bt-legend, [data-theme="terrain"] .bt-zoom { border-radius: var(--radius-lg); box-shadow: var(--shadow-lift); }
+[data-theme="terrain"] .bt-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-float); animation: tr-peek .5s var(--spring) both; }
+[data-theme="terrain"] .bt-card h3 { font-weight: 800; letter-spacing: -0.02em; }
 @keyframes tr-run { 0% { box-shadow: 0 0 0 0 var(--st-wip); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 [data-theme="terrain"] .dep-lane { border-color: var(--contour); border-radius: var(--radius-lg); }
 [data-theme="terrain"] .guide h1 { color: var(--text); font-weight: 800; letter-spacing: -0.03em; }
@@ -348,7 +355,8 @@
 /* ---------- Motion ---------- */
 /* Each view settles in when you open it. Hover springs a little. Only agents loop: waiting ones, and running ones in the dependency view. */
 @keyframes tr-settle { from { opacity: 0; transform: translateY(12px); } }
-[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) both; }
+/* backwards, not both: a transform left on the page after the animation traps its fixed popovers inside it. */
+[data-theme="terrain"] .main > :not(.topbar) { animation: tr-settle .45s var(--spring) backwards; }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="terrain"] *, [data-theme="terrain"] *::before { animation: none !important; transition: none !important; }
 }
