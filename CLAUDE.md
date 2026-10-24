@@ -9,7 +9,7 @@ Use tokens, never hex in components, and keep theme-specific CSS in that theme's
 
 ### Issue tracker
 
-Tickets are tasks in the vault (`vault/tasks/`, project `[[workbench]]`); `status: ready` hands them to autopilot. See `docs/agents/issue-tracker.md`.
+Tickets are tasks in the vault (`vault/tasks/`, project `[[workbench]]`); new ones start as `status: todo`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

@@ -282,6 +282,12 @@
 [data-theme="terrain"] .cal-item { border-radius: 10px; }
 [data-theme="terrain"] .cal-item.event { background: var(--surface-2); }
 [data-theme="terrain"] .cal-item.task { border-color: var(--muted); }
+[data-theme="terrain"] .cal-more { background: none; border-color: transparent; }
+[data-theme="terrain"] .cal-time { border-radius: var(--radius-lg); }
+[data-theme="terrain"] .cal-col { background-image: repeating-linear-gradient(to bottom, var(--contour) 0 1px, transparent 1px var(--hour)); }
+[data-theme="terrain"] .cal-col .cal-item { border-radius: 8px; }
+[data-theme="terrain"] .cal-now { background: var(--ochre); }
+[data-theme="terrain"] .cal-hour { font-family: var(--font-mono); }
 [data-theme="terrain"] .term-host { border-radius: var(--radius-lg); }
 [data-theme="terrain"] .term-tab { border-radius: var(--radius-pill); }
 [data-theme="terrain"] .term-tab.on { border-color: var(--text); }
@@ -298,7 +304,6 @@
 /* Same elevation markers as the board columns. The run ring sits on the node: clip-path would cut it off. */
 [data-theme="terrain"] .dep-node .dep-marker { width: 12px; height: 12px; border-radius: 0; background: var(--muted); clip-path: polygon(50% 6%, 100% 94%, 0 94%); }
 [data-theme="terrain"] .dep-node.todo .dep-marker { clip-path: circle(30% at 50% 60%); }
-[data-theme="terrain"] .dep-node.ready .dep-marker { background: var(--p2); }
 [data-theme="terrain"] .dep-node.wip .dep-marker { background: var(--st-wip-ink); }
 [data-theme="terrain"] .dep-node.review .dep-marker { background: var(--st-review-ink); }
 [data-theme="terrain"] .dep-node.blocked .dep-marker { background: var(--p0); }

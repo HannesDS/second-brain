@@ -1,8 +1,9 @@
 // How tickets connect: `blocked_by` makes edges (blocker -> dependent), a `Parent: [[T-NNNN]]` body line
 // puts a ticket in its feature's lane. Pure, so the dependency view only draws what this works out.
-import { blockersOf } from '../queue'
-
 type Task = { name: string; data: Record<string, any>; body?: string }
+
+// `blocked_by: "[[T-0080]], [[T-0081]]"` -> ['T-0080', 'T-0081']
+export const blockersOf = (t: Task) => String(t.data.blocked_by ?? '').match(/T-\d{4}/g) ?? []
 
 export const parentOf = (t: Task) => t.body?.match(/^Parent:\s*\[\[(T-\d{4})/m)?.[1]
 

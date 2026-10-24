@@ -8,7 +8,7 @@ import {
 } from './graph'
 import { load as loadLocal, save as saveLocal } from './Home'
 import { IconButton } from './ui'
-import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, todayISO, type Agent, type Vault } from './lib'
+import { CONTEXT_LABEL, LABELS, OPEN_WORK, api, isActive, todayISO, type Agent, type Vault } from './lib'
 
 type View = { x: number; y: number; k: number }
 type PlaceKind = Exclude<Kind, 'project'>
@@ -40,7 +40,7 @@ const LEGEND: [PlaceKind, string, string][] = [
   ['meeting', 'hut', 'Meetings: huts'], ['report', 'view', 'Teach reports: viewpoints'], ['lake', 'lake', 'Learning: lakes'],
 ]
 
-// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Ready and unknown statuses are to do.
+// The symbol a place is drawn with (MAP-STYLE.md, "What is what"). Unknown statuses are to do.
 const symbolOf = (n: GraphNode) => (n.kind === 'task' ? (['wip', 'review', 'blocked', 'done'].includes(n.status) ? n.status : 'todo')
   : n.kind === 'thought' ? (unfiled(n) ? 'sapling' : 'tree') : n.kind === 'meeting' ? 'hut' : n.kind === 'report' ? 'view' : 'lake')
 
@@ -276,7 +276,7 @@ export default function BrainTerrain({ vault, context, scope, agents, open, fail
   )
   const fadeHill = (h: Hill) => (focus ? !nearFocus.has(h.id) : matches ? !(matches.has(h.id) || matchedHills.has(h.id)) : !!home && h.project !== home)
   // Agents on the map: a cable line from the foot of the task's hill up to the task. Waiting ones pulse.
-  const cables = map && showing('agents') ? agents.filter((a) => a.task && ['working', 'needs-input'].includes(a.state)).flatMap((a) => {
+  const cables = map && showing('agents') ? agents.filter((a) => a.task && isActive(a)).flatMap((a) => {
     const id = `tasks/${a.task}.md`
     const [to, hill] = [where(id), map.hills.find((h) => h.project === byId.get(id)?.project)]
     if (!to || !hill || !visible(id)) return []

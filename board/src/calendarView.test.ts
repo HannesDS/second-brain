@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { daysOf, heading, onDay, step } from './calendarView'
+import { blocks, daysOf, heading, onDay, step } from './calendarView'
 
 const iso = (d: Date) => d.toLocaleDateString('sv')
 const fri = new Date(2026, 9, 23) // Friday 23 October 2026
@@ -41,4 +41,29 @@ test('an event shows on every day it overlaps, not on the day it ends at midnigh
   expect(on({ start: at(21), end: at(24) })).toEqual(['2026-10-21', '2026-10-22', '2026-10-23'])
   expect(on({ start: at(23, 22), end: at(24, 2) })).toEqual(['2026-10-23', '2026-10-24'])
   expect(on({ start: at(23, 9), end: at(23, 9) })).toEqual(['2026-10-23'])
+})
+
+const at = (h: number, m = 0, day = 23) => new Date(2026, 9, day, h, m).toISOString()
+const ev = (start: string, end: string) => ({ start, end })
+
+test('places a timed event by its clock time and length', () => {
+  expect(blocks([ev(at(9, 30), at(10, 45))], fri)).toEqual([{ item: ev(at(9, 30), at(10, 45)), top: 570, height: 75, lane: 0, lanes: 1 }])
+})
+
+test('cuts an event that runs past midnight to the day shown', () => {
+  const late = ev(at(22), at(2, 0, 24))
+  expect(blocks([late], fri).map((b) => [b.top, b.height])).toEqual([[22 * 60, 2 * 60]])
+  expect(blocks([late], new Date(2026, 9, 24)).map((b) => [b.top, b.height])).toEqual([[0, 2 * 60]])
+  expect(blocks([late], new Date(2026, 9, 25))).toEqual([])
+})
+
+test('gives a zero-length event a clickable block', () => {
+  expect(blocks([ev(at(9), at(9))], fri)[0].height).toBe(15)
+})
+
+test('puts overlapping events side by side, and only those', () => {
+  const lanes = blocks([ev(at(9), at(11)), ev(at(10), at(11)), ev(at(10, 30), at(12)), ev(at(13), at(14))], fri).map((b) => [b.lane, b.lanes])
+  // 9-11 and 10-11 overlap; 10:30 reuses no lane until 11, so it takes a third; 13:00 stands alone.
+  expect(lanes).toEqual([[0, 3], [1, 3], [2, 3], [0, 1]])
+  expect(blocks([ev(at(9), at(10)), ev(at(9, 30), at(10)), ev(at(10), at(11))], fri).map((b) => [b.lane, b.lanes])).toEqual([[0, 2], [1, 2], [0, 1]])
 })

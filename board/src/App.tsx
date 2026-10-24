@@ -174,6 +174,7 @@ export default function App() {
     focus: toggleFocus,
     done: (t) => api(`tasks/${t.name}`, 'PUT', { data: { status: 'done' } }).catch(fail),
     deps: (t) => setGraph({ focus: t.name }),
+    agent: openAgent,
     write,
   }
   // A graph node: projects open their overview, teach reports their HTML in a new tab, a learning folder
@@ -254,9 +255,9 @@ export default function App() {
           <IconButton icon={Mountain} label={`Theme: ${THEME_LABEL[theme]}. Click to switch`} active={theme === 'terrain'} onClick={nextTheme} />
           <IconButton icon={Sparkles} label="Ask" showLabel active={asking} onClick={() => setAsking(!asking)} />
         </header>
-        {page === 'today' && <Today vault={view} tasks={view.tasks} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
+        {page === 'today' && <Today vault={view} tasks={view.tasks} agents={shown} tabs={tabs} seen={markSeen} act={act} fail={fail} prep={prep} meetingNote={meetingNote}
           board={<><ViewSwitch graph={graph} set={setGraph} />{graph ? deps
-            : <BoardColumns tasks={view.tasks} vault={vault} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'ready', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
+            : <BoardColumns tasks={view.tasks} vault={vault} agents={shown} drop={vaultLoader.dropped} fail={fail} act={act} statuses={['todo', 'wip', 'review', 'blocked', 'done']} limit={6} more={() => go('board')} />}</>} />}
         {page === 'notes' && <Notes vault={vault} projects={scoped.projects} path={arg || undefined} go={write} capture={() => setCapturing(true)} fail={fail} flash={flash} />}
         {page === 'calendar' && <Calendar vault={view} tasks={view.tasks} open={openTask} write={write} prep={prep} meetingNote={meetingNote} fail={fail} />}
         {page === 'board' && (
@@ -273,7 +274,7 @@ export default function App() {
               <span className="spacer" />
               <ViewSwitch graph={graph} set={setGraph} />
             </div>
-            {graph ? deps : <BoardColumns tasks={filtered} vault={vault} drop={vaultLoader.dropped} fail={fail} act={act} />}
+            {graph ? deps : <BoardColumns tasks={filtered} vault={vault} agents={shown} drop={vaultLoader.dropped} fail={fail} act={act} />}
           </main>
         )}
         {page === 'gantt' && <Gantt tasks={view.tasks} projects={projects} open={openTask} fail={fail} />}

@@ -21,7 +21,7 @@ try {
   const sessions = Array.isArray(data.sessions) ? data.sessions : []
   const patch = {}
   if (!sessions.includes(sid)) patch.sessions = [...sessions, sid]
-  if (data.status === 'todo' || data.status === 'ready') patch.status = 'wip'
+  if (data.status === 'todo') patch.status = 'wip'
   if (Object.keys(patch).length) updateDoc(taskFile, patch)
 
   const sessionFile = path.join(VAULT, 'sessions', `${sid}.md`)

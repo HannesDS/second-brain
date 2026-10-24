@@ -3,7 +3,7 @@ import { IconButton } from './ui'
 import Landscape from './Landscape'
 import { useEffect, useState } from 'react'
 import { ProjectSelect } from './Home'
-import { agentLabel, ago, api, byProject, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
+import { agentLabel, ago, api, byProject, dayRange, isActive, todayISO, unlink, urgency, type Agent, type Doc, type Vault } from './lib'
 
 type CalEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendar?: number }
 export type Actions = {
@@ -14,28 +14,29 @@ export type Actions = {
   focus: (d: Doc) => void
   done: (d: Doc) => void
   deps: (d: Doc) => void
+  agent: (a: Agent) => void
   write: (p: string) => void
 }
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
-// My day: today's meetings, what's due, and your board (the real one, so you can drag).
-// Every row and card opens what it shows; secondary actions appear on hover.
-export default function Today({ vault, tasks, act, fail, prep, meetingNote, board }: {
-  vault: Vault; tasks: Doc[]; act: Actions
+// My day: today's meetings, what's due, the agents at work or waiting for you, and your board (the real
+// one, so you can drag). Every row and card opens what it shows; secondary actions appear on hover.
+export default function Today({ vault, tasks, agents, tabs, seen, act, fail, prep, meetingNote, board }: {
+  vault: Vault; tasks: Doc[]; agents: Agent[]; tabs: Map<string, string>; seen: (a: Agent) => void; act: Actions
   fail: (e: Error) => void; prep: (title: string, date: string) => void; meetingNote: (title: string, date: string, time?: string) => void
   board: React.ReactNode
 }) {
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calError, setCalError] = useState('')
   useEffect(() => {
-    const from = new Date(); from.setHours(0, 0, 0, 0)
-    const to = new Date(from.getTime() + 864e5)
+    const { from, to } = dayRange(new Date())
     api(`calendar?from=${from.toISOString()}&to=${to.toISOString()}`).then((r) => { setEvents(r.events); setCalError(r.error) }, fail)
   }, [])
 
   // Overdue and due in the next two days, most urgent first.
   const due = tasks.map((t) => ({ t, ...urgency(t) })).filter((x) => x.reasons.some((r) => /overdue|due/.test(r))).sort((x, y) => y.score - x.score)
+  const active = agents.filter(isActive)
   const notesToday = vault.meetings.filter((m) => String(m.data.date) === todayISO())
   const noteFor = (title: string) => notesToday.find((m) => m.name.toLowerCase().endsWith(title.toLowerCase().replace(/[\\/:*?"<>|#^[\]]/g, '').trim()))
   return (
@@ -87,6 +88,13 @@ export default function Today({ vault, tasks, act, fail, prep, meetingNote, boar
         </section>
       )}
 
+      {active.length > 0 && (
+        <section>
+          <h3>Agents <span className="count">{active.length}</span></h3>
+          <AgentList agents={active} vault={vault} tabs={tabs} open={act.agent} seen={seen} />
+        </section>
+      )}
+
       <section>
         <h3>Your board <span className="muted hint-inline">drag cards to change status</span></h3>
         {board}
@@ -95,7 +103,7 @@ export default function Today({ vault, tasks, act, fail, prep, meetingNote, boar
   )
 }
 
-const STATE_LABEL: Record<string, string> = { 'needs-input': 'needs you', working: 'working', idle: 'idle', ended: 'ended', unknown: '?' }
+export const STATE_LABEL: Record<string, string> = { 'needs-input': 'needs you', working: 'working', idle: 'idle', ended: 'ended', unknown: '?' }
 
 // One line per Claude session: its state, what it works on, and how long ago. The row opens its tab,
 // or resumes the session in a new one; the row of the tab you're looking at is marked.
