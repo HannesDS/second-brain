@@ -2,6 +2,7 @@ import { Background, Controls, Handle, Position, ReactFlow, type Edge, type Node
 import '@xyflow/react/dist/style.css'
 import { NODE_H, NODE_W, chainOf, edgesOf, layout, linked, openChains } from './chains'
 import { LABELS, columnOf, type Agent, type Doc } from './lib'
+import { useDark } from './theme'
 
 type TaskData = { task: Doc; focus: boolean; running: boolean; open: (d: Doc) => void }
 type LaneData = { label: string }
@@ -46,6 +47,7 @@ export function ViewSwitch({ graph, set }: { graph: Graph; set: (g: Graph) => vo
 export default function Deps({ tasks, all, focus, agents, open, showAll, compact }: {
   tasks: Doc[]; all: Doc[]; focus?: string; agents: Agent[]; open: (d: Doc) => void; showAll: () => void; compact?: boolean
 }) {
+  const dark = useDark()
   const target = focus ? all.find((t) => t.name === focus) : undefined
   const chained = linked(tasks)
   const chains = tasks.filter((t) => chained.has(t.name))
@@ -85,7 +87,7 @@ export default function Deps({ tasks, all, focus, agents, open, showAll, compact
           The box is as tall as the chains need, up to most of the screen. */}
       {shown.length > 0 && (
         <div className="deps-host" style={{ height: `min(62vh, ${height + 64}px)` }}>
-          <ReactFlow key={focus ?? shown.map((t) => t.name).join()} className="deps-flow" nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="system" fitView
+          <ReactFlow key={focus ?? shown.map((t) => t.name).join()} className="deps-flow" nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode={dark ? 'dark' : 'light'} fitView
             fitViewOptions={{ maxZoom: 1 }} minZoom={0.2} zoomOnScroll={!compact} preventScrolling={!compact} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} elementsSelectable={false}
             onNodeClick={(_, n) => n.type === 'task' && open((n as TaskNode).data.task)} proOptions={{ hideAttribution: true }}>
             <Background gap={24} size={1} />
