@@ -1,7 +1,7 @@
 import { Activity, Check, CircleDot, Droplet, Moon, Pencil, Plus, Trash2, Wind, X, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { stringify } from 'yaml'
-import { IconButton, useEscape } from './ui'
+import { IconButton, NumberInput, useEscape } from './ui'
 import {
   CAIRN_KINDS, WEEKDAYS, cairnData, goalOf, isDone, scheduleOf, slugOf, weekDots,
   type Cairn, type CairnKind,
@@ -146,8 +146,8 @@ export function CairnForm({ cairn, taken, save, close }: { cairn?: Cairn; taken:
               </button>
             ))}
           </div>
-          {d.kind === 'count' && <label className="inline-field">Target <input type="number" min={1} value={d.target} onChange={(e) => set({ target: Math.max(1, Number(e.target.value) || 1) })} /></label>}
-          {d.kind === 'timer' && <label className="inline-field">Minutes <input type="number" min={1} value={d.minutes} onChange={(e) => set({ minutes: Math.max(1, Number(e.target.value) || 1) })} /></label>}
+          {d.kind === 'count' && <label className="inline-field">Target <NumberInput value={d.target} onChange={(target) => set({ target })} /></label>}
+          {d.kind === 'timer' && <label className="inline-field">Minutes <NumberInput value={d.minutes} onChange={(minutes) => set({ minutes })} /></label>}
         </div>
         <fieldset className="choose-group when">
           <legend className="eyebrow">When it shows up</legend>

@@ -1,5 +1,5 @@
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
-import { useEffect, type KeyboardEvent, type MouseEvent } from 'react'
+import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { MODES, MODE_LABEL, type Mode } from './theme'
 
 // One button style for every small action: a Lucide icon, the label as tooltip and for screen readers,
@@ -62,4 +62,18 @@ export function useEscape(close: () => void) {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [close])
+}
+
+// A whole number you can type freely: clearing it to type another doesn't snap back. Each valid number
+// (at least `min`) goes out as you type; leaving the field with nothing valid shows the last one again.
+export function NumberInput({ value, min = 1, onChange, ...rest }: {
+  value: number; min?: number; onChange: (n: number) => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'min' | 'type'>) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => { if (Number(text) !== value) setText(String(value)) }, [value])
+  return (
+    <input {...rest} type="number" inputMode="numeric" min={min} value={text}
+      onChange={(e) => { setText(e.target.value); const n = Number(e.target.value); if (e.target.value !== '' && Number.isInteger(n) && n >= min) onChange(n) }}
+      onBlur={() => setText(String(value))} />
+  )
 }
