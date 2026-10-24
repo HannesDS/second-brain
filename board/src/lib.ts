@@ -12,6 +12,10 @@ export const TYPES = ['code', 'pr-review', 'meeting', 'research', 'admin']
 export const CONTEXTS = ['dataminded', 'personal']
 export const LIST_FIELDS = ['sessions', 'meetings', 'sources']
 
+// Who a transcript line is from: your microphone, or the call's audio (everyone else).
+export const SPEAKERS = { me: 'Me', others: 'Others' } as const
+export type Speaker = keyof typeof SPEAKERS
+
 // "[[portal|Portal]]" -> "portal"
 export const unlink = (v: unknown) => String(v ?? '').replace(/^\[\[|\]\]$/g, '').split('|')[0]
 export const list = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : v ? [String(v)] : [])

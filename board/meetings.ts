@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { VAULT, readDoc, writeDoc } from '../lib/vault.mjs'
+import { SPEAKERS, type Speaker } from './src/lib'
 
 const run = promisify(execFile)
 export const WHISPER_MODEL = process.env.WHISPER_MODEL ?? path.join(os.homedir(), '.cache/whisper/ggml-large-v3-turbo-q5_0.bin')
@@ -52,10 +53,14 @@ async function tool(cmd: keyof typeof INSTALL, args: string[], opts: { maxBuffer
   }
 }
 
+export function requireModel() {
+  if (!fs.existsSync(WHISPER_MODEL)) throw new Error(`Whisper model missing at ${WHISPER_MODEL}: download ggml-large-v3-turbo-q5_0.bin from huggingface.co/ggerganov/whisper.cpp there, or point WHISPER_MODEL at one`)
+}
+
 // Speech to text on this Mac: a webm clip from the browser, through ffmpeg and Whisper. Audio never leaves the machine.
 export function transcribe(audio: Buffer) {
   const job = queue.then(async () => {
-    if (!fs.existsSync(WHISPER_MODEL)) throw new Error(`Whisper model missing at ${WHISPER_MODEL}: download ggml-large-v3-turbo-q5_0.bin from huggingface.co/ggerganov/whisper.cpp there, or point WHISPER_MODEL at one`)
+    requireModel()
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-rec-'))
     try {
       const input = path.join(dir, 'in.webm')
@@ -63,10 +68,7 @@ export function transcribe(audio: Buffer) {
       fs.writeFileSync(input, audio)
       await tool('ffmpeg', ['-loglevel', 'error', '-i', input, '-ar', '16000', '-ac', '1', wav])
       const { stdout } = await tool('whisper-cli', ['-m', WHISPER_MODEL, '-f', wav, '-l', 'auto', '-nt', '-np'], { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 })
-      const text = stdout.replace(/\s+/g, ' ').trim()
-      // Whisper hallucinates these on silence.
-      if (!text || /^\[?(BLANK_AUDIO|silence|music)\]?$|^(thank you\.?|bedankt\.?)$/i.test(text)) return ''
-      return text
+      return cleanText(stdout)
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }
@@ -75,19 +77,19 @@ export function transcribe(audio: Buffer) {
   return job
 }
 
-// Who a clip is from: your microphone, or the call's audio (everyone else).
-export const SPEAKERS = { me: 'Me', others: 'Others' } as const
-export type Speaker = keyof typeof SPEAKERS
+// Whisper's text on one line; empty when it only heard silence (it hallucinates these on silence).
+export function cleanText(raw: string) {
+  const text = raw.replace(/\s+/g, ' ').trim()
+  if (!text || /^\[?(BLANK_AUDIO|silence|music)\]?$|^(thank you\.?|bedankt\.?)$/i.test(text)) return ''
+  return text
+}
 
-export async function transcribeChunk(name: string, audio: Buffer, startedAt: string, speaker?: Speaker) {
-  const text = await transcribe(audio)
-  if (!text) return ''
+export function appendTranscript(name: string, text: string, at: number, speaker?: Speaker) {
   const f = transcriptPath(name)
   fs.mkdirSync(path.dirname(f), { recursive: true })
   if (!fs.existsSync(f)) fs.writeFileSync(f, `---\nmeeting: "[[${name}]]"\n---\n`)
-  const stamp = new Date(startedAt || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const stamp = new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   fs.appendFileSync(f, `\n**${stamp}** ${speaker ? `${SPEAKERS[speaker]}: ` : ''}${text}\n`)
-  return text
 }
 
 // Replaces the content of one "## Heading" section, keeping the rest of the note as it is.

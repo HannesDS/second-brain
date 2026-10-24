@@ -36,9 +36,10 @@ test('envVars says which variables are set, never their values', () => {
   expect(out).not.toContain('secret')
 })
 
-test('whisper needs whisper-cli, ffmpeg and the model, and reports the last transcript', () => {
+test('whisper needs whisper-server, whisper-cli, ffmpeg and the model, and reports the last transcript', () => {
   vi.stubEnv('PATH', bin)
-  expect(whisper()).toMatchObject({ state: 'error', detail: expect.stringContaining('whisper-cli, ffmpeg, the model file'), lastRun: '' })
+  expect(whisper()).toMatchObject({ state: 'error', detail: expect.stringContaining('whisper-server, whisper-cli, ffmpeg, the model file'), lastRun: '' })
+  tool('whisper-server')
   tool('whisper-cli')
   tool('ffmpeg')
   fs.writeFileSync(model, '')

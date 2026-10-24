@@ -12,7 +12,8 @@ import { addFeed, events, listFeeds, removeFeed, warmCalendars } from './calenda
 import { WORKBENCH_ACCOUNT, claudeEnv } from './claude'
 import { integrations } from './integrations'
 import { knowledgeGraph } from './graph'
-import { SPEAKERS, createMeeting, meetingName, readTranscript, transcribe as whisper, transcribeChunk, type Speaker } from './meetings'
+import { attachListen } from './listen'
+import { createMeeting, meetingName, readTranscript, transcribe as whisper } from './meetings'
 import { applyFiling, createNote, listNotes, proposeFiling, saveDoc, vaultPath } from './notes'
 import type { Move } from './src/drag'
 import { agentLabel, type Agent } from './src/lib'
@@ -112,13 +113,9 @@ async function handle(req: IncomingMessage) {
   throw new Error(`no route: ${method} ${req.url}`)
 }
 
-// Raw audio upload: POST /api/transcribe?name=<meeting>&at=<iso>&who=me|others, body = one self-contained webm chunk.
-// Without a name it only returns the text (dictating a thought).
+// Raw audio upload: POST /api/transcribe, body = one self-contained webm clip; returns the text (dictating a thought).
+// Meetings stream instead, over the /listen WebSocket.
 async function transcribe(req: IncomingMessage) {
-  const url = new URL(req.url ?? '/', 'http://local')
-  const name = url.searchParams.has('name') ? meetingName(url.searchParams.get('name')) : ''
-  const who = url.searchParams.get('who') ?? ''
-  const speaker = Object.hasOwn(SPEAKERS, who) ? who as Speaker : undefined
   const chunks: Buffer[] = []
   let size = 0
   for await (const c of req) {
@@ -126,8 +123,7 @@ async function transcribe(req: IncomingMessage) {
     if (size > 50 * 1024 * 1024) throw new Error('audio chunk too large')
     chunks.push(c)
   }
-  const audio = Buffer.concat(chunks)
-  return { text: name ? await transcribeChunk(name, audio, url.searchParams.get('at') ?? '', speaker) : await whisper(audio) }
+  return { text: await whisper(Buffer.concat(chunks)) }
 }
 
 // Opens a terminal tab: resume an agent session, or start Claude / a shell for a project or task.
@@ -266,7 +262,10 @@ export function vaultApi(): Plugin {
       server.watcher.on('add', notify).on('change', notify).on('unlink', notify)
       startSync()
       warmCalendars()
-      if (server.httpServer) attachTerminals(server.httpServer as import('node:http').Server)
+      if (server.httpServer) {
+        attachTerminals(server.httpServer as import('node:http').Server)
+        attachListen(server.httpServer as import('node:http').Server)
+      }
       ragRefresh().catch((e: Error) => console.error(`rag: ${e.message} (search falls back to plain text)`))
 
       server.middlewares.use('/api', (req, res: ServerResponse) => {
